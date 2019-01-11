@@ -71,7 +71,7 @@ func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", hcl.Diagnostics{{Severity: hcl.DiagError, Detail: "Project not found"}}
+		return "", hcl.Diagnostics{{Severity: hcl.DiagError, Summary: "Project not found"}}
 	}
 
 	return l.Root(parent)
