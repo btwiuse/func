@@ -11,6 +11,9 @@ require (
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/twitchtv/twirp v5.5.1+incompatible
 	github.com/zclconf/go-cty v0.0.0-20181231001355-67e3da15e430 // indirect
+	go.uber.org/atomic v1.3.2 // indirect
+	go.uber.org/multierr v1.1.0 // indirect
+	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20180816225734-aabede6cba87
 	golang.org/x/net v0.0.0-20190110200230-915654e7eabc // indirect
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect
