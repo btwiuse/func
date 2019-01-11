@@ -43,10 +43,9 @@ func TestLoader_Root(t *testing.T) {
 
 func TestLoader_Load(t *testing.T) {
 	tests := []struct {
-		name    string
-		root    string
-		want    *hclpack.Body
-		wantErr bool
+		name string
+		root string
+		want *hclpack.Body
 	}{
 		{
 			"Project",
@@ -263,16 +262,14 @@ func TestLoader_Load(t *testing.T) {
 					End:      hcl.Pos{Line: 8, Column: 1, Byte: 107},
 				},
 			},
-			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &config.Loader{}
-			got, err := l.Load(tt.root)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Loader.Load() error = %+v, wantErr %v", err, tt.wantErr)
-				return
+			got, diags := l.Load(tt.root)
+			if diags.HasErrors() {
+				t.Fatalf("Loader.Load() error = %v", diags)
 			}
 
 			if diff := cmp.Diff(got, tt.want); diff != "" {
@@ -280,6 +277,23 @@ func TestLoader_Load(t *testing.T) {
 			}
 		})
 	}
+}
+
+var projectWithSyntaxErrors = "testdata/invalid"
+
+func ExampleLoader_PrintDiagnostics() {
+	l := &config.Loader{}
+	_, diags := l.Load(projectWithSyntaxErrors)
+	l.PrintDiagnostics(os.Stdout, diags)
+	// Output:
+	// Error: Missing newline after block definition
+	//
+	//   on testdata/invalid/invalid.hcl line 6:
+	//    4: resource "invalid" "syntax" {
+	//    5:   # too many closing braces
+	//    6: } }
+	//
+	// A block definition must end with a newline.
 }
 
 func TestLoader_Files(t *testing.T) {
@@ -300,9 +314,9 @@ func TestLoader_Files(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			l := &config.Loader{}
-			_, err := l.Load(tt.root)
-			if err != nil {
-				t.Fatalf("Load() error = %v", err)
+			_, diags := l.Load(tt.root)
+			if diags.HasErrors() {
+				t.Fatalf("Load() error = %v", diags)
 			}
 			var got []string
 			for name := range l.Files() {
@@ -367,9 +381,9 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 	// critical here.
 
 	l := &config.Loader{}
-	before, err := l.Load("testdata/project")
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+	before, diags := l.Load("testdata/project")
+	if diags.HasErrors() {
+		t.Fatalf("Load() error = %v", diags)
 	}
 
 	j, err := json.Marshal(before)
@@ -397,15 +411,17 @@ func Example_clientServer() {
 	l := &config.Loader{}
 
 	// Find root, given user input
-	rootDir, err := l.Root(args[0])
-	if err != nil {
-		log.Fatal(err)
+	rootDir, diags := l.Root(args[0])
+	if diags.HasErrors() {
+		l.PrintDiagnostics(os.Stderr, diags)
+		os.Exit(1)
 	}
 
 	// Load config files from root
-	cfg, err := l.Load(rootDir)
-	if err != nil {
-		log.Fatal(err)
+	cfg, diags := l.Load(rootDir)
+	if diags.HasErrors() {
+		l.PrintDiagnostics(os.Stderr, diags)
+		os.Exit(1)
 	}
 
 	// Marshal config to json for transmission

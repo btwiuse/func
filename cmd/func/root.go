@@ -12,7 +12,7 @@ import (
 var rootCommand = &cobra.Command{
 	Use:   "root [dir]",
 	Short: "Print project root directory",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 1 {
 			fmt.Fprintln(os.Stderr, cmd.UsageString())
 			os.Exit(2)
@@ -21,7 +21,7 @@ var rootCommand = &cobra.Command{
 		if len(args) == 1 {
 			target = args[0]
 		}
-		return runRoot(target)
+		runRoot(target)
 	},
 }
 
@@ -29,12 +29,12 @@ func init() {
 	Func.AddCommand(rootCommand)
 }
 
-func runRoot(target string) error {
+func runRoot(target string) {
 	l := &config.Loader{}
-	root, err := l.Root(target)
-	if err != nil {
-		return err
+	rootDir, diags := l.Root(target)
+	if diags.HasErrors() {
+		l.PrintDiagnostics(os.Stderr, diags)
+		os.Exit(1)
 	}
-	fmt.Println(filepath.Clean(root))
-	return nil
+	fmt.Println(filepath.Clean(rootDir))
 }

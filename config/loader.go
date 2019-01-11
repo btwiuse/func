@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,12 +12,10 @@ import (
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/pkg/errors"
 )
-
-// ErrProjectNotFound is returned when Root() cannot find a project.
-var ErrProjectNotFound = errors.New("project not found")
 
 type file struct {
 	name  string
@@ -47,10 +46,10 @@ type Loader struct {
 //
 // Root will do the minimum necessary work to find the project. This means the
 // directory may contain multiple projects, even if that is not allowed.
-func (l *Loader) Root(dir string) (string, error) {
+func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", diagErr(err)
 	}
 
 	for _, f := range files {
@@ -58,9 +57,9 @@ func (l *Loader) Root(dir string) (string, error) {
 			continue
 		}
 		filename := filepath.Join(dir, f.Name())
-		f, err := l.loadFile(filename)
-		if err != nil {
-			return "", errors.Wrap(err, "read file")
+		f, diags := l.loadFile(filename)
+		if diags.HasErrors() {
+			return "", diags
 		}
 
 		for _, block := range f.body.ChildBlocks {
@@ -72,7 +71,7 @@ func (l *Loader) Root(dir string) (string, error) {
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", ErrProjectNotFound
+		return "", hcl.Diagnostics{{Severity: hcl.DiagError, Detail: "Project not found"}}
 	}
 
 	return l.Root(parent)
@@ -86,7 +85,7 @@ func (l *Loader) Root(dir string) (string, error) {
 // replaced with a digest containing the hash digest.
 //
 // If an empty .hcl file is encountered, it is not added.
-func (l *Loader) Load(root string) (*hclpack.Body, error) {
+func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
 	var bodies []*hclpack.Body
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -99,9 +98,9 @@ func (l *Loader) Load(root string) (*hclpack.Body, error) {
 			return nil
 		}
 
-		f, err := l.loadFile(path)
-		if err != nil {
-			return errors.WithStack(err)
+		f, diags := l.loadFile(path)
+		if diags.HasErrors() {
+			return diags
 		}
 
 		if f.empty() {
@@ -110,20 +109,44 @@ func (l *Loader) Load(root string) (*hclpack.Body, error) {
 
 		for _, b := range f.body.ChildBlocks {
 			if b.Type == "resource" {
-				if err := l.processResource(&b, path); err != nil {
-					return errors.Wrap(err, "process resource")
+				diags := l.processResource(&b, path)
+				if diags.HasErrors() {
+					return diags
 				}
 			}
 		}
 
 		bodies = append(bodies, f.body)
-
 		return nil
 	})
 	if err != nil {
-		return nil, errors.WithStack(err)
+		if d, ok := err.(hcl.Diagnostics); ok {
+			return nil, d
+		}
+		return nil, diagErr(err)
 	}
 	return mergeBodies(bodies), nil
+}
+
+// PrintDiagnostics prints diagnostics to the given writer.
+//
+// If a TTY is attached, the output will be colorized and wrap at the terminal
+// width. Otherwise, wrap will occur at 78 characters and output won't contain
+// ANSI escape characters.
+func (l *Loader) PrintDiagnostics(w io.Writer, diags hcl.Diagnostics) {
+	files := l.Files()
+	cols, _, err := terminal.GetSize(0)
+	if err != nil {
+		cols = 78
+	}
+	color := terminal.IsTerminal(0)
+	wr := hcl.NewDiagnosticTextWriter(w, files, uint(cols), color)
+	if err := wr.WriteDiagnostics(diags); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		if diags.HasErrors() {
+			os.Exit(1)
+		}
+	}
 }
 
 // Files returns the configuration files that were loaded.
@@ -158,15 +181,22 @@ func isConfigFile(filename string) bool {
 	return filepath.Ext(filename) == ".hcl"
 }
 
-func (l *Loader) loadFile(filename string) (*file, error) {
+func (l *Loader) loadFile(filename string) (*file, hcl.Diagnostics) {
+	if l.files == nil {
+		l.files = make(map[string]*file)
+	}
 	if f, ok := l.files[filename]; ok {
 		return f, nil
 	}
 
 	src, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.Wrap(err, "read file")
+		return nil, diagErr(err)
 	}
+
+	// Add placeholder file, so diagnostics can match the source if packing the
+	// file fails.
+	l.files[filename] = &file{bytes: src}
 
 	body, diags := hclpack.PackNativeFile(src, filename, hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
@@ -178,16 +208,12 @@ func (l *Loader) loadFile(filename string) (*file, error) {
 		bytes: src,
 		body:  body,
 	}
-
-	if l.files == nil {
-		l.files = make(map[string]*file)
-	}
 	l.files[filename] = f
 
 	return f, nil
 }
 
-func (l *Loader) processResource(block *hclpack.Block, filename string) error {
+func (l *Loader) processResource(block *hclpack.Block, filename string) hcl.Diagnostics {
 	if srcAttr, ok := block.Body.Attributes["source"]; ok {
 		var src string
 		diags := gohcl.DecodeExpression(&srcAttr.Expr, nil, &src)
@@ -199,11 +225,20 @@ func (l *Loader) processResource(block *hclpack.Block, filename string) error {
 		dir = filepath.Join(dir, src)
 		files, err := collectSource(dir, []string{filename})
 		if err != nil {
-			return errors.Wrap(err, "collect source")
+			return hcl.Diagnostics{
+				{
+					Severity: hcl.DiagError,
+					Summary:  fmt.Sprintf("Could not collect source files: %v", err),
+					Subject:  srcAttr.Expr.StartRange().Ptr(),
+					Context:  srcAttr.Expr.Range().Ptr(),
+				},
+			}
 		}
 		digest, err := hash(files)
 		if err != nil {
-			return errors.Wrap(err, "hash files")
+			return hcl.Diagnostics{
+				{Severity: hcl.DiagError, Summary: err.Error(), Context: &srcAttr.Range},
+			}
 		}
 
 		if l.sources == nil {
@@ -295,4 +330,9 @@ func hash(files []string) (string, error) {
 		f.Close()
 	}
 	return hex.EncodeToString(sha.Sum(nil)), nil
+}
+
+// diagErr converts a native error to diagnostics
+func diagErr(err error) hcl.Diagnostics {
+	return hcl.Diagnostics{{Severity: hcl.DiagError, Summary: err.Error()}}
 }
