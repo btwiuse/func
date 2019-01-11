@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/func/func/config"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -35,9 +33,6 @@ func runRoot(target string) error {
 	l := &config.Loader{}
 	root, err := l.Root(target)
 	if err != nil {
-		if errors.Cause(err) == io.EOF {
-			return errors.Errorf("project not found in %s", target)
-		}
 		return err
 	}
 	fmt.Println(filepath.Clean(root))
