@@ -15,6 +15,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrProjectNotFound is returned when Root() cannot find a project.
+var ErrProjectNotFound = errors.New("project not found")
+
 type file struct {
 	name  string
 	bytes []byte
@@ -40,7 +43,7 @@ type Loader struct {
 //
 // If the given dir does not contain a project, parent directories are
 // traversed until a project is found. If no parent directory contains a
-// project, io.EOF is returned.
+// project, ErrProjectNotFound is returned.
 //
 // Root will do the minimum necessary work to find the project. This means the
 // directory may contain multiple projects, even if that is not allowed.
@@ -69,7 +72,7 @@ func (l *Loader) Root(dir string) (string, error) {
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", io.EOF
+		return "", ErrProjectNotFound
 	}
 
 	return l.Root(parent)
