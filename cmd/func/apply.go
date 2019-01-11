@@ -12,7 +12,9 @@ import (
 	"github.com/func/func/api"
 	"github.com/func/func/config"
 	"github.com/func/func/server"
+	"github.com/hashicorp/hcl2/hcl"
 	"github.com/spf13/cobra"
+	"github.com/twitchtv/twirp"
 	"go.uber.org/zap"
 )
 
@@ -89,6 +91,15 @@ func runApply(target, ns, addr string) {
 
 	resp, err := cli.Apply(ctx, req)
 	if err != nil {
+		if twerr, ok := err.(twirp.Error); ok {
+			if diagJSON := twerr.Meta("diagnostics"); diagJSON != "" {
+				var diags hcl.Diagnostics
+				if err := json.Unmarshal([]byte(diagJSON), &diags); err == nil {
+					l.PrintDiagnostics(os.Stderr, diags)
+					os.Exit(1)
+				}
+			}
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
