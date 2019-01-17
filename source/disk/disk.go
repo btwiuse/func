@@ -71,8 +71,7 @@ func (s *Storage) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// NewUploadURL creates a new upload url that the local source repo will
-// accept.
+// NewUpload creates a new upload url that the local source repo will accept.
 func (s *Storage) NewUpload(cfg source.UploadConfig) (*source.UploadURL, error) {
 	s.init()
 	<-s.ready
