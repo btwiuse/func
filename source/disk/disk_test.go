@@ -89,7 +89,7 @@ func TestStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	got, err := ioutil.ReadAll(f)
 	if err != nil {
