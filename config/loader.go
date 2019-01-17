@@ -1,7 +1,10 @@
 package config
 
 import (
+	"bytes"
+	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -12,9 +15,8 @@ import (
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type file struct {
@@ -27,12 +29,25 @@ func (f *file) empty() bool {
 	return len(f.body.ChildBlocks) == 0 && len(f.body.Attributes) == 0
 }
 
+// SourceCompressor is used for compressing the source files on disk to an
+// archive that can be uploaded.
+type SourceCompressor interface {
+	// Compress compresses the given directory into w. The returned extension
+	// is the extension for the file with leading dot (.tar.gz).
+	Compress(w io.Writer, dir string) (ext string, err error)
+}
+
 // A Loader loads configuration files from .hcl files on disk.
+//
+// If the Compressor is not set, the source files are not compressed and the
+// source attribute is only removed from the output.
 //
 // The zero value is ready to load files.
 type Loader struct {
+	Compressor SourceCompressor
+
 	files   map[string]*file
-	sources map[string][]string
+	sources map[string]*bytes.Buffer
 }
 
 // Root finds the root directory of a project.
@@ -41,8 +56,7 @@ type Loader struct {
 // with a project definition.
 //
 // If the given dir does not contain a project, parent directories are
-// traversed until a project is found. If no parent directory contains a
-// project, ErrProjectNotFound is returned.
+// traversed until a project is found.
 //
 // Root will do the minimum necessary work to find the project. This means the
 // directory may contain multiple projects, even if that is not allowed.
@@ -81,8 +95,8 @@ func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
 // into sub directories.
 //
 // If resource blocks are encountered and they contain a source attribute, the
-// source files from resource are collected and hashed. The source attribute is
-// replaced with a digest containing the hash digest.
+// source files from resource are collected and processed as described in the
+// package documentation.
 //
 // If an empty .hcl file is encountered, it is not added.
 func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
@@ -107,12 +121,13 @@ func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
 			return nil
 		}
 
-		for _, b := range f.body.ChildBlocks {
+		for i, b := range f.body.ChildBlocks {
 			if b.Type == "resource" {
-				diags := l.processResource(&b, path)
+				block, diags := l.processResource(b, path)
 				if diags.HasErrors() {
 					return diags
 				}
+				f.body.ChildBlocks[i] = block
 			}
 		}
 
@@ -166,15 +181,15 @@ func (l *Loader) Files() map[string]*hcl.File {
 	return list
 }
 
-// Source returns the source files for a given digest.
+// Source returns the compressed source for a given digest.
 //
 // The digests are encoded into the body returned from Load. When source files
 // are needed for a given digest, the list of files can be returned with
 // Source().
 //
 // The result is only valid if Load() has been executed without error.
-func (l *Loader) Source(digest string) []string {
-	return l.sources[digest]
+func (l *Loader) Source(sha256 string) *bytes.Buffer {
+	return l.sources[sha256]
 }
 
 func isConfigFile(filename string) bool {
@@ -213,57 +228,83 @@ func (l *Loader) loadFile(filename string) (*file, hcl.Diagnostics) {
 	return f, nil
 }
 
-func (l *Loader) processResource(block *hclpack.Block, filename string) hcl.Diagnostics {
+func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.Block, hcl.Diagnostics) {
 	if srcAttr, ok := block.Body.Attributes["source"]; ok {
 		var src string
 		diags := gohcl.DecodeExpression(&srcAttr.Expr, nil, &src)
 		if diags.HasErrors() {
-			return diags
-		}
-
-		dir := filepath.Dir(filename)
-		dir = filepath.Join(dir, src)
-		files, err := collectSource(dir, []string{filename})
-		if err != nil {
-			return hcl.Diagnostics{
-				{
-					Severity: hcl.DiagError,
-					Summary:  fmt.Sprintf("Could not collect source files: %v", err),
-					Subject:  srcAttr.Expr.StartRange().Ptr(),
-					Context:  srcAttr.Expr.Range().Ptr(),
-				},
-			}
-		}
-		digest, err := hash(files)
-		if err != nil {
-			return hcl.Diagnostics{
-				{Severity: hcl.DiagError, Summary: err.Error(), Context: &srcAttr.Range},
-			}
-		}
-
-		if l.sources == nil {
-			l.sources = make(map[string][]string)
-		}
-		l.sources[digest] = files
-
-		// Add hash digest as attribute
-		// Repurpose the range from source so it at least matches this resource
-		// and points to the source, in case there's an error.
-		block.Body.Attributes["digest"] = hclpack.Attribute{
-			Expr: hclpack.Expression{
-				Source:      []byte(`"` + digest + `"`),
-				SourceType:  hclpack.ExprLiteralJSON,
-				Range_:      srcAttr.Expr.Range_,
-				StartRange_: srcAttr.Expr.StartRange_,
-			},
-			Range:     srcAttr.Range,
-			NameRange: srcAttr.NameRange,
+			return hclpack.Block{}, diags
 		}
 
 		// Delete source attribute; no longer needed.
 		delete(block.Body.Attributes, "source")
+
+		c := l.Compressor
+		if c == nil {
+			// No compressor provided, do not compress source.
+			return hclpack.Block{}, nil
+		}
+
+		dir := filepath.Dir(filename)
+		dir = filepath.Join(dir, src)
+
+		var buf bytes.Buffer
+		sha := sha256.New()
+		md5 := md5.New()
+
+		w := io.MultiWriter(&buf, sha, md5)
+
+		ext, err := l.Compressor.Compress(w, dir)
+		if err != nil {
+			return hclpack.Block{}, hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  fmt.Sprintf("Could not create source archive: %v", err),
+				Subject:  srcAttr.Expr.StartRange().Ptr(),
+				Context:  srcAttr.Expr.Range().Ptr(),
+			}}
+		}
+
+		digest := hex.EncodeToString(sha.Sum(nil))
+		checksum := base64.StdEncoding.EncodeToString(md5.Sum(nil))
+
+		if l.sources == nil {
+			l.sources = make(map[string]*bytes.Buffer)
+		}
+		l.sources[digest] = &buf
+
+		srcAttr := func(verb string, val interface{}) hclpack.Attribute {
+			return hclpack.Attribute{
+				Expr: hclpack.Expression{
+					Source:      []byte(fmt.Sprintf(verb, val)),
+					SourceType:  hclpack.ExprLiteralJSON,
+					Range_:      srcAttr.Expr.Range_,
+					StartRange_: srcAttr.Expr.StartRange_,
+				},
+				Range:     srcAttr.Range,
+				NameRange: srcAttr.NameRange,
+			}
+		}
+
+		// Replace source attribute with source block.
+		// The range from the original source attribute is repurposed so it
+		// matches this resource and points to the source, in case there's an
+		// error.
+		sourceBlock := hclpack.Block{
+			Type:   "source",
+			Labels: []string{ext},
+			Body: hclpack.Body{
+				Attributes: map[string]hclpack.Attribute{
+					"sha": srcAttr("%q", digest),
+					"md5": srcAttr("%q", checksum),
+					"len": srcAttr("%d", buf.Len()),
+				},
+			},
+			LabelRanges: []hcl.Range{{}},
+		}
+
+		block.Body.ChildBlocks = append(block.Body.ChildBlocks, sourceBlock)
 	}
-	return nil
+	return block, nil
 }
 
 // mergeBodies merges the contents of the given bodies.
@@ -285,51 +326,6 @@ func mergeBodies(bodies []*hclpack.Body) *hclpack.Body {
 	}
 	ret.MissingItemRange_ = bodies[0].MissingItemRange_
 	return ret
-}
-
-// collectSource returns all files in the given directory, except files that
-// are set in exclude.
-//
-// The files are sorted in lexicographical order.
-func collectSource(dir string, exclude []string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return errors.WithStack(err)
-		}
-		for _, ex := range exclude {
-			if ex == path {
-				return filepath.SkipDir
-			}
-		}
-		if info.IsDir() {
-			return nil
-		}
-		files = append(files, path)
-		return nil
-	})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	return files, nil
-}
-
-// hash computes a hex encoded sha256 hash of the contents of the given files.
-func hash(files []string) (string, error) {
-	sha := sha256.New()
-	for _, name := range files {
-		f, err := os.Open(name)
-		if err != nil {
-			return "", errors.WithStack(err)
-		}
-		_, err = io.Copy(sha, f)
-		if err != nil {
-			f.Close()
-			return "", errors.WithStack(err)
-		}
-		f.Close()
-	}
-	return hex.EncodeToString(sha.Sum(nil)), nil
 }
 
 // diagErr converts a native error to diagnostics

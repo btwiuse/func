@@ -28,14 +28,14 @@ type Resource struct {
 	// The contents will depend on the resource type.
 	Config hcl.Body `hcl:",remain"`
 
-	// SourceDigest is a hash digest computed from the contents of the source code on
-	// disk. The hash is computed from all the individual source files, before
-	// any transformations or build steps.
-	//
-	// The digest is deterministic, as long as the contents of the files
-	// doesn't change. The name of the file does not impact the hash, except if
-	// it changes the ordering.
-	//
-	// The field is an empty string if the resource has no source.
-	SourceDigest *string `hcl:"digest"`
+	// SourceDigest contains information about the attached source code. The
+	// field is nil if the resource has no source.
+	Source *SourceInfo `hcl:"source,block"`
+}
+
+type SourceInfo struct {
+	Ext string `hcl:"ext,label"` // Source archive file extension.
+	SHA string `hcl:"sha"`       // Hex encoded.
+	MD5 string `hcl:"md5"`       // Base64 encoded.
+	Len int    `hcl:"len"`       // Source archive size in Bytes.
 }

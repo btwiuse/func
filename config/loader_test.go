@@ -1,10 +1,18 @@
 package config_test
 
 import (
+	"bytes"
+	"crypto/md5"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/func/func/config"
@@ -43,46 +51,111 @@ func TestLoader_Root(t *testing.T) {
 
 func TestLoader_Load(t *testing.T) {
 	tests := []struct {
-		name string
-		root string
-		want *hclpack.Body
+		name       string
+		root       string
+		compressor *mockCompressor
+		want       *hclpack.Body
 	}{
 		{
 			"Project",
 			"testdata/project",
+			&mockCompressor{
+				data: []byte("targz data"),
+			},
 			&hclpack.Body{
 				ChildBlocks: []hclpack.Block{
 					{
 						Type:   "resource",
 						Labels: []string{"aws_lambda_function", "func"},
 						Body: hclpack.Body{
-							Attributes: map[string]hclpack.Attribute{
-								"digest": {
-									Expr: hclpack.Expression{
-										Source:     []byte(`"b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"`),
-										SourceType: hclpack.ExprLiteralJSON,
-										Range_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 2, Column: 12, Byte: 51},
-											End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+							ChildBlocks: []hclpack.Block{{
+								Type:   "source",
+								Labels: []string{".mock"},
+								Body: hclpack.Body{
+									Attributes: map[string]hclpack.Attribute{
+										"sha": {
+											Expr: hclpack.Expression{
+												Source:     []byte(`"` + sha256hex([]byte("targz data")) + `"`),
+												SourceType: hclpack.ExprLiteralJSON,
+												Range_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 12, Byte: 51},
+													End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+												},
+												StartRange_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 13, Byte: 52},
+													End:      hcl.Pos{Line: 2, Column: 18, Byte: 57},
+												},
+											},
+											Range: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+											},
+											NameRange: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 9, Byte: 48},
+											},
 										},
-										StartRange_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 2, Column: 13, Byte: 52},
-											End:      hcl.Pos{Line: 2, Column: 18, Byte: 57},
+										"md5": {
+											Expr: hclpack.Expression{
+												Source:     []byte(`"` + md5base64([]byte("targz data")) + `"`),
+												SourceType: hclpack.ExprLiteralJSON,
+												Range_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 12, Byte: 51},
+													End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+												},
+												StartRange_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 13, Byte: 52},
+													End:      hcl.Pos{Line: 2, Column: 18, Byte: 57},
+												},
+											},
+											Range: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+											},
+											NameRange: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 9, Byte: 48},
+											},
 										},
-									},
-									Range: hcl.Range{
-										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
-										End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
-									},
-									NameRange: hcl.Range{
-										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
-										End:      hcl.Pos{Line: 2, Column: 9, Byte: 48},
+										"len": {
+											Expr: hclpack.Expression{
+												Source:     []byte(strconv.Itoa(len([]byte("targz data")))),
+												SourceType: hclpack.ExprLiteralJSON,
+												Range_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 12, Byte: 51},
+													End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+												},
+												StartRange_: hcl.Range{
+													Filename: "testdata/project/func.hcl",
+													Start:    hcl.Pos{Line: 2, Column: 13, Byte: 52},
+													End:      hcl.Pos{Line: 2, Column: 18, Byte: 57},
+												},
+											},
+											Range: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+											},
+											NameRange: hcl.Range{
+												Filename: "testdata/project/func.hcl",
+												Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
+												End:      hcl.Pos{Line: 2, Column: 9, Byte: 48},
+											},
+										},
 									},
 								},
+								LabelRanges: []hcl.Range{{}},
+							}},
+							Attributes: map[string]hclpack.Attribute{
 								"handler": {
 									Expr: hclpack.Expression{
 										Source:     []byte(`"index.handler"`),
@@ -266,13 +339,16 @@ func TestLoader_Load(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{}
+			l := &config.Loader{
+				Compressor: tt.compressor,
+			}
 			got, diags := l.Load(tt.root)
 			if diags.HasErrors() {
 				t.Fatalf("Loader.Load() error = %v", diags)
 			}
 
-			if diff := cmp.Diff(got, tt.want); diff != "" {
+			bytesAsString := cmp.Transformer("string", func(b []byte) string { return string(b) })
+			if diff := cmp.Diff(got, tt.want, bytesAsString); diff != "" {
 				t.Errorf("Load() (-got, +want)\n%s", diff)
 			}
 		})
@@ -343,25 +419,36 @@ func TestLoader_Source(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{}
+			l := &config.Loader{
+				Compressor: &mockCompressor{
+					data: []byte("targz data"),
+				},
+			}
 			got, err := l.Load(tt.root)
 			if err != nil {
-				t.Fatalf("Load() error = %v", err)
+				t.Fatalf("Load() error = %v", err.Errs())
 			}
 			// Assert that every digest set returns files
 			var root config.Root
 			diags := gohcl.DecodeBody(got, nil, &root)
 			if diags.HasErrors() {
-				t.Errorf("Decode() error = %v", diags.Error())
+				t.Errorf("Decode() error = %v", diags.Errs())
 			}
 
+			gotSources := 0
 			for _, r := range root.Resources {
-				if r.SourceDigest != nil {
-					files := l.Source(*r.SourceDigest)
-					if len(files) == 0 {
-						t.Errorf("Files() returned no source for digest %q", *r.SourceDigest)
+				if r.Source != nil {
+					gotSources++
+					src := l.Source(r.Source.SHA)
+					if src == nil {
+						t.Errorf("Source() returned no source for digest %q", r.Source.SHA)
 					}
 				}
+			}
+
+			wantSources := 1
+			if gotSources != wantSources {
+				t.Errorf("Sources do not match; got = %d, want = %d", gotSources, wantSources)
 			}
 		})
 	}
@@ -380,7 +467,11 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 	// protect against breaking changes in the hcl library, which is very
 	// critical here.
 
-	l := &config.Loader{}
+	l := &config.Loader{
+		Compressor: &mockCompressor{
+			data: []byte("targz data"),
+		},
+	}
 	before, diags := l.Load("testdata/project")
 	if diags.HasErrors() {
 		t.Fatalf("Load() error = %v", diags)
@@ -390,6 +481,8 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
+
+	t.Logf("json %d bytes: %s", len(j), string(j))
 
 	after := &hclpack.Body{}
 	err = json.Unmarshal(j, after)
@@ -443,4 +536,35 @@ func Example_clientServer() {
 	if err := gohcl.DecodeBody(&recv, nil, &root); err != nil {
 		log.Fatal(err)
 	}
+}
+
+type mockCompressor struct {
+	data []byte
+	err  error
+}
+
+func (m *mockCompressor) Compress(w io.Writer, dir string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	if _, err := bytes.NewBuffer(m.data).WriteTo(w); err != nil {
+		return "", fmt.Errorf("unexpected error: %v", err)
+	}
+	return ".mock", nil
+}
+
+func sha256hex(b []byte) string {
+	h := sha256.New()
+	if _, err := h.Write(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func md5base64(b []byte) string {
+	h := md5.New()
+	if _, err := h.Write(b); err != nil {
+		panic(err)
+	}
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
