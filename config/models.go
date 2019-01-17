@@ -33,6 +33,7 @@ type Resource struct {
 	Source *SourceInfo `hcl:"source,block"`
 }
 
+// SourceInfo contains information about the resource source code.
 type SourceInfo struct {
 	Ext string `hcl:"ext,label"` // Source archive file extension.
 	SHA string `hcl:"sha"`       // Hex encoded.
