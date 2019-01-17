@@ -1,0 +1,18 @@
+linters-settings:
+  maligned:
+    suggest-new: true
+
+run:
+  deadline: 5m
+
+issues:
+  exclude-use-default: false
+
+linters:
+  enable-all: true
+  disable:
+    - dupl
+    - gosec
+    - gochecknoinits
+    - gochecknoglobals
+    - scopelint # until https://github.com/kyoh86/scopelint/issues/4 is resolved
