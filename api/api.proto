@@ -21,5 +21,32 @@ message ApplyRequest {
 }
 
 // ApplyResponse is returned from applying resources.
+//
+// The response may contain an UploadRequest, in which case the apply is
+// rejected due to missing source code. The source code should be uploaded and
+// then Apply should be retried.
 message ApplyResponse {
+  oneof response {
+    // SourceRequired is set if source code uploads are required.
+    SourceRequired source_request = 1;
+  }
+}
+
+// An UploadRequest contains the required sources to upload.
+message SourceRequired {
+  repeated UploadRequest uploads = 1;
+}
+
+// An UploadRequest describes a single upload request.
+message UploadRequest {
+  // Digest is the digest to upload.
+  // The digest maps back to a resource in the ApplyRequest config.
+  string digest = 1;
+
+  // Url is the destination URL to upload to.
+  // The request should be done as a HTTP PUT.
+  string url = 2;
+
+  // Headers include the additional headers that must be set on the upload.
+  map<string, string> headers = 3;
 }
