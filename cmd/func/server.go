@@ -24,7 +24,7 @@ var serverCommand = &cobra.Command{
 func init() {
 	addr := serverCommand.Flags().String("address", "0.0.0.0:5088", "Address to listen to")
 
-	serverCommand.Run = func(cmd *cobra.Command, args []string) {
+	serverCommand.Run = func(*cobra.Command, []string) {
 		runServer(*addr)
 	}
 
