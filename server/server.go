@@ -3,23 +3,33 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/func/func/api"
 	"github.com/func/func/config"
+	"github.com/func/func/graph"
+	"github.com/func/func/graph/decoder"
 	"github.com/func/func/source"
-	"github.com/hashicorp/hcl2/gohcl"
+	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
 	"github.com/twitchtv/twirp"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"gonum.org/v1/gonum/graph/encoding/dot"
 )
+
+// A GraphDecoder is used for decoding the config body to a graph.
+type GraphDecoder interface {
+	DecodeBody(body hcl.Body, ctx *graph.DecodeContext, g *graph.Graph) hcl.Diagnostics
+}
 
 // A Server implements the server-side business logic.
 type Server struct {
-	Logger *zap.Logger
-	Source source.Storage
+	Logger    *zap.Logger
+	Source    source.Storage
+	Resources map[string]graph.Resource
 }
 
 // Apply applies resources.
@@ -34,22 +44,25 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		return nil, twirp.InvalidArgumentError("config", err.Error())
 	}
 
-	// Decode config
-	root := &config.Root{}
-	diags := gohcl.DecodeBody(&body, nil, root)
+	// Resolve graph and validate resource input
+	g := graph.New()
+	decCtx := &graph.DecodeContext{Resources: s.Resources}
+	diags := decoder.DecodeBody(&body, decCtx, g)
 	if diags.HasErrors() {
-		logger.Info("Could not unmarshal config payload", zap.Errors("diagnostics", diags.Errs()))
-		twerr := twirp.NewError(twirp.InvalidArgument, "could not decode body")
+		logger.Info("Could not resolve graph", zap.Errors("diagnostics", diags.Errs()))
+		twerr := twirp.NewError(twirp.InvalidArgument, "Could not resolve graph")
 		if j, err := json.Marshal(diags); err == nil {
 			twerr = twerr.WithMeta("diagnostics", string(j))
 		}
 		return nil, twerr
 	}
-	logger = logger.With(zap.String("project", root.Project.Name))
-	logger.Debug("Payload decoded", zap.Int("Resources", len(root.Resources)))
+	if proj, ok := g.Project(); ok {
+		logger = logger.With(zap.String("project", proj.Name))
+	}
+	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
 
 	// Check missing source files
-	missing, err := s.checkDigests(ctx, root)
+	missing, err := s.missingSource(ctx, g.Sources())
 	if err != nil {
 		logger.Error("Could not check source code availability", zap.Error(err))
 		return nil, twirp.NewError(twirp.Unavailable, "could not check source code")
@@ -73,30 +86,34 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		return &api.ApplyResponse{Response: &api.ApplyResponse_SourceRequest{SourceRequest: sr}}, nil
 	}
 
+	dot, err := dot.MarshalMulti(g, "Graph", "", "\t")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(dot))
+
 	return nil, twirp.NewError(twirp.Unimplemented, "unimplemented")
 }
 
-func (s *Server) checkDigests(ctx context.Context, root *config.Root) ([]*config.SourceInfo, error) {
+func (s *Server) missingSource(ctx context.Context, sources []config.SourceInfo) ([]config.SourceInfo, error) {
 	var mu sync.Mutex
-	var missing []*config.SourceInfo
+	var missing []config.SourceInfo
 	g, ctx := errgroup.WithContext(ctx)
-	for _, r := range root.Resources {
-		if r.Source != nil {
-			src := r.Source
-			g.Go(func() error {
-				key := src.SHA + src.Ext
-				ok, err := s.Source.Has(ctx, key)
-				if err != nil {
-					return errors.Wrapf(err, "check %s", key)
-				}
-				if !ok {
-					mu.Lock()
-					missing = append(missing, src)
-					mu.Unlock()
-				}
-				return nil
-			})
-		}
+	for _, src := range sources {
+		src := src
+		g.Go(func() error {
+			key := src.SHA + src.Ext
+			ok, err := s.Source.Has(ctx, key)
+			if err != nil {
+				return errors.Wrapf(err, "check %s", key)
+			}
+			if !ok {
+				mu.Lock()
+				missing = append(missing, src)
+				mu.Unlock()
+			}
+			return nil
+		})
 	}
 	if err := g.Wait(); err != nil {
 		return nil, errors.WithStack(err)
@@ -104,7 +121,7 @@ func (s *Server) checkDigests(ctx context.Context, root *config.Root) ([]*config
 	return missing, nil
 }
 
-type sourceInfos []*config.SourceInfo
+type sourceInfos []config.SourceInfo
 
 func (ss sourceInfos) Hashes() []string {
 	list := make([]string, len(ss))

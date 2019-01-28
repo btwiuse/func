@@ -13,6 +13,7 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/config"
+	"github.com/func/func/graph"
 	"github.com/func/func/server"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
@@ -79,6 +80,8 @@ func runApply(target, ns, addr string) error {
 		cli = &server.Server{
 			Logger: zap.NewNop(),
 			Source: src,
+			// For now, this is empty
+			Resources: map[string]graph.Resource{},
 		}
 	} else {
 		// Start protobuf client
@@ -142,17 +145,19 @@ func upload(ctx context.Context, sr *api.SourceRequired, l *config.Loader) error
 }
 
 func checkDiags(l *config.Loader, err error) {
+	defer os.Exit(1)
 	if twerr, ok := err.(twirp.Error); ok {
 		if diagJSON := twerr.Meta("diagnostics"); diagJSON != "" {
 			var diags hcl.Diagnostics
-			if derr := json.Unmarshal([]byte(diagJSON), &diags); derr == nil {
+			derr := json.Unmarshal([]byte(diagJSON), &diags)
+			if derr == nil {
 				l.PrintDiagnostics(os.Stderr, diags)
-				os.Exit(1)
+				return
 			}
+			fmt.Fprintln(os.Stderr, derr)
 		}
 	}
 	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
 }
 
 func startLocalStorage() (source.Storage, error) {
