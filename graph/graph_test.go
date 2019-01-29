@@ -13,7 +13,6 @@ import (
 )
 
 func TestGraph(t *testing.T) {
-	type mockResource struct{ Str string }
 
 	sortByContent := cmpopts.SortSlices(func(a, b interface{}) bool {
 		j1, err := json.Marshal(a)
@@ -150,3 +149,7 @@ func TestGraph_Project_noProject(t *testing.T) {
 		t.Errorf("Project() ok = %v, want = %v", ok, false)
 	}
 }
+
+type mockResource struct{ Str string }
+
+func (m *mockResource) Type() string { return "mock" }

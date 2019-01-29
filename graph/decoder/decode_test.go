@@ -10,6 +10,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
+	"github.com/func/func/graph/registry"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
@@ -20,14 +21,14 @@ func TestDecodeBody(t *testing.T) {
 	tests := []struct {
 		name  string
 		body  hcl.Body
-		ctx   *graph.DecodeContext
+		ctx   *decoder.DecodeContext
 		check func(t *testing.T, g *graph.Graph)
 		diags hcl.Diagnostics
 	}{
 		{
 			name: "Empty",
 			body: parseBody(t, ""),
-			ctx:  &graph.DecodeContext{},
+			ctx:  &decoder.DecodeContext{},
 			check: func(t *testing.T, g *graph.Graph) {
 				assertResources(t, g, nil)
 			},
@@ -39,7 +40,7 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"foo": &fooRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				wantRes := []graph.Resource{
 					&fooRes{
@@ -60,7 +61,7 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"foo": &fooRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				rr := g.Resources()
 				if len(rr) != 1 {
@@ -90,7 +91,7 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.input # copy value
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"foo": &fooRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				wantRes := []graph.Resource{
 					&fooRes{Input: strptr("hello")},
@@ -107,7 +108,7 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.output
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"foo": &fooRes{}, "bar": &barRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{}, &barRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				got := make(map[string][]graph.Reference)
 				for _, r := range g.Resources() {
@@ -137,7 +138,7 @@ func TestDecodeBody(t *testing.T) {
 					input = 3.14159 # convert to string
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"foo": &fooRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				wantRes := []graph.Resource{
 					&fooRes{Input: strptr("3.14159")},
@@ -152,7 +153,7 @@ func TestDecodeBody(t *testing.T) {
 					num = "this cannot be an int"
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"bar": &barRes{}, "baz": &bazRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&barRes{}, &bazRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -170,7 +171,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "ResourceNotFound",
 			body: parseBody(t, `resource "foo" "bar" {}`),
-			ctx:  &graph.DecodeContext{Resources: map[string]graph.Resource{}},
+			ctx:  &decoder.DecodeContext{Resources: &registry.Registry{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -182,12 +183,12 @@ func TestDecodeBody(t *testing.T) {
 		},
 		{
 			name: "SuggestResource",
-			body: parseBody(t, `resource "foo" "bar" {}`),
-			ctx:  &graph.DecodeContext{Resources: map[string]graph.Resource{"roo": &fooRes{}}},
+			body: parseBody(t, `resource "roo" "bar" {}`),
+			ctx:  &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
-				Detail:   "Did you mean \"roo\"?",
+				Detail:   "Did you mean \"foo\"?",
 				Subject: &hcl.Range{
 					Start: hcl.Pos{Line: 1, Column: 10},
 					End:   hcl.Pos{Line: 1, Column: 15},
@@ -204,7 +205,7 @@ func TestDecodeBody(t *testing.T) {
 					num = bar.a.input # int
 				}
 			`),
-			ctx: &graph.DecodeContext{Resources: map[string]graph.Resource{"bar": &barRes{}, "baz": &bazRes{}}},
+			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&barRes{}, &bazRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Cannot set num from string, number value is required",
@@ -248,13 +249,19 @@ type fooRes struct {
 	Output string  `output:"output"`
 }
 
+func (r *fooRes) Type() string { return "foo" }
+
 type barRes struct {
 	Input *string `input:"input"`
 }
 
+func (r *barRes) Type() string { return "bar" }
+
 type bazRes struct {
 	Num int `input:"num"`
 }
+
+func (r *bazRes) Type() string { return "baz" }
 
 func strptr(str string) *string { return &str }
 

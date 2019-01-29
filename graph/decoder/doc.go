@@ -54,8 +54,6 @@
 //      role = iam.role.arn        # A dependency for the iam.role.arn -> lambda.logic.role is created.
 //   }
 //
-//
-//
 // In case a resource references an attribute which is an input, the value is
 // passed to the child resource.
 //

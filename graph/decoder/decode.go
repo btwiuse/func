@@ -14,9 +14,23 @@ import (
 
 var rootSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 
+// A ResourceRegistry is used for matching resource type names to resource
+// implementations.
+type ResourceRegistry interface {
+	New(typename string) (graph.Resource, error)
+	SuggestType(typename string) string
+}
+
+// DecodeContext is the context to use when decoding.
+//
+// For now, only the resource names can be provided.
+type DecodeContext struct {
+	Resources ResourceRegistry
+}
+
 // DecodeBody decodes a given raw configuration into the target graph.
 //
-func DecodeBody(body hcl.Body, ctx *graph.DecodeContext, target *graph.Graph) hcl.Diagnostics {
+func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) hcl.Diagnostics {
 	cont, diags := body.Content(rootSchema)
 	if diags.HasErrors() {
 		return diags
@@ -79,19 +93,22 @@ type output struct {
 
 var outputType = cty.Capsule("output", reflect.TypeOf(output{}))
 
-func (d *decode) addResource(block *hcl.Block, ctx *graph.DecodeContext) hcl.Diagnostics {
+func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnostics {
 	typename := block.Labels[0]
 	resname := block.Labels[1]
 
-	def, ok := ctx.Resources[typename]
-	if !ok {
+	res, err := ctx.Resources.New(typename)
+	if err != nil {
 		diag := &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Resource not supported",
 			Subject:  block.LabelRanges[0].Ptr(),
 		}
-		if s := suggestResource(typename, ctx); s != "" {
-			diag.Detail = fmt.Sprintf("Did you mean %q?", s)
+		type notsupported interface{ NotSupported() }
+		if _, ok := err.(notsupported); ok {
+			if s := ctx.Resources.SuggestType(typename); s != "" {
+				diag.Detail = fmt.Sprintf("Did you mean %q?", s)
+			}
 		}
 		return hcl.Diagnostics{diag}
 	}
@@ -101,9 +118,6 @@ func (d *decode) addResource(block *hcl.Block, ctx *graph.DecodeContext) hcl.Dia
 	if diags.HasErrors() {
 		return diags
 	}
-
-	// Instantiate a new provisioner with the same type
-	res := reflect.New(reflect.TypeOf(def).Elem()).Interface().(graph.Resource)
 
 	v := reflect.Indirect(reflect.ValueOf(res))
 	vals, refs, morediags := decodeInput(v, resBody.Config)

@@ -22,14 +22,21 @@ import (
 
 // A GraphDecoder is used for decoding the config body to a graph.
 type GraphDecoder interface {
-	DecodeBody(body hcl.Body, ctx *graph.DecodeContext, g *graph.Graph) hcl.Diagnostics
+	DecodeBody(body hcl.Body, ctx *decoder.DecodeContext, g *graph.Graph) hcl.Diagnostics
+}
+
+// A ResourceRegistry is used for matching resource type names to resource
+// implementations.
+type ResourceRegistry interface {
+	New(typename string) (graph.Resource, error)
+	SuggestType(typename string) string
 }
 
 // A Server implements the server-side business logic.
 type Server struct {
 	Logger    *zap.Logger
 	Source    source.Storage
-	Resources map[string]graph.Resource
+	Resources ResourceRegistry
 }
 
 // Apply applies resources.
@@ -46,7 +53,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 
 	// Resolve graph and validate resource input
 	g := graph.New()
-	decCtx := &graph.DecodeContext{Resources: s.Resources}
+	decCtx := &decoder.DecodeContext{Resources: s.Resources}
 	diags := decoder.DecodeBody(&body, decCtx, g)
 	if diags.HasErrors() {
 		logger.Info("Could not resolve graph", zap.Errors("diagnostics", diags.Errs()))
