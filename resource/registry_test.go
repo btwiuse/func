@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/func/func/resource"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRegistry_New(t *testing.T) {
@@ -61,6 +62,29 @@ func TestRegistry_SuggestType(t *testing.T) {
 				t.Errorf("SuggestType() got = %q, want = %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRegistry_Marshal(t *testing.T) {
+	r := &resource.Registry{}
+	foo := &res{Typename: "foo"}
+	r.Register(foo)
+
+	b, err := r.Marshal(foo)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	t.Log(b)
+	t.Log(string(b))
+
+	got, err := r.Unmarshal(b)
+	if err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	if diff := cmp.Diff(foo, got); diff != "" {
+		t.Errorf("Roundtrip (-before, +after)\n%s", diff)
 	}
 }
 

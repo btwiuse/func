@@ -1,10 +1,12 @@
 package resource
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/agext/levenshtein"
+	"github.com/pkg/errors"
 )
 
 // NotSupportedError is returned when attempting to instantiate an unsupported
@@ -90,4 +92,51 @@ func (r *Registry) SuggestType(typename string) string {
 	}
 
 	return str
+}
+
+type envelope struct {
+	Type string          `json:"t"`
+	Data json.RawMessage `json:"d"`
+}
+
+// Marshal marshals the given resource to a byte slice. The byte slice can be
+// unmarshalled back to a Resource using Unmarshal.
+//
+// The resource is marshalled using json encoding, meaning `json` struct tags
+// on the resource will be used. By convention, struct tags should not be set.
+// However, if the struct tags are set, they cannot be changed to ensure
+// backwards compatibility.
+func (r *Registry) Marshal(resource Resource) ([]byte, error) {
+	j, err := json.Marshal(resource)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal config")
+	}
+	e := envelope{
+		Type: resource.Type(),
+		Data: j,
+	}
+	j, err = json.Marshal(e)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal envelope")
+	}
+	return j, nil
+}
+
+// Unmarshal unmarshals a given byte slice to a resource.
+//
+// The resource can only be unmarshalled if the corresponding resource has been
+// registered.
+func (r *Registry) Unmarshal(b []byte) (Resource, error) {
+	var e envelope
+	if err := json.Unmarshal(b, &e); err != nil {
+		return nil, errors.Wrap(err, "unmarshal envelope")
+	}
+	res, err := r.New(e.Type)
+	if err != nil {
+		return nil, errors.Wrap(err, "create resource")
+	}
+	if err := json.Unmarshal(e.Data, &res); err != nil {
+		return nil, errors.Wrap(err, "unmarshal config")
+	}
+	return res, nil
 }
