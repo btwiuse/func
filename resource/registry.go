@@ -1,11 +1,10 @@
-package registry
+package resource
 
 import (
 	"fmt"
 	"reflect"
 
 	"github.com/agext/levenshtein"
-	"github.com/func/func/graph"
 )
 
 // NotSupportedError is returned when attempting to instantiate an unsupported
@@ -26,9 +25,9 @@ type Registry struct {
 	resources map[string]reflect.Type
 }
 
-// FromResources creates a new registry from a predefined list of resources. It
-// should primarily used in tests to set up a registry.
-func FromResources(resources ...graph.Resource) *Registry {
+// RegistryFromResources creates a new registry from a predefined list of
+// resources. It should primarily used in tests to set up a registry.
+func RegistryFromResources(resources ...Resource) *Registry {
 	r := &Registry{}
 	for _, res := range resources {
 		r.Register(res)
@@ -43,7 +42,7 @@ func FromResources(resources ...graph.Resource) *Registry {
 // registered, it is overwritten.
 //
 // Not safe for concurrent access.
-func (r *Registry) Register(resource graph.Resource) {
+func (r *Registry) Register(resource Resource) {
 	t := reflect.TypeOf(resource)
 	if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("Resource must be implemented on a pointer receiver on a struct, not %s", t))
@@ -59,13 +58,13 @@ func (r *Registry) Register(resource graph.Resource) {
 
 // New creates a new instance of a resource with the given type name. Returns
 // NotSupportedError if a matching type is not found.
-func (r *Registry) New(typename string) (graph.Resource, error) {
+func (r *Registry) New(typename string) (Resource, error) {
 	t, ok := r.resources[typename]
 	if !ok {
 		return nil, NotSupportedError{Type: typename}
 	}
 
-	return reflect.New(t).Interface().(graph.Resource), nil
+	return reflect.New(t).Interface().(Resource), nil
 }
 
 // SuggestType suggest the type of a provisioner that closely matches the

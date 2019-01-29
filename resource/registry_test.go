@@ -1,18 +1,18 @@
-package registry_test
+package resource_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/func/func/graph/registry"
+	"github.com/func/func/resource"
 )
 
 func TestRegistry_New(t *testing.T) {
-	r := &registry.Registry{}
+	r := &resource.Registry{}
 
 	_, err := r.New("test")
-	if _, ok := err.(registry.NotSupportedError); !ok {
-		t.Fatalf("Get unregistered resource; got %v, want %T", err, registry.NotSupportedError{})
+	if _, ok := err.(resource.NotSupportedError); !ok {
+		t.Fatalf("Get unregistered resource; got %v, want %T", err, resource.NotSupportedError{})
 	}
 	if !strings.Contains(err.Error(), "test") {
 		t.Errorf("Not supported error does not contain name of requested type\nGot %v", err)
@@ -33,12 +33,12 @@ func TestRegistry_Register_notStrPtr(t *testing.T) {
 		}
 	}()
 
-	r := &registry.Registry{}
+	r := &resource.Registry{}
 	r.Register(notptr{})
 }
 
 func TestRegistry_SuggestType(t *testing.T) {
-	r := &registry.Registry{}
+	r := &resource.Registry{}
 	r.Register(&res{Typename: "aws_lambda_function"})
 	r.Register(&res{Typename: "aws_iam_role"})
 	r.Register(&res{Typename: "aws_iam_policy"})
