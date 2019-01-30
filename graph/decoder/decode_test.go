@@ -10,7 +10,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
-	"github.com/func/func/graph/registry"
+	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
@@ -40,9 +40,9 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []graph.Resource{
+				wantRes := []resource.Resource{
 					&fooRes{
 						Input: strptr("hello"),
 					},
@@ -61,7 +61,7 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				rr := g.Resources()
 				if len(rr) != 1 {
@@ -91,9 +91,9 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.input # copy value
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []graph.Resource{
+				wantRes := []resource.Resource{
 					&fooRes{Input: strptr("hello")},
 					&fooRes{Input: strptr("hello")},
 				}
@@ -108,7 +108,7 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.output
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{}, &barRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
 				got := make(map[string][]graph.Reference)
 				for _, r := range g.Resources() {
@@ -138,9 +138,9 @@ func TestDecodeBody(t *testing.T) {
 					input = 3.14159 # convert to string
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []graph.Resource{
+				wantRes := []resource.Resource{
 					&fooRes{Input: strptr("3.14159")},
 				}
 				assertResources(t, g, wantRes)
@@ -153,7 +153,7 @@ func TestDecodeBody(t *testing.T) {
 					num = "this cannot be an int"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&barRes{}, &bazRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&barRes{}, &bazRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -171,7 +171,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "ResourceNotFound",
 			body: parseBody(t, `resource "foo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: &registry.Registry{}},
+			ctx:  &decoder.DecodeContext{Resources: &resource.Registry{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -184,7 +184,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "SuggestResource",
 			body: parseBody(t, `resource "roo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: registry.FromResources(&fooRes{})},
+			ctx:  &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -205,7 +205,7 @@ func TestDecodeBody(t *testing.T) {
 					num = bar.a.input # int
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: registry.FromResources(&barRes{}, &bazRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&barRes{}, &bazRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Cannot set num from string, number value is required",
@@ -268,19 +268,19 @@ func strptr(str string) *string { return &str }
 // assertResources checks that the given resources exist in the graph.
 //
 // The order of resources returned from the graph does not matter.
-func assertResources(t *testing.T, g *graph.Graph, want []graph.Resource) {
+func assertResources(t *testing.T, g *graph.Graph, want []resource.Resource) {
 	t.Helper()
 	got := g.Resources()
 	sort.Sort(resourcesByContent(want))
 	sort.Sort(resourcesByContent(got))
 	if diff := cmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
-		t.Errorf("graph.Resources (-got, +want)\n%s", diff)
+		t.Errorf("resource.Resources (-got, +want)\n%s", diff)
 	}
 }
 
 // resourcesByContent implements sort.Interface by comparing the type and json
 // marshalled contents of resources.
-type resourcesByContent []graph.Resource
+type resourcesByContent []resource.Resource
 
 func (rr resourcesByContent) Len() int { return len(rr) }
 func (rr resourcesByContent) Less(i, j int) bool {

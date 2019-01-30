@@ -1,4 +1,4 @@
-package graph
+package resource
 
 // A Resource provisions remote resources.
 type Resource interface {

@@ -10,6 +10,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
+	"github.com/func/func/resource"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -28,7 +29,7 @@ type GraphDecoder interface {
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (graph.Resource, error)
+	New(typename string) (resource.Resource, error)
 	SuggestType(typename string) string
 }
 

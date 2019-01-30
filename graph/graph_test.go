@@ -8,6 +8,7 @@ import (
 
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
+	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -59,14 +60,14 @@ func TestGraph(t *testing.T) {
 
 	// All resources
 	gotRes := g.Resources()
-	wantRes := []graph.Resource{res1, res2, res3}
+	wantRes := []resource.Resource{res1, res2, res3}
 	if diff := cmp.Diff(gotRes, wantRes, sortByContent); diff != "" {
 		t.Errorf("Resources() (-got, +want)\n%s", diff)
 	}
 
 	// Dependents (children)
 	refTests := []struct {
-		res  graph.Resource
+		res  resource.Resource
 		want []graph.Reference
 	}{
 		{res1, []graph.Reference{
@@ -89,7 +90,7 @@ func TestGraph(t *testing.T) {
 
 	// Dependencies (parents)
 	refTests = []struct {
-		res  graph.Resource
+		res  resource.Resource
 		want []graph.Reference
 	}{
 		{res1, nil},

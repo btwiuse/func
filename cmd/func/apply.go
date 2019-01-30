@@ -13,7 +13,7 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/config"
-	"github.com/func/func/graph/registry"
+	"github.com/func/func/resource"
 	"github.com/func/func/server"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
@@ -81,7 +81,7 @@ func runApply(target, ns, addr string) error {
 			Logger: zap.NewNop(),
 			Source: src,
 			// For now, this is empty
-			Resources: &registry.Registry{},
+			Resources: &resource.Registry{},
 		}
 	} else {
 		// Start protobuf client

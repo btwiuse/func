@@ -1,11 +1,12 @@
-package registry
+package resource
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/agext/levenshtein"
-	"github.com/func/func/graph"
+	"github.com/pkg/errors"
 )
 
 // NotSupportedError is returned when attempting to instantiate an unsupported
@@ -26,9 +27,9 @@ type Registry struct {
 	resources map[string]reflect.Type
 }
 
-// FromResources creates a new registry from a predefined list of resources. It
-// should primarily used in tests to set up a registry.
-func FromResources(resources ...graph.Resource) *Registry {
+// RegistryFromResources creates a new registry from a predefined list of
+// resources. It should primarily used in tests to set up a registry.
+func RegistryFromResources(resources ...Resource) *Registry {
 	r := &Registry{}
 	for _, res := range resources {
 		r.Register(res)
@@ -43,7 +44,7 @@ func FromResources(resources ...graph.Resource) *Registry {
 // registered, it is overwritten.
 //
 // Not safe for concurrent access.
-func (r *Registry) Register(resource graph.Resource) {
+func (r *Registry) Register(resource Resource) {
 	t := reflect.TypeOf(resource)
 	if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("Resource must be implemented on a pointer receiver on a struct, not %s", t))
@@ -59,13 +60,13 @@ func (r *Registry) Register(resource graph.Resource) {
 
 // New creates a new instance of a resource with the given type name. Returns
 // NotSupportedError if a matching type is not found.
-func (r *Registry) New(typename string) (graph.Resource, error) {
+func (r *Registry) New(typename string) (Resource, error) {
 	t, ok := r.resources[typename]
 	if !ok {
 		return nil, NotSupportedError{Type: typename}
 	}
 
-	return reflect.New(t).Interface().(graph.Resource), nil
+	return reflect.New(t).Interface().(Resource), nil
 }
 
 // SuggestType suggest the type of a provisioner that closely matches the
@@ -91,4 +92,51 @@ func (r *Registry) SuggestType(typename string) string {
 	}
 
 	return str
+}
+
+type envelope struct {
+	Type string          `json:"t"`
+	Data json.RawMessage `json:"d"`
+}
+
+// Marshal marshals the given resource to a byte slice. The byte slice can be
+// unmarshalled back to a Resource using Unmarshal.
+//
+// The resource is marshalled using json encoding, meaning `json` struct tags
+// on the resource will be used. By convention, struct tags should not be set.
+// However, if the struct tags are set, they cannot be changed to ensure
+// backwards compatibility.
+func (r *Registry) Marshal(resource Resource) ([]byte, error) {
+	j, err := json.Marshal(resource)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal config")
+	}
+	e := envelope{
+		Type: resource.Type(),
+		Data: j,
+	}
+	j, err = json.Marshal(e)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal envelope")
+	}
+	return j, nil
+}
+
+// Unmarshal unmarshals a given byte slice to a resource.
+//
+// The resource can only be unmarshalled if the corresponding resource has been
+// registered.
+func (r *Registry) Unmarshal(b []byte) (Resource, error) {
+	var e envelope
+	if err := json.Unmarshal(b, &e); err != nil {
+		return nil, errors.Wrap(err, "unmarshal envelope")
+	}
+	res, err := r.New(e.Type)
+	if err != nil {
+		return nil, errors.Wrap(err, "create resource")
+	}
+	if err := json.Unmarshal(e.Data, &res); err != nil {
+		return nil, errors.Wrap(err, "unmarshal config")
+	}
+	return res, nil
 }

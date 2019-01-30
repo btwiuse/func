@@ -6,6 +6,7 @@ import (
 
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
+	"github.com/func/func/resource"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/zclconf/go-cty/cty"
@@ -17,7 +18,7 @@ var rootSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (graph.Resource, error)
+	New(typename string) (resource.Resource, error)
 	SuggestType(typename string) string
 }
 
@@ -63,7 +64,7 @@ type decode struct {
 }
 
 type pendingRef struct {
-	resource graph.Resource
+	resource resource.Resource
 	ref      ref
 }
 
@@ -87,7 +88,7 @@ func (d *decode) addProject(block *hcl.Block) hcl.Diagnostics {
 }
 
 type output struct {
-	resource graph.Resource
+	resource resource.Resource
 	field    field
 }
 
