@@ -60,14 +60,14 @@ func TestGraph(t *testing.T) {
 
 	// All resources
 	gotRes := g.Resources()
-	wantRes := []resource.Resource{res1, res2, res3}
+	wantRes := []resource.Definition{res1, res2, res3}
 	if diff := cmp.Diff(gotRes, wantRes, sortByContent); diff != "" {
 		t.Errorf("Resources() (-got, +want)\n%s", diff)
 	}
 
 	// Dependents (children)
 	refTests := []struct {
-		res  resource.Resource
+		def  resource.Definition
 		want []graph.Reference
 	}{
 		{res1, []graph.Reference{
@@ -80,8 +80,8 @@ func TestGraph(t *testing.T) {
 		{res3, nil},
 	}
 	for _, tt := range refTests {
-		t.Run(fmt.Sprintf("Dependents(%+v)", tt.res), func(t *testing.T) {
-			got := g.Dependents(tt.res)
+		t.Run(fmt.Sprintf("Dependents(%+v)", tt.def), func(t *testing.T) {
+			got := g.Dependents(tt.def)
 			if diff := cmp.Diff(got, tt.want, sortByContent); diff != "" {
 				t.Errorf("(-got, +want)\n%s", diff)
 			}
@@ -90,7 +90,7 @@ func TestGraph(t *testing.T) {
 
 	// Dependencies (parents)
 	refTests = []struct {
-		res  resource.Resource
+		def  resource.Definition
 		want []graph.Reference
 	}{
 		{res1, nil},
@@ -103,8 +103,8 @@ func TestGraph(t *testing.T) {
 		}},
 	}
 	for _, tt := range refTests {
-		t.Run(fmt.Sprintf("Dependencies(%+v)", tt.res), func(t *testing.T) {
-			got := g.Dependencies(tt.res)
+		t.Run(fmt.Sprintf("Dependencies(%+v)", tt.def), func(t *testing.T) {
+			got := g.Dependencies(tt.def)
 			if diff := cmp.Diff(got, tt.want, sortByContent); diff != "" {
 				t.Errorf("(-got, +want)\n%s", diff)
 			}

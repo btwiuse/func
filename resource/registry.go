@@ -29,10 +29,10 @@ type Registry struct {
 
 // RegistryFromResources creates a new registry from a predefined list of
 // resources. It should primarily used in tests to set up a registry.
-func RegistryFromResources(resources ...Resource) *Registry {
+func RegistryFromResources(defs ...Definition) *Registry {
 	r := &Registry{}
-	for _, res := range resources {
-		r.Register(res)
+	for _, def := range defs {
+		r.Register(def)
 	}
 	return r
 }
@@ -44,8 +44,8 @@ func RegistryFromResources(resources ...Resource) *Registry {
 // registered, it is overwritten.
 //
 // Not safe for concurrent access.
-func (r *Registry) Register(resource Resource) {
-	t := reflect.TypeOf(resource)
+func (r *Registry) Register(def Definition) {
+	t := reflect.TypeOf(def)
 	if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("Resource must be implemented on a pointer receiver on a struct, not %s", t))
 	}
@@ -54,19 +54,19 @@ func (r *Registry) Register(resource Resource) {
 		r.resources = make(map[string]reflect.Type)
 	}
 
-	typename := resource.Type()
+	typename := def.Type()
 	r.resources[typename] = t.Elem()
 }
 
 // New creates a new instance of a resource with the given type name. Returns
 // NotSupportedError if a matching type is not found.
-func (r *Registry) New(typename string) (Resource, error) {
+func (r *Registry) New(typename string) (Definition, error) {
 	t, ok := r.resources[typename]
 	if !ok {
 		return nil, NotSupportedError{Type: typename}
 	}
 
-	return reflect.New(t).Interface().(Resource), nil
+	return reflect.New(t).Interface().(Definition), nil
 }
 
 // SuggestType suggest the type of a provisioner that closely matches the
@@ -106,13 +106,13 @@ type envelope struct {
 // on the resource will be used. By convention, struct tags should not be set.
 // However, if the struct tags are set, they cannot be changed to ensure
 // backwards compatibility.
-func Marshal(resource Resource) ([]byte, error) {
-	j, err := json.Marshal(resource)
+func Marshal(def Definition) ([]byte, error) {
+	j, err := json.Marshal(def)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal config")
 	}
 	e := envelope{
-		Type: resource.Type(),
+		Type: def.Type(),
 		Data: j,
 	}
 	j, err = json.Marshal(e)
@@ -122,11 +122,11 @@ func Marshal(resource Resource) ([]byte, error) {
 	return j, nil
 }
 
-// Unmarshal unmarshals a given byte slice to a resource.
+// Unmarshal unmarshals a given byte slice to a resource definition.
 //
 // The resource can only be unmarshalled if the corresponding resource has been
 // registered.
-func (r *Registry) Unmarshal(b []byte) (Resource, error) {
+func (r *Registry) Unmarshal(b []byte) (Definition, error) {
 	var e envelope
 	if err := json.Unmarshal(b, &e); err != nil {
 		return nil, errors.Wrap(err, "unmarshal envelope")

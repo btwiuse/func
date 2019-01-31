@@ -42,12 +42,12 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []resource.Resource{
+				wantDef := []resource.Definition{
 					&fooRes{
 						Input: strptr("hello"),
 					},
 				}
-				assertResources(t, g, wantRes)
+				assertResources(t, g, wantDef)
 			},
 		},
 		{
@@ -93,11 +93,11 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []resource.Resource{
+				wantDef := []resource.Definition{
 					&fooRes{Input: strptr("hello")},
 					&fooRes{Input: strptr("hello")},
 				}
-				assertResources(t, g, wantRes)
+				assertResources(t, g, wantDef)
 			},
 		},
 		{
@@ -140,10 +140,10 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			check: func(t *testing.T, g *graph.Graph) {
-				wantRes := []resource.Resource{
+				wantDef := []resource.Definition{
 					&fooRes{Input: strptr("3.14159")},
 				}
-				assertResources(t, g, wantRes)
+				assertResources(t, g, wantDef)
 			},
 		},
 		{
@@ -268,7 +268,7 @@ func strptr(str string) *string { return &str }
 // assertResources checks that the given resources exist in the graph.
 //
 // The order of resources returned from the graph does not matter.
-func assertResources(t *testing.T, g *graph.Graph, want []resource.Resource) {
+func assertResources(t *testing.T, g *graph.Graph, want []resource.Definition) {
 	t.Helper()
 	got := g.Resources()
 	sort.Sort(resourcesByContent(want))
@@ -280,7 +280,7 @@ func assertResources(t *testing.T, g *graph.Graph, want []resource.Resource) {
 
 // resourcesByContent implements sort.Interface by comparing the type and json
 // marshalled contents of resources.
-type resourcesByContent []resource.Resource
+type resourcesByContent []resource.Definition
 
 func (rr resourcesByContent) Len() int { return len(rr) }
 func (rr resourcesByContent) Less(i, j int) bool {

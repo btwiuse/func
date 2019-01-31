@@ -18,7 +18,7 @@ var rootSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (resource.Resource, error)
+	New(typename string) (resource.Definition, error)
 	SuggestType(typename string) string
 }
 
@@ -64,8 +64,8 @@ type decode struct {
 }
 
 type pendingRef struct {
-	resource resource.Resource
-	ref      ref
+	def resource.Definition
+	ref ref
 }
 
 func (p *pendingRef) fieldVal() interface{} {
@@ -88,8 +88,8 @@ func (d *decode) addProject(block *hcl.Block) hcl.Diagnostics {
 }
 
 type output struct {
-	resource resource.Resource
-	field    resource.Field
+	def   resource.Definition
+	field resource.Field
 }
 
 var outputType = cty.Capsule("output", reflect.TypeOf(output{}))
@@ -98,7 +98,7 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	typename := block.Labels[0]
 	resname := block.Labels[1]
 
-	res, err := ctx.Resources.New(typename)
+	def, err := ctx.Resources.New(typename)
 	if err != nil {
 		diag := &hcl.Diagnostic{
 			Severity: hcl.DiagError,
@@ -120,18 +120,18 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 		return diags
 	}
 
-	v := reflect.Indirect(reflect.ValueOf(res))
+	v := reflect.Indirect(reflect.ValueOf(def))
 	vals, refs, morediags := decodeInput(v, resBody.Config)
 	diags = append(diags, morediags...)
 
 	// create resource node
-	d.graph.AddResource(res)
+	d.graph.AddResource(def)
 
 	// collect refs, we'll need to connect them later
 	for _, ref := range refs {
 		d.pendingRefs = append(d.pendingRefs, pendingRef{
-			resource: res,
-			ref:      ref,
+			def: def,
+			ref: ref,
 		})
 	}
 
@@ -142,14 +142,14 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	}
 	for _, field := range resource.Fields(v.Type(), resource.Output) {
 		outputs[field.Name] = cty.CapsuleVal(outputType, &output{
-			resource: res,
-			field:    field,
+			def:   def,
+			field: field,
 		})
 	}
 	d.outputs.add(typename, resname, outputs)
 
 	if resBody.Source != nil {
-		d.graph.AddSource(res, *resBody.Source)
+		d.graph.AddSource(def, *resBody.Source)
 	}
 
 	return diags
@@ -186,9 +186,9 @@ func (d *decode) connectRefs() hcl.Diagnostics {
 		}
 
 		d.graph.AddDependency(graph.Reference{
-			Parent:      out.resource,
+			Parent:      out.def,
 			ParentIndex: []int{out.field.Index},
-			Child:       p.resource,
+			Child:       p.def,
 			ChildIndex:  []int{p.ref.field.Index},
 		})
 	}

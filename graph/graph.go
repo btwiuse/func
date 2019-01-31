@@ -14,7 +14,7 @@ import (
 // The Graph should be created with New().
 type Graph struct {
 	*multi.DirectedGraph
-	resources map[resource.Resource]*resourceNode
+	resources map[resource.Definition]*resourceNode
 	project   *projectNode
 }
 
@@ -22,7 +22,7 @@ type Graph struct {
 func New() *Graph {
 	return &Graph{
 		DirectedGraph: multi.NewDirectedGraph(),
-		resources:     make(map[resource.Resource]*resourceNode),
+		resources:     make(map[resource.Definition]*resourceNode),
 	}
 }
 
@@ -66,17 +66,17 @@ func (g *Graph) Project() (config.Project, bool) {
 
 type resourceNode struct {
 	graph.Node
-	resource.Resource
+	resource.Definition
 }
 
 // AddResource adds a new resource to the graph.
-func (g *Graph) AddResource(resource resource.Resource) {
+func (g *Graph) AddResource(def resource.Definition) {
 	n := &resourceNode{
-		Node:     g.NewNode(),
-		Resource: resource,
+		Node:       g.NewNode(),
+		Definition: def,
 	}
 	g.AddNode(n)
-	g.resources[resource] = n
+	g.resources[def] = n
 
 	if g.project != nil {
 		g.SetLine(g.NewLine(g.project, n))
@@ -90,8 +90,8 @@ type sourceNode struct {
 
 // AddSource adds a source input to a given resource. The resource must be
 // added to the graph before adding source.
-func (g *Graph) AddSource(resource resource.Resource, info config.SourceInfo) {
-	resNode := g.resources[resource]
+func (g *Graph) AddSource(def resource.Definition, info config.SourceInfo) {
+	resNode := g.resources[def]
 	n := &sourceNode{
 		Node:       g.NewNode(),
 		SourceInfo: info,
@@ -108,10 +108,10 @@ type ref struct {
 // A Reference describes a dependency relationship for a single field between
 // two resources.
 type Reference struct {
-	Parent      resource.Resource
+	Parent      resource.Definition
 	ParentIndex []int
 
-	Child      resource.Resource
+	Child      resource.Definition
 	ChildIndex []int
 }
 
@@ -129,10 +129,10 @@ func (g *Graph) AddDependency(reference Reference) {
 // Resources returns all resources in the graph.
 //
 // The order of the returned results is not deterministic.
-func (g *Graph) Resources() []resource.Resource {
-	list := make([]resource.Resource, 0, len(g.resources))
+func (g *Graph) Resources() []resource.Definition {
+	list := make([]resource.Definition, 0, len(g.resources))
 	for _, r := range g.resources {
-		list = append(list, r.Resource)
+		list = append(list, r.Definition)
 	}
 	return list
 }
@@ -155,9 +155,9 @@ func (g *Graph) refs(parentID, childID int64) []Reference {
 // Panics if the given resource does not exist in the graph.
 //
 // The order of the returned results is not deterministic.
-func (g *Graph) Dependencies(resource resource.Resource) []Reference {
+func (g *Graph) Dependencies(def resource.Definition) []Reference {
 	var list []Reference
-	child := g.resources[resource]
+	child := g.resources[def]
 	it := g.To(child.ID())
 	for it.Next() {
 		parent := it.Node()
@@ -170,9 +170,9 @@ func (g *Graph) Dependencies(resource resource.Resource) []Reference {
 // resource. Panics if the given resource does not exist in the graph.
 //
 // The order of the returned results is not deterministic.
-func (g *Graph) Dependents(resource resource.Resource) []Reference {
+func (g *Graph) Dependents(def resource.Definition) []Reference {
 	var list []Reference
-	parent := g.resources[resource]
+	parent := g.resources[def]
 	it := g.From(parent.ID())
 	for it.Next() {
 		child := it.Node()
@@ -185,7 +185,7 @@ func (g *Graph) Dependents(resource resource.Resource) []Reference {
 // given resource does not exist in the graph.
 //
 // The order of the returned results is not deterministic.
-func (g *Graph) Source(resource resource.Resource) []config.SourceInfo {
+func (g *Graph) Source(resource resource.Definition) []config.SourceInfo {
 	n := g.resources[resource]
 	var list []config.SourceInfo
 	it := g.To(n.ID())

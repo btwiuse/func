@@ -29,7 +29,7 @@ type GraphDecoder interface {
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (resource.Resource, error)
+	New(typename string) (resource.Definition, error)
 	SuggestType(typename string) string
 }
 
