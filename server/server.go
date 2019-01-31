@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/func/func/api"
-	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
 	"github.com/func/func/resource"
@@ -64,7 +63,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		}
 		return nil, twerr
 	}
-	if proj, ok := g.Project(); ok {
+	if proj := g.Project(); proj != nil {
 		logger = logger.With(zap.String("project", proj.Name))
 	}
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
@@ -77,7 +76,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 	}
 	if len(missing) > 0 {
 		// Request source code
-		logger.Debug("Source code required", zap.Strings("hashes", sourceInfos(missing).Hashes()))
+		logger.Debug("Source code required", zap.Strings("hashes", sources(missing).Hashes()))
 		sr := &api.SourceRequired{}
 		for _, src := range missing {
 			u, err := s.Source.NewUpload(source.UploadConfig{
@@ -103,9 +102,9 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 	return nil, twirp.NewError(twirp.Unimplemented, "unimplemented")
 }
 
-func (s *Server) missingSource(ctx context.Context, sources []config.SourceInfo) ([]config.SourceInfo, error) {
+func (s *Server) missingSource(ctx context.Context, sources []*graph.Source) ([]*graph.Source, error) {
 	var mu sync.Mutex
-	var missing []config.SourceInfo
+	var missing []*graph.Source
 	g, ctx := errgroup.WithContext(ctx)
 	for _, src := range sources {
 		src := src
@@ -129,9 +128,9 @@ func (s *Server) missingSource(ctx context.Context, sources []config.SourceInfo)
 	return missing, nil
 }
 
-type sourceInfos []config.SourceInfo
+type sources []*graph.Source
 
-func (ss sourceInfos) Hashes() []string {
+func (ss sources) Hashes() []string {
 	list := make([]string, len(ss))
 	for i, s := range ss {
 		list[i] = s.SHA

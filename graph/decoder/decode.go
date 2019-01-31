@@ -64,7 +64,7 @@ type decode struct {
 }
 
 type pendingRef struct {
-	def resource.Definition
+	res *graph.Resource
 	ref ref
 }
 
@@ -88,7 +88,7 @@ func (d *decode) addProject(block *hcl.Block) hcl.Diagnostics {
 }
 
 type output struct {
-	def   resource.Definition
+	res   *graph.Resource
 	field resource.Field
 }
 
@@ -125,12 +125,12 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	diags = append(diags, morediags...)
 
 	// create resource node
-	d.graph.AddResource(def)
+	res := d.graph.AddResource(def)
 
 	// collect refs, we'll need to connect them later
 	for _, ref := range refs {
 		d.pendingRefs = append(d.pendingRefs, pendingRef{
-			def: def,
+			res: res,
 			ref: ref,
 		})
 	}
@@ -142,14 +142,14 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	}
 	for _, field := range resource.Fields(v.Type(), resource.Output) {
 		outputs[field.Name] = cty.CapsuleVal(outputType, &output{
-			def:   def,
+			res:   res,
 			field: field,
 		})
 	}
 	d.outputs.add(typename, resname, outputs)
 
 	if resBody.Source != nil {
-		d.graph.AddSource(def, *resBody.Source)
+		d.graph.AddSource(res, *resBody.Source)
 	}
 
 	return diags
@@ -186,9 +186,9 @@ func (d *decode) connectRefs() hcl.Diagnostics {
 		}
 
 		d.graph.AddDependency(graph.Reference{
-			Parent:      out.def,
+			Parent:      out.res,
 			ParentIndex: []int{out.field.Index},
-			Child:       p.def,
+			Child:       p.res,
 			ChildIndex:  []int{p.ref.field.Index},
 		})
 	}

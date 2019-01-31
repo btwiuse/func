@@ -1,9 +1,7 @@
 package decoder_test
 
 import (
-	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"testing"
 
@@ -69,13 +67,16 @@ func TestDecodeBody(t *testing.T) {
 				}
 				for _, r := range rr {
 					got := g.Source(r)
-					want := []config.SourceInfo{{
-						Ext: ".tar.gz",
-						SHA: "abc",
-						MD5: "def",
-						Len: 123,
+					want := []*graph.Source{{
+						SourceInfo: config.SourceInfo{
+							Ext: ".tar.gz",
+							SHA: "abc",
+							MD5: "def",
+							Len: 123,
+						},
 					}}
-					if diff := cmp.Diff(got, want); diff != "" {
+					ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
+					if diff := cmp.Diff(got, want, ignoreNode); diff != "" {
 						t.Errorf("Source (-got, +want)\n%s", diff)
 					}
 				}
@@ -112,21 +113,22 @@ func TestDecodeBody(t *testing.T) {
 			check: func(t *testing.T, g *graph.Graph) {
 				got := make(map[string][]graph.Reference)
 				for _, r := range g.Resources() {
-					name := fmt.Sprintf("%T", r)
+					name := fmt.Sprintf("%T", r.Definition)
 					got[name] = g.Dependencies(r)
 				}
 				want := map[string][]graph.Reference{
 					"*decoder_test.fooRes": {},
 					"*decoder_test.barRes": {
 						{
-							Parent:      &fooRes{},
+							Parent:      &graph.Resource{Definition: &fooRes{}},
 							ParentIndex: []int{1},
-							Child:       &barRes{},
+							Child:       &graph.Resource{Definition: &barRes{}},
 							ChildIndex:  []int{0},
 						},
 					},
 				}
-				if diff := cmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
+				ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
+				if diff := cmp.Diff(got, want, cmpopts.EquateEmpty(), ignoreNode); diff != "" {
 					t.Errorf("Dependencies do not match (-got, +want)\n%s", diff)
 				}
 			},
@@ -270,29 +272,12 @@ func strptr(str string) *string { return &str }
 // The order of resources returned from the graph does not matter.
 func assertResources(t *testing.T, g *graph.Graph, want []resource.Definition) {
 	t.Helper()
-	got := g.Resources()
-	sort.Sort(resourcesByContent(want))
-	sort.Sort(resourcesByContent(got))
+	rr := g.Resources()
+	got := make([]resource.Definition, len(rr))
+	for i, r := range rr {
+		got[i] = r.Definition
+	}
 	if diff := cmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
 		t.Errorf("resource.Resources (-got, +want)\n%s", diff)
 	}
 }
-
-// resourcesByContent implements sort.Interface by comparing the type and json
-// marshalled contents of resources.
-type resourcesByContent []resource.Definition
-
-func (rr resourcesByContent) Len() int { return len(rr) }
-func (rr resourcesByContent) Less(i, j int) bool {
-	r1, r2 := rr[i], rr[j]
-	j1, err := json.Marshal(r1)
-	if err != nil {
-		panic(err)
-	}
-	j2, err := json.Marshal(r2)
-	if err != nil {
-		panic(err)
-	}
-	return fmt.Sprintf("%T%s", r1, string(j1)) < fmt.Sprintf("%T%s", r2, string(j2))
-}
-func (rr resourcesByContent) Swap(i, j int) { rr[i], rr[j] = rr[j], rr[i] }
