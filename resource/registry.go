@@ -100,13 +100,13 @@ type envelope struct {
 }
 
 // Marshal marshals the given resource to a byte slice. The byte slice can be
-// unmarshalled back to a Resource using Unmarshal.
+// unmarshalled back to a Resource using Registry.Unmarshal.
 //
 // The resource is marshalled using json encoding, meaning `json` struct tags
 // on the resource will be used. By convention, struct tags should not be set.
 // However, if the struct tags are set, they cannot be changed to ensure
 // backwards compatibility.
-func (r *Registry) Marshal(resource Resource) ([]byte, error) {
+func Marshal(resource Resource) ([]byte, error) {
 	j, err := json.Marshal(resource)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal config")
