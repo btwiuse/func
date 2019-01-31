@@ -1,10 +1,9 @@
 package decoder
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 
+	"github.com/func/func/resource"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/zclconf/go-cty/cty"
@@ -17,7 +16,7 @@ import (
 func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value, refs []ref, diags hcl.Diagnostics) {
 	t := val.Type()
 
-	inputs := fieldsByTag(t, "input")
+	inputs := resource.Fields(t, resource.Input)
 	schema := inputSchema(inputs)
 
 	cont, diags := config.Content(schema)
@@ -27,7 +26,7 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 
 	vals = make(map[string]cty.Value)
 	for _, input := range inputs {
-		attr, ok := cont.Attributes[input.name]
+		attr, ok := cont.Attributes[input.Name]
 		if !ok {
 			// Optional attribute was not set
 			continue
@@ -44,7 +43,7 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 			continue
 		}
 
-		fieldVal := val.Field(input.index)
+		fieldVal := val.Field(input.Index)
 		ptr := fieldVal.Addr().Interface()
 
 		diags = append(diags,
@@ -52,7 +51,7 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 		)
 
 		val, morediags := attr.Expr.Value(nil)
-		vals[input.name] = val
+		vals[input.Name] = val
 		diags = append(diags, morediags...)
 	}
 
@@ -62,48 +61,15 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 type ref struct {
 	attr  *hcl.Attribute
 	val   reflect.Value
-	field field
+	field resource.Field
 }
 
-type field struct {
-	name  string
-	attr  string // anything after a comma
-	index int
-	typ   reflect.Type
-}
-
-// inputFields returns all fields that have an input tag on them.
-// Fields that have `,optional` are marked optional.
-//
-// Panics if an input tag is found on an unexported field, or if the string
-// after the comma in the tag is not recognized.
-func fieldsByTag(t reflect.Type, tag string) []field {
-	var fields []field
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		tag, ok := f.Tag.Lookup(tag)
-		if !ok {
-			continue
-		}
-		if f.PkgPath != "" {
-			panic(fmt.Sprintf("%s.%s: input set on unexported field", t, f.Name))
-		}
-		res := field{name: tag, index: i, typ: f.Type}
-		if comma := strings.Index(tag, ","); comma >= 0 {
-			res.name = tag[:comma]
-			res.attr = tag[comma+1:]
-		}
-		fields = append(fields, res)
-	}
-	return fields
-}
-
-func inputSchema(ff []field) *hcl.BodySchema {
+func inputSchema(ff []resource.Field) *hcl.BodySchema {
 	schema := &hcl.BodySchema{}
 	for _, f := range ff {
 		schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{
-			Name:     f.name,
-			Required: f.typ.Kind() != reflect.Ptr,
+			Name:     f.Name,
+			Required: f.Type.Kind() != reflect.Ptr,
 		})
 	}
 	return schema

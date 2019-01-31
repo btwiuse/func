@@ -69,7 +69,7 @@ type pendingRef struct {
 }
 
 func (p *pendingRef) fieldVal() interface{} {
-	return p.ref.val.Field(p.ref.field.index).Addr().Interface()
+	return p.ref.val.Field(p.ref.field.Index).Addr().Interface()
 }
 
 func (d *decode) addProject(block *hcl.Block) hcl.Diagnostics {
@@ -89,7 +89,7 @@ func (d *decode) addProject(block *hcl.Block) hcl.Diagnostics {
 
 type output struct {
 	resource resource.Resource
-	field    field
+	field    resource.Field
 }
 
 var outputType = cty.Capsule("output", reflect.TypeOf(output{}))
@@ -140,8 +140,8 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	for name, val := range vals {
 		outputs[name] = val
 	}
-	for _, field := range fieldsByTag(v.Type(), "output") {
-		outputs[field.name] = cty.CapsuleVal(outputType, &output{
+	for _, field := range resource.Fields(v.Type(), resource.Output) {
+		outputs[field.Name] = cty.CapsuleVal(outputType, &output{
 			resource: res,
 			field:    field,
 		})
@@ -171,7 +171,7 @@ func (d *decode) connectRefs() hcl.Diagnostics {
 			if err != nil {
 				diags = append(diags, &hcl.Diagnostic{
 					Severity: hcl.DiagError,
-					Summary:  fmt.Sprintf("Cannot set %s from %s, %v", p.ref.field.name, v.Type().FriendlyName(), err),
+					Summary:  fmt.Sprintf("Cannot set %s from %s, %v", p.ref.field.Name, v.Type().FriendlyName(), err),
 					Subject:  p.ref.attr.Range.Ptr(),
 				})
 			}
@@ -187,9 +187,9 @@ func (d *decode) connectRefs() hcl.Diagnostics {
 
 		d.graph.AddDependency(graph.Reference{
 			Parent:      out.resource,
-			ParentIndex: []int{out.field.index},
+			ParentIndex: []int{out.field.Index},
 			Child:       p.resource,
-			ChildIndex:  []int{p.ref.field.index},
+			ChildIndex:  []int{p.ref.field.Index},
 		})
 	}
 
