@@ -53,7 +53,7 @@ func TestLoader_Load(t *testing.T) {
 	tests := []struct {
 		name       string
 		root       string
-		compressor *mockCompressor
+		compressor config.SourceCompressor
 		want       *hclpack.Body
 	}{
 		{
@@ -333,6 +333,81 @@ func TestLoader_Load(t *testing.T) {
 					Filename: "testdata/project/func.hcl",
 					Start:    hcl.Pos{Line: 8, Column: 1, Byte: 107},
 					End:      hcl.Pos{Line: 8, Column: 1, Byte: 107},
+				},
+			},
+		},
+		{
+			"NoCompressor",
+			"testdata/nocompress",
+			nil,
+			&hclpack.Body{
+				ChildBlocks: []hclpack.Block{
+					{
+						Type:   "resource",
+						Labels: []string{"aws_lambda_function", "func"},
+						Body: hclpack.Body{
+							Attributes: map[string]hclpack.Attribute{
+								"handler": {
+									Expr: hclpack.Expression{
+										Source:     []byte(`"index.handler"`),
+										SourceType: hclpack.ExprNative,
+										Range_: hcl.Range{
+											Filename: "testdata/nocompress/func.hcl",
+											Start:    hcl.Pos{Line: 3, Column: 13, Byte: 113},
+											End:      hcl.Pos{Line: 3, Column: 28, Byte: 128},
+										},
+										StartRange_: hcl.Range{
+											Filename: "testdata/nocompress/func.hcl",
+											Start:    hcl.Pos{Line: 3, Column: 14, Byte: 114},
+											End:      hcl.Pos{Line: 3, Column: 27, Byte: 127},
+										},
+									},
+									Range: hcl.Range{
+										Filename: "testdata/nocompress/func.hcl",
+										Start:    hcl.Pos{Line: 3, Column: 3, Byte: 103},
+										End:      hcl.Pos{Line: 3, Column: 28, Byte: 128},
+									},
+									NameRange: hcl.Range{
+										Filename: "testdata/nocompress/func.hcl",
+										Start:    hcl.Pos{Line: 3, Column: 3, Byte: 103},
+										End:      hcl.Pos{Line: 3, Column: 10, Byte: 110},
+									},
+								},
+							},
+							MissingItemRange_: hcl.Range{
+								Filename: "testdata/nocompress/func.hcl",
+								Start:    hcl.Pos{Line: 4, Column: 2, Byte: 130},
+								End:      hcl.Pos{Line: 4, Column: 2, Byte: 130},
+							},
+						},
+						DefRange: hcl.Range{
+							Filename: "testdata/nocompress/func.hcl",
+							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
+							End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
+						},
+						TypeRange: hcl.Range{
+							Filename: "testdata/nocompress/func.hcl",
+							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
+							End:      hcl.Pos{Line: 1, Column: 9, Byte: 8},
+						},
+						LabelRanges: []hcl.Range{
+							{
+								Filename: "testdata/nocompress/func.hcl",
+								Start:    hcl.Pos{Line: 1, Column: 10, Byte: 9},
+								End:      hcl.Pos{Line: 1, Column: 31, Byte: 30},
+							},
+							{
+								Filename: "testdata/nocompress/func.hcl",
+								Start:    hcl.Pos{Line: 1, Column: 32, Byte: 31},
+								End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
+							},
+						},
+					},
+				},
+				MissingItemRange_: hcl.Range{
+					Filename: "testdata/nocompress/func.hcl",
+					Start:    hcl.Pos{Line: 6, Column: 1, Byte: 132},
+					End:      hcl.Pos{Line: 6, Column: 1, Byte: 132},
 				},
 			},
 		},
