@@ -2,39 +2,29 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/func/func/config"
+	"github.com/func/func/client"
 	"github.com/spf13/cobra"
 )
 
 var rootCommand = &cobra.Command{
 	Use:   "root [dir]",
 	Short: "Print project root directory",
-	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) > 1 {
-			fmt.Fprintln(os.Stderr, cmd.UsageString())
-			os.Exit(2)
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) { // nolint: unparam
+		if len(args) == 0 {
+			args = []string{"."}
 		}
-		target := "."
-		if len(args) == 1 {
-			target = args[0]
+
+		cli := &client.Client{}
+		root, err := cli.FindRoot(args[0])
+		if err != nil {
+			fatal(err)
 		}
-		runRoot(target)
+		fmt.Println(root)
 	},
 }
 
 func init() {
 	Func.AddCommand(rootCommand)
-}
-
-func runRoot(target string) {
-	l := &config.Loader{}
-	rootDir, diags := l.Root(target)
-	if diags.HasErrors() {
-		l.PrintDiagnostics(os.Stderr, diags)
-		os.Exit(1)
-	}
-	fmt.Println(filepath.Clean(rootDir))
 }

@@ -430,23 +430,6 @@ func TestLoader_Load(t *testing.T) {
 	}
 }
 
-var projectWithSyntaxErrors = "testdata/invalid"
-
-func ExampleLoader_PrintDiagnostics() {
-	l := &config.Loader{}
-	_, diags := l.Load(projectWithSyntaxErrors)
-	l.PrintDiagnostics(os.Stdout, diags)
-	// Output:
-	// Error: Missing newline after block definition
-	//
-	//   on testdata/invalid/invalid.hcl line 6:
-	//    4: resource "invalid" "syntax" {
-	//    5:   # too many closing braces
-	//    6: } }
-	//
-	// A block definition must end with a newline.
-}
-
 func TestLoader_Files(t *testing.T) {
 	tests := []struct {
 		name string
@@ -581,15 +564,13 @@ func Example_clientServer() {
 	// Find root, given user input
 	rootDir, diags := l.Root(args[0])
 	if diags.HasErrors() {
-		l.PrintDiagnostics(os.Stderr, diags)
-		os.Exit(1)
+		log.Fatal(diags)
 	}
 
 	// Load config files from root
 	cfg, diags := l.Load(rootDir)
 	if diags.HasErrors() {
-		l.PrintDiagnostics(os.Stderr, diags)
-		os.Exit(1)
+		log.Fatal(diags)
 	}
 
 	// Marshal config to json for transmission

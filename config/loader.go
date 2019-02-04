@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 type file struct {
@@ -141,27 +140,6 @@ func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
 		return nil, diagErr(err)
 	}
 	return mergeBodies(bodies), nil
-}
-
-// PrintDiagnostics prints diagnostics to the given writer.
-//
-// If a TTY is attached, the output will be colorized and wrap at the terminal
-// width. Otherwise, wrap will occur at 78 characters and output won't contain
-// ANSI escape characters.
-func (l *Loader) PrintDiagnostics(w io.Writer, diags hcl.Diagnostics) {
-	files := l.Files()
-	cols, _, err := terminal.GetSize(0)
-	if err != nil {
-		cols = 78
-	}
-	color := terminal.IsTerminal(0)
-	wr := hcl.NewDiagnosticTextWriter(w, files, uint(cols), color)
-	if err := wr.WriteDiagnostics(diags); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		if diags.HasErrors() {
-			os.Exit(1)
-		}
-	}
 }
 
 // Files returns the configuration files that were loaded.
