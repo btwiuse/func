@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -72,7 +73,9 @@ var applyCommand = &cobra.Command{
 			fatal(err)
 		}
 
-		if err := cli.Apply(rootDir, ns); err != nil {
+		ctx := signalContext(context.Background())
+
+		if err := cli.Apply(ctx, rootDir, ns); err != nil {
 			fatal(err)
 		}
 	},

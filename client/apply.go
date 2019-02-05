@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/func/func/api"
 	"github.com/func/func/source"
@@ -21,7 +18,7 @@ import (
 //
 // The resources are loaded and applied to a namespace. In case source code is
 // required, source code is collected and uploaded.
-func (cli *Client) Apply(rootDir, namespace string) error {
+func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 	cli.once.Do(cli.init)
 
 	body, diags := cli.Loader.Load(rootDir)
@@ -35,15 +32,6 @@ func (cli *Client) Apply(rootDir, namespace string) error {
 	}
 
 	req := &api.ApplyRequest{Namespace: namespace, Config: j}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		<-sig
-		cancel()
-	}()
 
 	resp, err := cli.API.Apply(ctx, req)
 	if err != nil {
