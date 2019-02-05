@@ -41,8 +41,15 @@ var applyCommand = &cobra.Command{
 				log.Fatalf("Could not start local storage: %v", err)
 			}
 
+			logCfg := zap.NewDevelopmentConfig()
+			logCfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+			logger, err := logCfg.Build()
+			if err != nil {
+				log.Fatalf("Build logger: %v", err)
+			}
+
 			apicli = &server.Server{
-				Logger:    zap.NewNop(),
+				Logger:    logger,
 				Source:    src,
 				Resources: &resource.Registry{}, // For now, this is empty
 			}
