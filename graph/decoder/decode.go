@@ -185,11 +185,12 @@ func (d *decode) connectRefs() hcl.Diagnostics {
 			panic("Referenced output value not a capsule for *output")
 		}
 
+		source := graph.Field{Resource: out.res, Index: []int{out.field.Index}}
+		target := graph.Field{Resource: p.res, Index: []int{p.ref.field.Index}}
+
 		d.graph.AddDependency(graph.Reference{
-			Parent:      out.res,
-			ParentIndex: []int{out.field.Index},
-			Child:       p.res,
-			ChildIndex:  []int{p.ref.field.Index},
+			Source: source,
+			Target: target,
 		})
 	}
 

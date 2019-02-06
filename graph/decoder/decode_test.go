@@ -120,10 +120,8 @@ func TestDecodeBody(t *testing.T) {
 					"*decoder_test.fooRes": {},
 					"*decoder_test.barRes": {
 						{
-							Parent:      &graph.Resource{Definition: &fooRes{}},
-							ParentIndex: []int{1},
-							Child:       &graph.Resource{Definition: &barRes{}},
-							ChildIndex:  []int{0},
+							Source: graph.Field{Resource: &graph.Resource{Definition: &fooRes{}}, Index: []int{1}},
+							Target: graph.Field{Resource: &graph.Resource{Definition: &barRes{}}, Index: []int{0}},
 						},
 					},
 				}

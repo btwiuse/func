@@ -27,9 +27,18 @@ func TestGraph(t *testing.T) {
 	res1 := g.AddResource(def1)
 	res2 := g.AddResource(def2)
 	res3 := g.AddResource(def3)
-	ref12 := graph.Reference{Parent: res1, Child: res2, ParentIndex: []int{1}, ChildIndex: []int{2}}
-	ref13 := graph.Reference{Parent: res1, Child: res3, ParentIndex: []int{2}, ChildIndex: []int{1}}
-	ref23 := graph.Reference{Parent: res2, Child: res3, ParentIndex: []int{3}, ChildIndex: []int{4}}
+	ref12 := graph.Reference{
+		Source: graph.Field{Resource: res1, Index: []int{1}},
+		Target: graph.Field{Resource: res2, Index: []int{2}},
+	}
+	ref13 := graph.Reference{
+		Source: graph.Field{Resource: res1, Index: []int{2}},
+		Target: graph.Field{Resource: res3, Index: []int{1}},
+	}
+	ref23 := graph.Reference{
+		Source: graph.Field{Resource: res2, Index: []int{3}},
+		Target: graph.Field{Resource: res3, Index: []int{4}},
+	}
 	g.AddDependency(ref12)
 	g.AddDependency(ref13)
 	g.AddDependency(ref23)

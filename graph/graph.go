@@ -6,7 +6,6 @@ import (
 
 	"github.com/func/func/config"
 	"github.com/func/func/resource"
-	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/multi"
 )
 
@@ -86,26 +85,11 @@ func (g *Graph) AddSource(res *Resource, info config.SourceInfo) *Source {
 	return n
 }
 
-type ref struct {
-	graph.Line
-	Reference
-}
-
-// A Reference describes a dependency relationship for a single field between
-// two resources.
-type Reference struct {
-	Parent      *Resource
-	ParentIndex []int
-
-	Child      *Resource
-	ChildIndex []int
-}
-
 // AddDependency adds a dependency between two resources. Both resources in the
 // reference must have been added to the graph.
 func (g *Graph) AddDependency(reference Reference) {
 	g.SetLine(&ref{
-		Line:      g.NewLine(reference.Parent, reference.Child),
+		Line:      g.NewLine(reference.Source.Resource, reference.Target.Resource),
 		Reference: reference,
 	})
 }
@@ -141,7 +125,7 @@ func (g *Graph) refs(parentID, childID int64) []Reference {
 
 func sortRefs(refs []Reference) {
 	key := func(r Reference) int64 {
-		return r.Parent.ID()<<8 + r.Child.ID()
+		return r.Source.Resource.ID()<<8 + r.Target.Resource.ID()
 	}
 	sort.Slice(refs, func(i, j int) bool {
 		return key(refs[i]) < key(refs[j])
