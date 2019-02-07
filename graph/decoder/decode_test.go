@@ -1,7 +1,6 @@
 package decoder_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/func/func/graph/decoder"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hcl/hclsyntax"
 )
@@ -20,37 +18,40 @@ func TestDecodeBody(t *testing.T) {
 		name  string
 		body  hcl.Body
 		ctx   *decoder.DecodeContext
-		check func(t *testing.T, g *graph.Graph)
+		want  graph.Snapshot
 		diags hcl.Diagnostics
 	}{
 		{
 			name: "Empty",
 			body: parseBody(t, ""),
 			ctx:  &decoder.DecodeContext{},
-			check: func(t *testing.T, g *graph.Graph) {
-				assertResources(t, g, nil)
-			},
+			want: graph.Snapshot{},
 		},
 		{
 			name: "Resource",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = "hello"
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			check: func(t *testing.T, g *graph.Graph) {
-				wantDef := []resource.Definition{
-					&fooRes{
-						Input: strptr("hello"),
-					},
-				}
-				assertResources(t, g, wantDef)
+			want: graph.Snapshot{
+				Projects: []config.Project{
+					{Name: "test"},
+				},
+				Resources: []resource.Definition{
+					&fooRes{Input: strptr("hello")},
+				},
+				ProjectResources: map[int][]int{
+					0: {0},
+				},
 			},
 		},
 		{
 			name: "ResourceSource",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					source ".tar.gz" {
 						sha = "abc"
@@ -60,144 +61,158 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			check: func(t *testing.T, g *graph.Graph) {
-				rr := g.Resources()
-				if len(rr) != 1 {
-					t.Fatalf("len(Resources) got = %d, want = %d", len(rr), 1)
-				}
-				for _, r := range rr {
-					got := g.Source(r)
-					want := []*graph.Source{{
-						SourceInfo: config.SourceInfo{
-							Ext: ".tar.gz",
-							SHA: "abc",
-							MD5: "def",
-							Len: 123,
-						},
-					}}
-					ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
-					if diff := cmp.Diff(got, want, ignoreNode); diff != "" {
-						t.Errorf("Source (-got, +want)\n%s", diff)
-					}
-				}
+			want: graph.Snapshot{
+				Projects: []config.Project{
+					{Name: "test"},
+				},
+				Resources: []resource.Definition{
+					&fooRes{},
+				},
+				Sources: []config.SourceInfo{
+					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
+				},
+				ProjectResources: map[int][]int{
+					0: {0},
+				},
+				ResourceSources: map[int][]int{
+					0: {0},
+				},
 			},
 		},
 		{
 			name: "RefInput",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = "hello"
 				}
-				resource "foo" "baz" {
+				resource "bar" "baz" {
 					input = foo.bar.input # copy value
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			check: func(t *testing.T, g *graph.Graph) {
-				wantDef := []resource.Definition{
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
+			want: graph.Snapshot{
+				Projects: []config.Project{
+					{Name: "test"},
+				},
+				Resources: []resource.Definition{
 					&fooRes{Input: strptr("hello")},
-					&fooRes{Input: strptr("hello")},
-				}
-				assertResources(t, g, wantDef)
+					&barRes{Input: strptr("hello")},
+				},
+				ProjectResources: map[int][]int{
+					0: {0, 1},
+				},
 			},
 		},
 		{
 			name: "RefOutput",
 			body: parseBody(t, `
-				resource "foo" "bar" {}
+				project "test" {}
+				resource "foo" "bar" {
+					input = "hello"
+				}
 				resource "bar" "foo" {
 					input = foo.bar.output
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
-			check: func(t *testing.T, g *graph.Graph) {
-				got := make(map[string][]graph.Reference)
-				for _, r := range g.Resources() {
-					name := fmt.Sprintf("%T", r.Definition)
-					got[name] = g.Dependencies(r)
-				}
-				want := map[string][]graph.Reference{
-					"*decoder_test.fooRes": {},
-					"*decoder_test.barRes": {
-						{
-							Source: graph.Field{Resource: &graph.Resource{Definition: &fooRes{}}, Index: []int{1}},
-							Target: graph.Field{Resource: &graph.Resource{Definition: &barRes{}}, Index: []int{0}},
-						},
-					},
-				}
-				ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
-				if diff := cmp.Diff(got, want, cmpopts.EquateEmpty(), ignoreNode); diff != "" {
-					t.Errorf("Dependencies do not match (-got, +want)\n%s", diff)
-				}
+			want: graph.Snapshot{
+				Projects: []config.Project{
+					{Name: "test"},
+				},
+				Resources: []resource.Definition{
+					&fooRes{Input: strptr("hello")},
+					&barRes{},
+				},
+				ProjectResources: map[int][]int{
+					0: {0, 1},
+				},
+				References: []graph.SnapshotRef{
+					{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
+				},
 			},
 		},
 		{
 			name: "ConvertType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = 3.14159 # convert to string
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			check: func(t *testing.T, g *graph.Graph) {
-				wantDef := []resource.Definition{
+			want: graph.Snapshot{
+				Projects: []config.Project{
+					{Name: "test"},
+				},
+				Resources: []resource.Definition{
 					&fooRes{Input: strptr("3.14159")},
-				}
-				assertResources(t, g, wantDef)
+				},
+				ProjectResources: map[int][]int{
+					0: {0},
+				},
 			},
 		},
 		{
 			name: "InvalidType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "baz" "baz" {
 					num = "this cannot be an int"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&barRes{}, &bazRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&bazRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
 				Detail:   "Unsuitable value: a number is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 13},
-					End:   hcl.Pos{Line: 2, Column: 34},
+					Start: hcl.Pos{Line: 3, Column: 13},
+					End:   hcl.Pos{Line: 3, Column: 34},
 				},
 				Context: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 12},
-					End:   hcl.Pos{Line: 2, Column: 35},
+					Start: hcl.Pos{Line: 3, Column: 12},
+					End:   hcl.Pos{Line: 3, Column: 35},
 				},
 			}},
 		},
 		{
 			name: "ResourceNotFound",
-			body: parseBody(t, `resource "foo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: &resource.Registry{}},
+			body: parseBody(t, `
+				project "test" {}
+				resource "foo" "bar" {}
+			`),
+			ctx: &decoder.DecodeContext{Resources: &resource.Registry{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 15},
+					Start: hcl.Pos{Line: 2, Column: 14},
+					End:   hcl.Pos{Line: 2, Column: 19},
 				},
 			}},
 		},
 		{
 			name: "SuggestResource",
-			body: parseBody(t, `resource "roo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			body: parseBody(t, `
+				project "test" {}
+				resource "roo" "bar" {}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
 				Detail:   "Did you mean \"foo\"?",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 15},
+					Start: hcl.Pos{Line: 2, Column: 14},
+					End:   hcl.Pos{Line: 2, Column: 19},
 				},
 			}},
 		},
 		{
 			name: "InvalidInputType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "bar" "a" {
 					input = "hello"    # string
 				}
@@ -210,8 +225,8 @@ func TestDecodeBody(t *testing.T) {
 				Severity: hcl.DiagError,
 				Summary:  "Cannot set num from string, number value is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 5, Column: 6},
-					End:   hcl.Pos{Line: 5, Column: 23},
+					Start: hcl.Pos{Line: 6, Column: 6},
+					End:   hcl.Pos{Line: 6, Column: 23},
 				},
 			}},
 		},
@@ -227,8 +242,13 @@ func TestDecodeBody(t *testing.T) {
 			if diff := cmp.Diff(diags, tt.diags, ignoreByte); diff != "" {
 				t.Errorf("DecodeBody() diagnostics (-got, +want)\n%s", diff)
 			}
-			if tt.check != nil {
-				tt.check(t, g)
+			if tt.diags.HasErrors() {
+				// Do not match snapshot if errors are expected.
+				return
+			}
+			snap := g.Snapshot()
+			if diff := snap.Diff(tt.want); diff != "" {
+				t.Errorf("Snapshot does not match (-got, +want)\n%s", diff)
 			}
 		})
 	}
@@ -264,18 +284,3 @@ type bazRes struct {
 func (r *bazRes) Type() string { return "baz" }
 
 func strptr(str string) *string { return &str }
-
-// assertResources checks that the given resources exist in the graph.
-//
-// The order of resources returned from the graph does not matter.
-func assertResources(t *testing.T, g *graph.Graph, want []resource.Definition) {
-	t.Helper()
-	rr := g.Resources()
-	got := make([]resource.Definition, len(rr))
-	for i, r := range rr {
-		got[i] = r.Definition
-	}
-	if diff := cmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
-		t.Errorf("resource.Resources (-got, +want)\n%s", diff)
-	}
-}
