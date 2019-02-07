@@ -34,6 +34,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "Resource",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = "hello"
 				}
@@ -51,6 +52,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "ResourceSource",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					source ".tar.gz" {
 						sha = "abc"
@@ -66,7 +68,7 @@ func TestDecodeBody(t *testing.T) {
 					t.Fatalf("len(Resources) got = %d, want = %d", len(rr), 1)
 				}
 				for _, r := range rr {
-					got := g.Source(r)
+					got := r.Sources()
 					want := []*graph.Source{{
 						SourceInfo: config.SourceInfo{
 							Ext: ".tar.gz",
@@ -75,8 +77,11 @@ func TestDecodeBody(t *testing.T) {
 							Len: 123,
 						},
 					}}
-					ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
-					if diff := cmp.Diff(got, want, ignoreNode); diff != "" {
+					opts := []cmp.Option{
+						cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore()),
+						cmpopts.IgnoreUnexported(graph.Source{}),
+					}
+					if diff := cmp.Diff(got, want, opts...); diff != "" {
 						t.Errorf("Source (-got, +want)\n%s", diff)
 					}
 				}
@@ -85,6 +90,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "RefInput",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = "hello"
 				}
@@ -104,6 +110,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "RefOutput",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {}
 				resource "bar" "foo" {
 					input = foo.bar.output
@@ -114,7 +121,7 @@ func TestDecodeBody(t *testing.T) {
 				got := make(map[string][]graph.Reference)
 				for _, r := range g.Resources() {
 					name := fmt.Sprintf("%T", r.Definition)
-					got[name] = g.Dependencies(r)
+					got[name] = r.Dependencies()
 				}
 				want := map[string][]graph.Reference{
 					"*decoder_test.fooRes": {},
@@ -125,8 +132,12 @@ func TestDecodeBody(t *testing.T) {
 						},
 					},
 				}
-				ignoreNode := cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore())
-				if diff := cmp.Diff(got, want, cmpopts.EquateEmpty(), ignoreNode); diff != "" {
+				opts := []cmp.Option{
+					cmpopts.EquateEmpty(),
+					cmp.FilterPath(func(p cmp.Path) bool { return p.Last().String() == ".Node" }, cmp.Ignore()),
+					cmpopts.IgnoreUnexported(graph.Resource{}),
+				}
+				if diff := cmp.Diff(got, want, opts...); diff != "" {
 					t.Errorf("Dependencies do not match (-got, +want)\n%s", diff)
 				}
 			},
@@ -134,6 +145,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "ConvertType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "foo" "bar" {
 					input = 3.14159 # convert to string
 				}
@@ -149,6 +161,7 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "InvalidType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "baz" "baz" {
 					num = "this cannot be an int"
 				}
@@ -159,45 +172,52 @@ func TestDecodeBody(t *testing.T) {
 				Summary:  "Unsuitable value type",
 				Detail:   "Unsuitable value: a number is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 13},
-					End:   hcl.Pos{Line: 2, Column: 34},
+					Start: hcl.Pos{Line: 3, Column: 13},
+					End:   hcl.Pos{Line: 3, Column: 34},
 				},
 				Context: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 12},
-					End:   hcl.Pos{Line: 2, Column: 35},
+					Start: hcl.Pos{Line: 3, Column: 12},
+					End:   hcl.Pos{Line: 3, Column: 35},
 				},
 			}},
 		},
 		{
 			name: "ResourceNotFound",
-			body: parseBody(t, `resource "foo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: &resource.Registry{}},
+			body: parseBody(t, `
+				project "test" {}
+				resource "foo" "bar" {}
+			`),
+			ctx: &decoder.DecodeContext{Resources: &resource.Registry{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 15},
+					Start: hcl.Pos{Line: 2, Column: 14},
+					End:   hcl.Pos{Line: 2, Column: 19},
 				},
 			}},
 		},
 		{
 			name: "SuggestResource",
-			body: parseBody(t, `resource "roo" "bar" {}`),
-			ctx:  &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			body: parseBody(t, `
+				project "test" {}
+				resource "roo" "bar" {}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
 				Detail:   "Did you mean \"foo\"?",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 15},
+					Start: hcl.Pos{Line: 2, Column: 14},
+					End:   hcl.Pos{Line: 2, Column: 19},
 				},
 			}},
 		},
 		{
 			name: "InvalidInputType",
 			body: parseBody(t, `
+				project "test" {}
 				resource "bar" "a" {
 					input = "hello"    # string
 				}
@@ -210,8 +230,8 @@ func TestDecodeBody(t *testing.T) {
 				Severity: hcl.DiagError,
 				Summary:  "Cannot set num from string, number value is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 5, Column: 6},
-					End:   hcl.Pos{Line: 5, Column: 23},
+					Start: hcl.Pos{Line: 6, Column: 6},
+					End:   hcl.Pos{Line: 6, Column: 23},
 				},
 			}},
 		},

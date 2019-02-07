@@ -63,8 +63,8 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		}
 		return nil, twerr
 	}
-	if proj := g.Project(); proj != nil {
-		logger = logger.With(zap.String("project", proj.Name))
+	if pp := g.Projects(); len(pp) > 0 {
+		logger = logger.With(zap.String("project", pp[0].Name))
 	}
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
 
