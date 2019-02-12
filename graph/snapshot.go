@@ -105,7 +105,7 @@ func (g *Graph) Snapshot() Snapshot {
 	srcIndex := make(map[*Source]int)
 	for _, n := range ss {
 		srcIndex[n] = len(s.Sources)
-		s.Sources = append(s.Sources, n.SourceInfo)
+		s.Sources = append(s.Sources, n.Config)
 	}
 
 	// Edges

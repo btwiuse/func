@@ -36,9 +36,9 @@ func (g *Graph) AddResource(res resource.Resource) *Resource {
 // added to the graph before adding source.
 func (g *Graph) AddSource(res *Resource, info config.SourceInfo) *Source {
 	node := &Source{
-		g:          g,
-		Node:       g.NewNode(),
-		SourceInfo: info,
+		g:      g,
+		Node:   g.NewNode(),
+		Config: info,
 	}
 	g.AddNode(node)
 	g.SetLine(g.NewLine(node, res))

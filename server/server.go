@@ -78,15 +78,15 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		sr := &api.SourceRequired{}
 		for _, src := range missing {
 			u, err := s.Source.NewUpload(source.UploadConfig{
-				Filename:      src.SHA + src.Ext,
-				ContentMD5:    src.MD5,
-				ContentLength: src.Len,
+				Filename:      src.Config.SHA + src.Config.Ext,
+				ContentMD5:    src.Config.MD5,
+				ContentLength: src.Config.Len,
 			})
 			if err != nil {
 				logger.Error("Could not create upload url", zap.Error(err))
 				return nil, twirp.NewError(twirp.Unavailable, "request upload")
 			}
-			sr.Uploads = append(sr.Uploads, &api.UploadRequest{Digest: src.SHA, Url: u.URL, Headers: u.Headers})
+			sr.Uploads = append(sr.Uploads, &api.UploadRequest{Digest: src.Config.SHA, Url: u.URL, Headers: u.Headers})
 		}
 		return &api.ApplyResponse{Response: &api.ApplyResponse_SourceRequest{SourceRequest: sr}}, nil
 	}
@@ -107,7 +107,7 @@ func (s *Server) missingSource(ctx context.Context, sources []*graph.Source) ([]
 	for _, src := range sources {
 		src := src
 		g.Go(func() error {
-			key := src.SHA + src.Ext
+			key := src.Config.SHA + src.Config.Ext
 			ok, err := s.Source.Has(ctx, key)
 			if err != nil {
 				return errors.Wrapf(err, "check %s", key)
@@ -131,7 +131,7 @@ type sources []*graph.Source
 func (ss sources) Hashes() []string {
 	list := make([]string, len(ss))
 	for i, s := range ss {
-		list[i] = s.SHA
+		list[i] = s.Config.SHA
 	}
 	return list
 }
