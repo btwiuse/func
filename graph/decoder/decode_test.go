@@ -41,8 +41,8 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
-				Resources: []resource.Definition{
-					&fooRes{Input: strptr("hello")},
+				Resources: []resource.Resource{
+					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -61,8 +61,8 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
-				Resources: []resource.Definition{
-					&fooRes{},
+				Resources: []resource.Resource{
+					{Name: "bar", Def: &fooRes{}},
 				},
 				Sources: []config.SourceInfo{
 					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
@@ -86,9 +86,9 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
 			wantSnap: graph.Snapshot{
-				Resources: []resource.Definition{
-					&fooRes{Input: strptr("hello")},
-					&barRes{Input: strptr("hello")},
+				Resources: []resource.Resource{
+					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
+					{Name: "baz", Def: &barRes{Input: strptr("hello")}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -106,9 +106,9 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
 			wantSnap: graph.Snapshot{
-				Resources: []resource.Definition{
-					&fooRes{Input: strptr("hello")},
-					&barRes{},
+				Resources: []resource.Resource{
+					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
+					{Name: "foo", Def: &barRes{}},
 				},
 				References: []graph.SnapshotRef{
 					{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
@@ -126,8 +126,8 @@ func TestDecodeBody(t *testing.T) {
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
-				Resources: []resource.Definition{
-					&fooRes{Input: strptr("3.14159")},
+				Resources: []resource.Resource{
+					{Name: "bar", Def: &fooRes{Input: strptr("3.14159")}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},

@@ -9,8 +9,8 @@ import (
 // A Resource is an instance of a resource definition added to the graph.
 type Resource struct {
 	graph.Node
-	g *Graph
-	resource.Definition
+	g      *Graph
+	Config resource.Resource
 }
 
 // Sources return all sources belonging to a resource.
@@ -58,8 +58,8 @@ func (n *Resource) Dependents() []Reference {
 // A Source node contains the source code for a resource.
 type Source struct {
 	graph.Node
-	g *Graph
-	config.SourceInfo
+	g      *Graph
+	Config config.SourceInfo
 }
 
 // Resource returns the resource the source belongs to.

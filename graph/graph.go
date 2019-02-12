@@ -22,27 +22,27 @@ func New() *Graph {
 }
 
 // AddResource adds a new resource definition to the graph.
-func (g *Graph) AddResource(def resource.Definition) *Resource {
-	res := &Resource{
-		g:          g,
-		Node:       g.NewNode(),
-		Definition: def,
+func (g *Graph) AddResource(res resource.Resource) *Resource {
+	node := &Resource{
+		g:      g,
+		Node:   g.NewNode(),
+		Config: res,
 	}
-	g.AddNode(res)
-	return res
+	g.AddNode(node)
+	return node
 }
 
 // AddSource adds a source input to a given resource. The resource must be
 // added to the graph before adding source.
 func (g *Graph) AddSource(res *Resource, info config.SourceInfo) *Source {
-	n := &Source{
-		g:          g,
-		Node:       g.NewNode(),
-		SourceInfo: info,
+	node := &Source{
+		g:      g,
+		Node:   g.NewNode(),
+		Config: info,
 	}
-	g.AddNode(n)
-	g.SetLine(g.NewLine(n, res))
-	return n
+	g.AddNode(node)
+	g.SetLine(g.NewLine(node, res))
+	return node
 }
 
 // AddDependency adds a dependency between two resources. Both resources in the

@@ -10,3 +10,9 @@ type Definition interface {
 	// configuration provided by the user.
 	Type() string
 }
+
+// A Resource is an instance of a resource supplied by the user.
+type Resource struct {
+	Name string     // Name used in resource config.
+	Def  Definition // Def is the resolved definition for resource, including user data.
+}

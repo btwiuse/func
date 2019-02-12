@@ -144,7 +144,10 @@ func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnosti
 	diags = append(diags, morediags...)
 
 	// create resource node
-	res := d.graph.AddResource(def)
+	res := d.graph.AddResource(resource.Resource{
+		Name: resname,
+		Def:  def,
+	})
 
 	// collect refs, we'll need to connect them later
 	for _, ref := range refs {
