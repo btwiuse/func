@@ -16,7 +16,7 @@ import (
 // of them in tests.
 type Snapshot struct {
 	// Nodes
-	Resources []resource.Definition
+	Resources []resource.Resource
 	Sources   []config.SourceInfo
 
 	// Edges
@@ -97,7 +97,7 @@ func (g *Graph) Snapshot() Snapshot {
 	resIndex := make(map[*Resource]int)
 	for _, n := range rr {
 		resIndex[n] = len(s.Resources)
-		s.Resources = append(s.Resources, n.Definition)
+		s.Resources = append(s.Resources, n.Config)
 	}
 
 	ss := g.Sources()

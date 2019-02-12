@@ -27,6 +27,6 @@ type Field struct {
 // Value returns the underlying value from the resource definition the Field
 // points to.
 func (f Field) Value() reflect.Value {
-	val := reflect.Indirect(reflect.ValueOf(f.Resource.Definition))
+	val := reflect.Indirect(reflect.ValueOf(f.Resource.Config.Def))
 	return val.FieldByIndex(f.Index)
 }

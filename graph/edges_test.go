@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/func/func/graph"
+	"github.com/func/func/resource"
 )
 
 func TestNoop(t *testing.T) {
@@ -12,13 +13,18 @@ func TestNoop(t *testing.T) {
 }
 
 func ExampleField_Value() {
-	res := &graph.Resource{Definition: SomeDefinition{
-		Str: "hello",
-		Int: 123,
-		Nested: Nested{
-			Str: "world",
+	res := &graph.Resource{
+		Config: resource.Resource{
+			Name: "foo",
+			Def: SomeDefinition{
+				Str: "hello",
+				Int: 123,
+				Nested: Nested{
+					Str: "world",
+				},
+			},
 		},
-	}}
+	}
 
 	f1 := graph.Field{Resource: res, Index: []int{0}}
 	f2 := graph.Field{Resource: res, Index: []int{1}}
