@@ -31,10 +31,10 @@ type DecodeContext struct {
 
 // DecodeBody decodes a given raw configuration into the target graph.
 //
-func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) hcl.Diagnostics {
+func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (config.Project, hcl.Diagnostics) {
 	cont, diags := body.Content(rootSchema)
 	if diags.HasErrors() {
-		return diags
+		return config.Project{}, diags
 	}
 
 	dec := &decode{
@@ -42,33 +42,36 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) hcl.Diag
 		outputs: makeOutputs(),
 	}
 
-	// For now, only one project is supported
-	// Decode project first, so resources can be added to it.
-	var project *graph.Project
+	var project config.Project
+	var hasProject bool
 	for _, b := range cont.Blocks {
 		if b.Type == "project" {
-			proj, dd := dec.addProject(b)
+			p, dd := decodeProject(b)
 			diags = append(diags, dd...)
-			if dd.HasErrors() {
-				return diags
-			}
-			project = proj
+			project = p
+			hasProject = true
 			break
 		}
 	}
 
-	// Project is guaranteed to be set here, as it is required in the
-	// rootSchema.
+	if !hasProject {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Missing project block",
+			Detail:   "A project block is required",
+			Subject:  body.MissingItemRange().Ptr(),
+		})
+	}
 
 	for _, b := range cont.Blocks {
 		if b.Type == "resource" {
-			diags = append(diags, dec.addResource(b, project, ctx)...)
+			diags = append(diags, dec.addResource(b, ctx)...)
 		}
 	}
 
 	diags = append(diags, dec.connectRefs()...)
 
-	return diags
+	return project, diags
 }
 
 // decode is a single decoding job
@@ -87,19 +90,20 @@ func (p *pendingRef) fieldVal() interface{} {
 	return p.ref.val.Field(p.ref.field.Index).Addr().Interface()
 }
 
-func (d *decode) addProject(block *hcl.Block) (*graph.Project, hcl.Diagnostics) {
-	name := block.Labels[0]
-	if name == "" {
-		return nil, hcl.Diagnostics{{
+func decodeProject(block *hcl.Block) (config.Project, hcl.Diagnostics) {
+	var proj config.Project
+	diags := gohcl.DecodeBody(block.Body, nil, &proj)
+	proj.Name = block.Labels[0]
+	if proj.Name == "" {
+		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Project name not set",
-			Subject:  block.DefRange.Ptr(),
-		}}
+			Detail:   "A project name is required",
+			Subject:  block.LabelRanges[0].Ptr(),
+			Context:  block.DefRange.Ptr(),
+		})
 	}
-	proj := d.graph.AddProject(config.Project{
-		Name: name,
-	})
-	return proj, nil
+	return proj, diags
 }
 
 type output struct {
@@ -109,7 +113,7 @@ type output struct {
 
 var outputType = cty.Capsule("output", reflect.TypeOf(output{}))
 
-func (d *decode) addResource(block *hcl.Block, project *graph.Project, ctx *DecodeContext) hcl.Diagnostics {
+func (d *decode) addResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnostics {
 	typename := block.Labels[0]
 	resname := block.Labels[1]
 
@@ -140,7 +144,7 @@ func (d *decode) addResource(block *hcl.Block, project *graph.Project, ctx *Deco
 	diags = append(diags, morediags...)
 
 	// create resource node
-	res := d.graph.AddResource(project, def)
+	res := d.graph.AddResource(def)
 
 	// collect refs, we'll need to connect them later
 	for _, ref := range refs {

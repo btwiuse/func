@@ -21,27 +21,14 @@ func New() *Graph {
 	}
 }
 
-// AddProject adds a project node.
-func (g *Graph) AddProject(project config.Project) *Project {
-	node := &Project{
-		g:       g,
-		Node:    g.NewNode(),
-		Project: project,
-	}
-	g.AddNode(node)
-	return node
-}
-
-// AddResource adds a new resource definition to the given project. The project
-// must be added to the graph before adding the resource.
-func (g *Graph) AddResource(project *Project, def resource.Definition) *Resource {
+// AddResource adds a new resource definition to the graph.
+func (g *Graph) AddResource(def resource.Definition) *Resource {
 	res := &Resource{
 		g:          g,
 		Node:       g.NewNode(),
 		Definition: def,
 	}
 	g.AddNode(res)
-	g.SetLine(g.NewLine(project, res))
 	return res
 }
 
@@ -65,20 +52,6 @@ func (g *Graph) AddDependency(reference Reference) {
 		Line:      g.NewLine(reference.Source.Resource, reference.Target.Resource),
 		Reference: reference,
 	})
-}
-
-// Projects returns all projects in the graph.
-//
-// The order of the results is not deterministic.
-func (g *Graph) Projects() []*Project {
-	var list []*Project
-	it := g.Nodes()
-	for it.Next() {
-		if x, ok := it.Node().(*Project); ok {
-			list = append(list, x)
-		}
-	}
-	return list
 }
 
 // Resources returns all resources in the graph.

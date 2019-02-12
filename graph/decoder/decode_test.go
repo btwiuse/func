@@ -15,17 +15,21 @@ import (
 
 func TestDecodeBody(t *testing.T) {
 	tests := []struct {
-		name  string
-		body  hcl.Body
-		ctx   *decoder.DecodeContext
-		want  graph.Snapshot
-		diags hcl.Diagnostics
+		name     string
+		body     hcl.Body
+		ctx      *decoder.DecodeContext
+		wantSnap graph.Snapshot
+		wantProj config.Project
+		diags    hcl.Diagnostics
 	}{
 		{
 			name: "Empty",
-			body: parseBody(t, ""),
-			ctx:  &decoder.DecodeContext{},
-			want: graph.Snapshot{},
+			body: parseBody(t, `
+				project "test" {}
+			`),
+			ctx:      &decoder.DecodeContext{},
+			wantSnap: graph.Snapshot{},
+			wantProj: config.Project{Name: "test"},
 		},
 		{
 			name: "Resource",
@@ -36,17 +40,12 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			want: graph.Snapshot{
-				Projects: []config.Project{
-					{Name: "test"},
-				},
+			wantSnap: graph.Snapshot{
 				Resources: []resource.Definition{
 					&fooRes{Input: strptr("hello")},
 				},
-				ProjectResources: map[int][]int{
-					0: {0},
-				},
 			},
+			wantProj: config.Project{Name: "test"},
 		},
 		{
 			name: "ResourceSource",
@@ -61,23 +60,18 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			want: graph.Snapshot{
-				Projects: []config.Project{
-					{Name: "test"},
-				},
+			wantSnap: graph.Snapshot{
 				Resources: []resource.Definition{
 					&fooRes{},
 				},
 				Sources: []config.SourceInfo{
 					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
 				},
-				ProjectResources: map[int][]int{
-					0: {0},
-				},
 				ResourceSources: map[int][]int{
 					0: {0},
 				},
 			},
+			wantProj: config.Project{Name: "test"},
 		},
 		{
 			name: "RefInput",
@@ -91,18 +85,13 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
-			want: graph.Snapshot{
-				Projects: []config.Project{
-					{Name: "test"},
-				},
+			wantSnap: graph.Snapshot{
 				Resources: []resource.Definition{
 					&fooRes{Input: strptr("hello")},
 					&barRes{Input: strptr("hello")},
 				},
-				ProjectResources: map[int][]int{
-					0: {0, 1},
-				},
 			},
+			wantProj: config.Project{Name: "test"},
 		},
 		{
 			name: "RefOutput",
@@ -116,21 +105,16 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
-			want: graph.Snapshot{
-				Projects: []config.Project{
-					{Name: "test"},
-				},
+			wantSnap: graph.Snapshot{
 				Resources: []resource.Definition{
 					&fooRes{Input: strptr("hello")},
 					&barRes{},
-				},
-				ProjectResources: map[int][]int{
-					0: {0, 1},
 				},
 				References: []graph.SnapshotRef{
 					{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
 				},
 			},
+			wantProj: config.Project{Name: "test"},
 		},
 		{
 			name: "ConvertType",
@@ -141,17 +125,50 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
-			want: graph.Snapshot{
-				Projects: []config.Project{
-					{Name: "test"},
-				},
+			wantSnap: graph.Snapshot{
 				Resources: []resource.Definition{
 					&fooRes{Input: strptr("3.14159")},
 				},
-				ProjectResources: map[int][]int{
-					0: {0},
-				},
 			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "NoProject",
+			body: parseBody(t, `
+				resource "foo" "bar" {
+					input = "hello"
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Missing project block",
+				Detail:   "A project block is required",
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 3, Column: 6},
+					End:   hcl.Pos{Line: 3, Column: 6},
+				},
+			}},
+		},
+		{
+			name: "NoProjectName",
+			body: parseBody(t, `
+				project "" {}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Project name not set",
+				Detail:   "A project name is required",
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 1, Column: 9},
+					End:   hcl.Pos{Line: 1, Column: 11},
+				},
+				Context: &hcl.Range{
+					Start: hcl.Pos{Line: 1, Column: 1},
+					End:   hcl.Pos{Line: 1, Column: 11},
+				},
+			}},
 		},
 		{
 			name: "InvalidType",
@@ -234,7 +251,7 @@ func TestDecodeBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := graph.New()
-			diags := decoder.DecodeBody(tt.body, tt.ctx, g)
+			proj, diags := decoder.DecodeBody(tt.body, tt.ctx, g)
 			ignoreByte := cmp.Transformer("ignoreByteOffset", func(pos hcl.Pos) hcl.Pos {
 				pos.Byte = 0
 				return pos
@@ -247,8 +264,11 @@ func TestDecodeBody(t *testing.T) {
 				return
 			}
 			snap := g.Snapshot()
-			if diff := snap.Diff(tt.want); diff != "" {
+			if diff := snap.Diff(tt.wantSnap); diff != "" {
 				t.Errorf("Snapshot does not match (-got, +want)\n%s", diff)
+			}
+			if diff := cmp.Diff(proj, tt.wantProj); diff != "" {
+				t.Errorf("Project does not match (-got, +want)\n%s", diff)
 			}
 		})
 	}

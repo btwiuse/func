@@ -16,14 +16,12 @@ import (
 // of them in tests.
 type Snapshot struct {
 	// Nodes
-	Projects  []config.Project
 	Resources []resource.Definition
 	Sources   []config.SourceInfo
 
 	// Edges
-	ProjectResources map[int][]int // Project index  -> Resource indices.
-	ResourceSources  map[int][]int // Resource index -> Source indices.
-	References       []SnapshotRef // Dependencies between resources.
+	ResourceSources map[int][]int // Resource index -> Source indices.
+	References      []SnapshotRef // Dependencies between resources.
 }
 
 // A SnapshotRef is a reference in a snapshot.
@@ -39,24 +37,11 @@ type SnapshotRef struct {
 func FromSnapshot(s Snapshot) (*Graph, error) {
 	g := New()
 
-	projLookup := make(map[int]*Project)
 	resLookup := make(map[int]*Resource)
 	srcLookup := make(map[int]*Source)
 
-	for i, data := range s.Projects {
-		proj := g.AddProject(data)
-		projLookup[i] = proj
-	}
 	for i, data := range s.Resources {
-		projIndex := findParent(i, s.ProjectResources)
-		if projIndex < 0 {
-			return nil, errors.Errorf("add resource %d: no project set", i)
-		}
-		proj, ok := projLookup[projIndex]
-		if !ok {
-			return nil, errors.Errorf("add resource %d to project %d: no such project", i, projIndex)
-		}
-		res := g.AddResource(proj, data)
+		res := g.AddResource(data)
 		resLookup[i] = res
 	}
 	for i, data := range s.Sources {
@@ -103,19 +88,10 @@ func findParent(want int, edges map[int][]int) int {
 // Snapshot takes are snapshot of the graph.
 func (g *Graph) Snapshot() Snapshot {
 	s := Snapshot{
-		ProjectResources: make(map[int][]int),
-		ResourceSources:  make(map[int][]int),
+		ResourceSources: make(map[int][]int),
 	}
 
 	// Nodes
-	pp := g.Projects()
-	sort.Slice(pp, func(i, j int) bool { return pp[i].ID() < pp[j].ID() })
-	projIndex := make(map[*Project]int)
-	for _, n := range pp {
-		projIndex[n] = len(s.Projects)
-		s.Projects = append(s.Projects, n.Project)
-	}
-
 	rr := g.Resources()
 	sort.Slice(rr, func(i, j int) bool { return rr[i].ID() < rr[j].ID() })
 	resIndex := make(map[*Resource]int)
@@ -133,33 +109,26 @@ func (g *Graph) Snapshot() Snapshot {
 	}
 
 	// Edges
-	for _, proj := range g.Projects() {
-		pi := projIndex[proj]
-		for _, res := range proj.Resources() {
-			ri := resIndex[res]
-			s.ProjectResources[pi] = append(s.ProjectResources[pi], ri)
+	for _, res := range g.Resources() {
+		ri := resIndex[res]
 
-			for _, src := range res.Sources() {
-				si := srcIndex[src]
-				s.ResourceSources[ri] = append(s.ResourceSources[ri], si)
-			}
+		for _, src := range res.Sources() {
+			si := srcIndex[src]
+			s.ResourceSources[ri] = append(s.ResourceSources[ri], si)
+		}
 
-			for _, dep := range res.Dependencies() {
-				di := resIndex[dep.Source.Resource]
-				s.References = append(s.References, SnapshotRef{
-					Source:      di,
-					Target:      ri,
-					SourceIndex: dep.Source.Index,
-					TargetIndex: dep.Target.Index,
-				})
-			}
+		for _, dep := range res.Dependencies() {
+			di := resIndex[dep.Source.Resource]
+			s.References = append(s.References, SnapshotRef{
+				Source:      di,
+				Target:      ri,
+				SourceIndex: dep.Source.Index,
+				TargetIndex: dep.Target.Index,
+			})
 		}
 	}
 
 	// Sort edges
-	for _, list := range s.ProjectResources {
-		sort.Ints(list)
-	}
 	for _, list := range s.ResourceSources {
 		sort.Ints(list)
 	}

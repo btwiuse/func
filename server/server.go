@@ -54,7 +54,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 	// Resolve graph and validate resource input
 	g := graph.New()
 	decCtx := &decoder.DecodeContext{Resources: s.Resources}
-	diags := decoder.DecodeBody(&body, decCtx, g)
+	proj, diags := decoder.DecodeBody(&body, decCtx, g)
 	if diags.HasErrors() {
 		logger.Info("Could not resolve graph", zap.Errors("diagnostics", diags.Errs()))
 		twerr := twirp.NewError(twirp.InvalidArgument, "Could not resolve graph")
@@ -63,9 +63,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		}
 		return nil, twerr
 	}
-	if pp := g.Projects(); len(pp) > 0 {
-		logger = logger.With(zap.String("project", pp[0].Name))
-	}
+	logger = logger.With(zap.String("project", proj.Name))
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
 
 	// Check missing source files

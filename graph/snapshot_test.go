@@ -15,10 +15,6 @@ import (
 func TestSnapshot_roundtrip(t *testing.T) {
 	start := graph.Snapshot{
 		// Nodes
-		Projects: []config.Project{
-			{Name: "a"},
-			{Name: "b"},
-		},
 		Resources: []resource.Definition{
 			&mockResource{Value: "foo"},
 			&mockResource{Value: "bar"},
@@ -29,10 +25,6 @@ func TestSnapshot_roundtrip(t *testing.T) {
 		},
 
 		// Edges
-		ProjectResources: map[int][]int{
-			0: {0, 1},
-			1: {2},
-		},
 		ResourceSources: map[int][]int{
 			0: {0},
 		},
@@ -65,24 +57,6 @@ func TestFromSnapshot_errors(t *testing.T) {
 		snap graph.Snapshot
 	}{
 		{
-			"NoProject",
-			graph.Snapshot{
-				Projects:  nil,
-				Resources: []resource.Definition{&mockResource{Value: "foo"}},
-				ProjectResources: map[int][]int{
-					0: {0}, // No project at index 0
-				},
-			},
-		},
-		{
-			"NoResourceOwner",
-			graph.Snapshot{
-				Projects:         []config.Project{{Name: "test"}},
-				Resources:        []resource.Definition{&mockResource{Value: "foo"}},
-				ProjectResources: map[int][]int{}, // empty
-			},
-		},
-		{
 			"NoResource",
 			graph.Snapshot{
 				Resources: nil,
@@ -95,21 +69,17 @@ func TestFromSnapshot_errors(t *testing.T) {
 		{
 			"NoSourceOwner",
 			graph.Snapshot{
-				Projects:         []config.Project{{Name: "test"}},
-				Resources:        []resource.Definition{&mockResource{Value: "foo"}},
-				Sources:          []config.SourceInfo{{SHA: "123"}},
-				ProjectResources: map[int][]int{0: {0}},
-				ResourceSources:  map[int][]int{}, // empty
+				Resources:       []resource.Definition{&mockResource{Value: "foo"}},
+				Sources:         []config.SourceInfo{{SHA: "123"}},
+				ResourceSources: map[int][]int{}, // empty
 			},
 		},
 		{
 			"NoResourceSource",
 			graph.Snapshot{
-				Projects: []config.Project{{Name: "test"}},
 				Resources: []resource.Definition{
 					&mockResource{Value: "foo"},
 				},
-				ProjectResources: map[int][]int{0: {0}},
 				References: []graph.SnapshotRef{
 					{Source: 1, Target: 0, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Source
 				},
@@ -118,11 +88,9 @@ func TestFromSnapshot_errors(t *testing.T) {
 		{
 			"NoResourceTarget",
 			graph.Snapshot{
-				Projects: []config.Project{{Name: "test"}},
 				Resources: []resource.Definition{
 					&mockResource{Value: "foo"},
 				},
-				ProjectResources: map[int][]int{0: {0}},
 				References: []graph.SnapshotRef{
 					{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Target
 				},
@@ -152,9 +120,6 @@ func ExampleFromSnapshot() {
 
 	snap := graph.Snapshot{
 		// Nodes
-		Projects: []config.Project{
-			{Name: "proj"},
-		},
 		Resources: []resource.Definition{
 			&mockResource{Value: "foo"},
 			&mockResource{Value: "bar"},
@@ -164,9 +129,6 @@ func ExampleFromSnapshot() {
 		},
 
 		// Edges
-		ProjectResources: map[int][]int{
-			0: {0, 1}, // proj -> {foo, bar}
-		},
 		ResourceSources: map[int][]int{
 			0: {0}, // 123 -> foo
 		},
@@ -190,9 +152,6 @@ func ExampleFromSnapshot() {
 
 func ExampleSnapshot_Diff() {
 	snap1 := graph.Snapshot{
-		Projects: []config.Project{
-			{Name: "proj"},
-		},
 		Resources: []resource.Definition{
 			&mockResource{Value: "foo"},
 			&mockResource{Value: "bar"},
@@ -203,9 +162,6 @@ func ExampleSnapshot_Diff() {
 	}
 
 	snap2 := graph.Snapshot{
-		Projects: []config.Project{
-			{Name: "project"},
-		},
 		Resources: []resource.Definition{
 			&mockResource{Value: "foo"},
 		},
@@ -216,9 +172,6 @@ func ExampleSnapshot_Diff() {
 
 	fmt.Println(snap1.Diff(snap2))
 	// Output:
-	// {graph.Snapshot}.Projects[0].Name:
-	// 	-: "proj"
-	// 	+: "project"
 	// {graph.Snapshot}.Resources[1->?]:
 	// 	-: &graph_test.mockResource{Value: "bar"}
 	// 	+: <non-existent>

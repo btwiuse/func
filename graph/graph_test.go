@@ -9,24 +9,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func TestGraph_AddProject(t *testing.T) {
-	g := graph.New()
-	proj := g.AddProject(config.Project{Name: "test"})
-
-	got := g.Projects()
-	want := []*graph.Project{proj}
-	opts := []cmp.Option{
-		cmpopts.IgnoreUnexported(graph.Project{}),
-	}
-	if diff := cmp.Diff(got, want, opts...); diff != "" {
-		t.Errorf("Diff() (-got, +want)\n%s", diff)
-	}
-}
-
 func TestGraph_AddResource(t *testing.T) {
 	g := graph.New()
-	proj := g.AddProject(config.Project{Name: "test"})
-	res := g.AddResource(proj, &mockRes{Value: "foo"})
+	res := g.AddResource(&mockRes{Value: "foo"})
 
 	got := g.Resources()
 	want := []*graph.Resource{res}
@@ -40,8 +25,7 @@ func TestGraph_AddResource(t *testing.T) {
 
 func TestGraph_AddSource(t *testing.T) {
 	g := graph.New()
-	proj := g.AddProject(config.Project{Name: "test"})
-	res := g.AddResource(proj, &mockRes{Value: "foo"})
+	res := g.AddResource(&mockRes{Value: "foo"})
 	src := g.AddSource(res, config.SourceInfo{SHA: "123"})
 
 	got := g.Sources()
@@ -56,9 +40,8 @@ func TestGraph_AddSource(t *testing.T) {
 
 func TestGraph_AddDependency(t *testing.T) {
 	g := graph.New()
-	proj := g.AddProject(config.Project{Name: "test"})
-	res1 := g.AddResource(proj, &mockRes{Value: "foo"})
-	res2 := g.AddResource(proj, &mockRes{Value: "bar"})
+	res1 := g.AddResource(&mockRes{Value: "foo"})
+	res2 := g.AddResource(&mockRes{Value: "bar"})
 	ref := graph.Reference{
 		Source: graph.Field{Resource: res1, Index: []int{0}},
 		Target: graph.Field{Resource: res2, Index: []int{0}},
@@ -97,21 +80,8 @@ func TestGraph_AddDependency(t *testing.T) {
 
 func TestGraph_reverse(t *testing.T) {
 	g := graph.New()
-	proj := g.AddProject(config.Project{Name: "test"})
-	res := g.AddResource(proj, &mockRes{Value: "foo"})
+	res := g.AddResource(&mockRes{Value: "foo"})
 	g.AddSource(res, config.SourceInfo{SHA: "abc"})
-
-	// Traverse to resource, then back to project
-	projResources := proj.Resources()
-	if len(projResources) != 1 {
-		t.Fatalf("project resources = %v, want = %v", len(projResources), 1)
-	}
-	for _, r := range proj.Resources() {
-		got := r.Project()
-		if got != proj {
-			t.Errorf("resource.Project() = %v, want = %v", got, proj)
-		}
-	}
 
 	// Traverse to source, then back to resource
 	resSources := res.Sources()

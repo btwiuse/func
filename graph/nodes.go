@@ -6,41 +6,11 @@ import (
 	"gonum.org/v1/gonum/graph"
 )
 
-// A Project is a project node in the graph.
-type Project struct {
-	graph.Node
-	g *Graph
-	config.Project
-}
-
-// Resources returns all resources that belong to a project.
-func (n *Project) Resources() []*Resource {
-	var ret []*Resource
-	for _, l := range n.g.linesFrom(n) {
-		if r, ok := l.To().(*Resource); ok {
-			ret = append(ret, r)
-		}
-	}
-	return ret
-}
-
 // A Resource is an instance of a resource definition added to the graph.
 type Resource struct {
 	graph.Node
 	g *Graph
 	resource.Definition
-}
-
-// Project returns the resource's project.
-func (n *Resource) Project() *Project {
-	for _, l := range n.g.linesTo(n) {
-		if p, ok := l.From().(*Project); ok {
-			return p
-		}
-	}
-	// In practice this should not happen, a resource node cannot exist in the
-	// graph without being attached to a project.
-	return nil
 }
 
 // Sources return all sources belonging to a resource.
