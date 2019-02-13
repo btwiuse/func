@@ -39,10 +39,10 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: "hello"}},
+					{Name: "bar", Def: &fooDef{Input: "hello"}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -60,10 +60,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: "hello"}},
+					{Name: "bar", Def: &fooDef{Input: "hello"}},
 				},
 				Sources: []config.SourceInfo{
 					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
@@ -85,11 +85,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.input # copy value
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{}, &barDef{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: "hello"}},
-					{Name: "baz", Def: &barRes{Input: strptr("hello")}},
+					{Name: "bar", Def: &fooDef{Input: "hello"}},
+					{Name: "baz", Def: &barDef{Input: strptr("hello")}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -105,11 +105,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.bar.output
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{}, &barDef{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: "hello"}},
-					{Name: "foo", Def: &barRes{}},
+					{Name: "bar", Def: &fooDef{Input: "hello"}},
+					{Name: "foo", Def: &barDef{}},
 				},
 				References: []graph.SnapshotRef{
 					{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
@@ -125,10 +125,10 @@ func TestDecodeBody(t *testing.T) {
 					input = 3.14159 # convert to string
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: "3.14159"}},
+					{Name: "bar", Def: &fooDef{Input: "3.14159"}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -140,7 +140,7 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing project block",
@@ -156,7 +156,7 @@ func TestDecodeBody(t *testing.T) {
 			body: parseBody(t, `
 				project "" {}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Project name not set",
@@ -179,7 +179,7 @@ func TestDecodeBody(t *testing.T) {
 					num = "this cannot be an int"
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&bazRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&bazDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -216,7 +216,7 @@ func TestDecodeBody(t *testing.T) {
 				project "test" {}
 				resource "roo" "bar" {}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -238,7 +238,7 @@ func TestDecodeBody(t *testing.T) {
 					num = bar.a.input # int
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&barRes{}, &bazRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&barDef{}, &bazDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Cannot set num from string, number value is required",
@@ -256,7 +256,7 @@ func TestDecodeBody(t *testing.T) {
 					# input not set
 				}
 			`),
-			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -304,23 +304,23 @@ func parseBody(t *testing.T, src string) hcl.Body {
 	return file.Body
 }
 
-type fooRes struct {
+type fooDef struct {
 	Input  string `input:"input"`
 	Output string `output:"output"`
 }
 
-func (r *fooRes) Type() string { return "foo" }
+func (r *fooDef) Type() string { return "foo" }
 
-type barRes struct {
+type barDef struct {
 	Input *string `input:"input"`
 }
 
-func (r *barRes) Type() string { return "bar" }
+func (r *barDef) Type() string { return "bar" }
 
-type bazRes struct {
+type bazDef struct {
 	Num int `input:"num"`
 }
 
-func (r *bazRes) Type() string { return "baz" }
+func (r *bazDef) Type() string { return "baz" }
 
 func strptr(str string) *string { return &str }
