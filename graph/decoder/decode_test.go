@@ -42,7 +42,7 @@ func TestDecodeBody(t *testing.T) {
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
+					{Name: "bar", Def: &fooRes{Input: "hello"}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -52,6 +52,7 @@ func TestDecodeBody(t *testing.T) {
 			body: parseBody(t, `
 				project "test" {}
 				resource "foo" "bar" {
+					input = "hello"
 					source ".tar.gz" {
 						sha = "abc"
 						md5 = "def"
@@ -62,7 +63,7 @@ func TestDecodeBody(t *testing.T) {
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{}},
+					{Name: "bar", Def: &fooRes{Input: "hello"}},
 				},
 				Sources: []config.SourceInfo{
 					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
@@ -87,7 +88,7 @@ func TestDecodeBody(t *testing.T) {
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
+					{Name: "bar", Def: &fooRes{Input: "hello"}},
 					{Name: "baz", Def: &barRes{Input: strptr("hello")}},
 				},
 			},
@@ -107,7 +108,7 @@ func TestDecodeBody(t *testing.T) {
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{}, &barRes{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: strptr("hello")}},
+					{Name: "bar", Def: &fooRes{Input: "hello"}},
 					{Name: "foo", Def: &barRes{}},
 				},
 				References: []graph.SnapshotRef{
@@ -127,7 +128,7 @@ func TestDecodeBody(t *testing.T) {
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
 			wantSnap: graph.Snapshot{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &fooRes{Input: strptr("3.14159")}},
+					{Name: "bar", Def: &fooRes{Input: "3.14159"}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -247,6 +248,25 @@ func TestDecodeBody(t *testing.T) {
 				},
 			}},
 		},
+		{
+			name: "MissingRequiredArg",
+			body: parseBody(t, `
+				project "test" {}
+				resource "foo" "a" {
+					# input not set
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooRes{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Missing required argument",
+				Detail:   `The argument "input" is required, but no definition was found.`,
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 4, Column: 6},
+					End:   hcl.Pos{Line: 4, Column: 6},
+				},
+			}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -285,8 +305,8 @@ func parseBody(t *testing.T, src string) hcl.Body {
 }
 
 type fooRes struct {
-	Input  *string `input:"input"`
-	Output string  `output:"output"`
+	Input  string `input:"input"`
+	Output string `output:"output"`
 }
 
 func (r *fooRes) Type() string { return "foo" }
