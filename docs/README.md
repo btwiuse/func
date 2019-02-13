@@ -1,0 +1,3 @@
+# Docs
+
+- [Installation](installation.md)
