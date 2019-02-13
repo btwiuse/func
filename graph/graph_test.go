@@ -12,7 +12,7 @@ import (
 
 func TestGraph_AddResource(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockRes{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
 
 	got := g.Resources()
 	want := []*graph.Resource{res}
@@ -26,7 +26,7 @@ func TestGraph_AddResource(t *testing.T) {
 
 func TestGraph_AddSource(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockRes{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
 	src := g.AddSource(res, config.SourceInfo{SHA: "123"})
 
 	got := g.Sources()
@@ -41,8 +41,8 @@ func TestGraph_AddSource(t *testing.T) {
 
 func TestGraph_AddDependency(t *testing.T) {
 	g := graph.New()
-	res1 := g.AddResource(resource.Resource{Name: "foo", Def: &mockRes{Value: "foo"}})
-	res2 := g.AddResource(resource.Resource{Name: "bar", Def: &mockRes{Value: "bar"}})
+	res1 := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
+	res2 := g.AddResource(resource.Resource{Name: "bar", Def: &mockDef{Value: "bar"}})
 	ref := graph.Reference{
 		Source: graph.Field{Resource: res1, Index: []int{0}},
 		Target: graph.Field{Resource: res2, Index: []int{0}},
@@ -81,7 +81,7 @@ func TestGraph_AddDependency(t *testing.T) {
 
 func TestGraph_reverse(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockRes{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
 	g.AddSource(res, config.SourceInfo{SHA: "abc"})
 
 	// Traverse to source, then back to resource
@@ -96,9 +96,3 @@ func TestGraph_reverse(t *testing.T) {
 		}
 	}
 }
-
-type mockRes struct {
-	Value string
-}
-
-func (mockRes) Type() string { return "mock" }
