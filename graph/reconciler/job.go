@@ -84,8 +84,13 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 		for _, ref := range res.Dependents() {
 			updateRef(ref)
 		}
+
+		// Note: It is important to close _after_ updating refs as closing the
+		// channel allows the flow to continue, which could cause a race
+		// condition when the resource is being hashed (read) while refs being
+		// updated (written).
+		close(errc)
 	}()
-	defer close(errc)
 
 	hash := resource.Hash(res.Config.Def)
 
