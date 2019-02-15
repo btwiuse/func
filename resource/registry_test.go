@@ -70,7 +70,7 @@ func TestRegistry_Marshal(t *testing.T) {
 	foo := &res{Typename: "foo"}
 	r.Register(foo)
 
-	b, err := resource.Marshal(foo)
+	b, err := r.Marshal(foo)
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
