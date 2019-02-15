@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	"github.com/func/func/api"
@@ -18,7 +17,6 @@ import (
 	"github.com/twitchtv/twirp"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gonum.org/v1/gonum/graph/encoding/dot"
 )
 
 // A GraphDecoder is used for decoding the config body to a graph.
@@ -98,13 +96,18 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		return &api.ApplyResponse{Response: &api.ApplyResponse_SourceRequest{SourceRequest: sr}}, nil
 	}
 
-	dot, err := dot.MarshalMulti(g, "Graph", "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(dot))
+	// dot, err := dot.MarshalMulti(g, "Graph", "", "\t")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(dot))
 
-	return nil, twirp.NewError(twirp.Unimplemented, "unimplemented")
+	if err := s.Reconciler.Reconcile(ctx, req.GetNamespace(), proj, g); err != nil {
+		logger.Error("Could not reconcile graph", zap.Error(err))
+		return nil, twirp.NewError(twirp.Unavailable, "reconcile graph")
+	}
+
+	return &api.ApplyResponse{}, nil
 }
 
 func (s *Server) missingSource(ctx context.Context, sources []*graph.Source) ([]*graph.Source, error) {
