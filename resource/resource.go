@@ -1,6 +1,11 @@
 package resource
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+)
 
 // A Definition describes a resource.
 //
@@ -11,6 +16,10 @@ type Definition interface {
 	// The name will be used for matching the resource to the resource
 	// configuration provided by the user.
 	Type() string
+
+	Create(ctx context.Context, req *Request) error
+	Update(ctx context.Context, req *Request, previous interface{}) error
+	Delete(ctx context.Context) error
 }
 
 // A Resource is an instance of a resource supplied by the user.
@@ -30,3 +39,14 @@ type Dependency struct {
 }
 
 func (d Dependency) String() string { return fmt.Sprintf("\"%s:%s\"", d.Type, d.Name) }
+
+// An AuthProvider provides authentication information for provisioning a
+// resource.
+type AuthProvider interface {
+	AWS() (aws.CredentialsProvider, error)
+}
+
+// Request contains the request context when provisioning resources.
+type Request struct {
+	Auth AuthProvider
+}
