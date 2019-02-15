@@ -112,7 +112,7 @@ func TestDecodeBody(t *testing.T) {
 					{Name: "foo", Def: &barDef{}},
 				},
 				References: []graph.SnapshotRef{
-					{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
+					{Source: 0, Target: 1, SourceIndex: []int{2}, TargetIndex: []int{1}},
 				},
 			},
 			wantProj: config.Project{Name: "test"},
@@ -305,6 +305,7 @@ func parseBody(t *testing.T, src string) hcl.Body {
 }
 
 type fooDef struct {
+	resource.Definition
 	Input  string `input:"input"`
 	Output string `output:"output"`
 }
@@ -312,12 +313,14 @@ type fooDef struct {
 func (r *fooDef) Type() string { return "foo" }
 
 type barDef struct {
+	resource.Definition
 	Input *string `input:"input"`
 }
 
 func (r *barDef) Type() string { return "bar" }
 
 type bazDef struct {
+	resource.Definition
 	Num int `input:"num"`
 }
 

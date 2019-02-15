@@ -26,9 +26,9 @@ func ExampleField_Value() {
 		},
 	}
 
-	f1 := graph.Field{Resource: res, Index: []int{0}}
-	f2 := graph.Field{Resource: res, Index: []int{1}}
-	f3 := graph.Field{Resource: res, Index: []int{2, 0}}
+	f1 := graph.Field{Resource: res, Index: []int{1}}
+	f2 := graph.Field{Resource: res, Index: []int{2}}
+	f3 := graph.Field{Resource: res, Index: []int{3, 0}}
 
 	fmt.Println(f1.Value())
 	fmt.Println(f2.Value())
@@ -40,6 +40,7 @@ func ExampleField_Value() {
 }
 
 type SomeDefinition struct {
+	resource.Definition
 	Str    string
 	Int    int
 	Nested Nested
