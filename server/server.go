@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/func/func/api"
+	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
 	"github.com/func/func/resource"
@@ -25,6 +26,11 @@ type GraphDecoder interface {
 	DecodeBody(body hcl.Body, ctx *decoder.DecodeContext, g *graph.Graph) hcl.Diagnostics
 }
 
+// A Reconciler reconciles changes to the graph.
+type Reconciler interface {
+	Reconcile(ctx context.Context, ns string, project config.Project, graph *graph.Graph) error
+}
+
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
@@ -34,9 +40,10 @@ type ResourceRegistry interface {
 
 // A Server implements the server-side business logic.
 type Server struct {
-	Logger    *zap.Logger
-	Source    source.Storage
-	Resources ResourceRegistry
+	Logger     *zap.Logger
+	Source     source.Storage
+	Resources  ResourceRegistry
+	Reconciler Reconciler
 }
 
 // Apply applies resources.

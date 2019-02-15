@@ -11,10 +11,14 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/client"
+	"github.com/func/func/graph/reconciler"
+	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
 	"github.com/func/func/server"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
+	"github.com/func/func/storage"
+	"github.com/func/func/storage/kvbackend"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -49,10 +53,32 @@ var applyCommand = &cobra.Command{
 				log.Fatalf("Build logger: %v", err)
 			}
 
+			reg := &resource.Registry{}
+			reg.Register(&aws.LambdaFunction{})
+			reg.Register(&aws.IAMRole{})
+
+			bolt, err := kvbackend.NewBolt()
+			if err != nil {
+				log.Fatalf("Open BoltDB: %v", err)
+			}
+			defer func() {
+				if err := bolt.Close(); err != nil {
+					log.Fatalf("Close BoltDB: %v", err)
+				}
+			}()
+
+			reco := &reconciler.Reconciler{
+				Storage: &storage.KV{
+					Backend:       bolt,
+					ResourceCodec: reg,
+				},
+			}
+
 			apicli = &server.Server{
-				Logger:    logger,
-				Source:    src,
-				Resources: &resource.Registry{}, // For now, this is empty
+				Logger:     logger,
+				Source:     src,
+				Resources:  reg,
+				Reconciler: reco,
 			}
 		} else {
 			// Start protobuf client
