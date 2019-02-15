@@ -110,7 +110,7 @@ func TestHash(t *testing.T) {
 	}{
 		{
 			"DiffType",
-			&res1{FunctionName: "foo"},
+			&def1{FunctionName: "foo"},
 			&realistic{FunctionName: "foo"},
 			false,
 		},
@@ -230,8 +230,8 @@ func TestHash(t *testing.T) {
 		},
 		{
 			"IgnoreNonIO",
-			&res2{NotIO: "foo", Output: "a"}, // Field 'NotIO' does not have
-			&res2{NotIO: "bar", Output: "a"}, // an input or output struct tag.
+			&def2{NotIO: "foo", Output: "a"}, // Field 'NotIO' does not have
+			&def2{NotIO: "bar", Output: "a"}, // an input or output struct tag.
 			true,
 		},
 	}
@@ -249,22 +249,26 @@ func TestHash(t *testing.T) {
 	}
 }
 
-type res1 struct {
+type def1 struct {
+	resource.Definition
 	FunctionName string `input:"v"`
 	ARN          bool   `output:"o"`
 }
 
-func (res1) Type() string { return "res1" }
+func (def1) Type() string { return "def1" }
 
-type res2 struct {
+type def2 struct {
+	resource.Definition
 	NotIO  string // no input or output tag
 	Output string `output:"v"`
 }
 
-func (res2) Type() string { return "res2" }
+func (def2) Type() string { return "def2" }
 
 // realistic is a resource roughly resembling an aws lambda resource
 type realistic struct {
+	resource.Definition
+
 	// Inputs
 	DeadLetterConfig *struct {
 		TargetArn *string `input:"target_arn"`
