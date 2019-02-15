@@ -9,6 +9,7 @@ import (
 
 // nolint: maligned
 type kitchensink struct {
+	resource.Definition
 	Bool       bool           `input:""`
 	Int        int            `input:""`
 	Int8       int8           `input:""`
@@ -177,7 +178,7 @@ func TestHash(t *testing.T) {
 				Timeout:      int64ptr(5),
 				CodeSHA256:   "def", // changed
 			},
-			false,
+			true,
 		},
 		{
 			"MapDiffKey",
