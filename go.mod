@@ -2,6 +2,7 @@ module github.com/func/func
 
 require (
 	github.com/agext/levenshtein v1.2.1
+	github.com/aws/aws-sdk-go-v2 v0.7.1-0.20190104002603-381987c30353
 	github.com/golang/protobuf v1.2.0
 	github.com/google/go-cmp v0.2.0
 	github.com/hashicorp/hcl2 v0.0.0-20190110191257-40e962e08e80
@@ -10,6 +11,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/twitchtv/twirp v5.5.1+incompatible
 	github.com/zclconf/go-cty v0.0.0-20181231001355-67e3da15e430
+	go.etcd.io/bbolt v1.3.2
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1

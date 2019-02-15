@@ -16,7 +16,8 @@ import (
 // The following values contribute to the hash:
 //   Resource type
 //   Input fields
-//   Output fields
+//
+// Outputs are not included in the hash.
 //
 // Panics in case there was an error but a panic always indicates a bug in
 // Hash(); except for nil, no user input should be able to cause a panic.
@@ -30,7 +31,7 @@ func Hash(def Definition) string {
 	v := reflect.Indirect(reflect.ValueOf(def))
 	t := v.Type()
 
-	fields := Fields(t, IO)
+	fields := Fields(t, Input)
 	for _, f := range fields {
 		if err := visit(h, v.Field(f.Index)); err != nil {
 			panic(fmt.Sprintf("Field %v in %s: %v", f.Index, t, err))

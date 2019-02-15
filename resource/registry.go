@@ -106,7 +106,7 @@ type envelope struct {
 // on the resource will be used. By convention, struct tags should not be set.
 // However, if the struct tags are set, they cannot be changed to ensure
 // backwards compatibility.
-func Marshal(def Definition) ([]byte, error) {
+func (r *Registry) Marshal(def Definition) ([]byte, error) {
 	j, err := json.Marshal(def)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal config")
@@ -122,7 +122,8 @@ func Marshal(def Definition) ([]byte, error) {
 	return j, nil
 }
 
-// Unmarshal unmarshals a given byte slice to a resource definition.
+// Unmarshal unmarshals resource data into to an instance of a resource
+// definition.
 //
 // The resource can only be unmarshalled if the corresponding resource has been
 // registered.

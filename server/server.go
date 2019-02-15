@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	"github.com/func/func/api"
+	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
 	"github.com/func/func/resource"
@@ -17,12 +17,16 @@ import (
 	"github.com/twitchtv/twirp"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gonum.org/v1/gonum/graph/encoding/dot"
 )
 
 // A GraphDecoder is used for decoding the config body to a graph.
 type GraphDecoder interface {
 	DecodeBody(body hcl.Body, ctx *decoder.DecodeContext, g *graph.Graph) hcl.Diagnostics
+}
+
+// A Reconciler reconciles changes to the graph.
+type Reconciler interface {
+	Reconcile(ctx context.Context, ns string, project config.Project, graph *graph.Graph) error
 }
 
 // A ResourceRegistry is used for matching resource type names to resource
@@ -34,9 +38,10 @@ type ResourceRegistry interface {
 
 // A Server implements the server-side business logic.
 type Server struct {
-	Logger    *zap.Logger
-	Source    source.Storage
-	Resources ResourceRegistry
+	Logger     *zap.Logger
+	Source     source.Storage
+	Resources  ResourceRegistry
+	Reconciler Reconciler
 }
 
 // Apply applies resources.
@@ -91,13 +96,18 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		return &api.ApplyResponse{Response: &api.ApplyResponse_SourceRequest{SourceRequest: sr}}, nil
 	}
 
-	dot, err := dot.MarshalMulti(g, "Graph", "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(dot))
+	// dot, err := dot.MarshalMulti(g, "Graph", "", "\t")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(dot))
 
-	return nil, twirp.NewError(twirp.Unimplemented, "unimplemented")
+	if err := s.Reconciler.Reconcile(ctx, req.GetNamespace(), proj, g); err != nil {
+		logger.Error("Could not reconcile graph", zap.Error(err))
+		return nil, twirp.NewError(twirp.Unavailable, "reconcile graph")
+	}
+
+	return &api.ApplyResponse{}, nil
 }
 
 func (s *Server) missingSource(ctx context.Context, sources []*graph.Source) ([]*graph.Source, error) {
