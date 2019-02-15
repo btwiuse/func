@@ -19,7 +19,7 @@ func TestRegistry_New(t *testing.T) {
 		t.Errorf("Not supported error does not contain name of requested type\nGot %v", err)
 	}
 
-	r.Register(&res{Typename: "test"})
+	r.Register(&mockDef{Typename: "test"})
 
 	_, err = r.New("test")
 	if err != nil {
@@ -40,9 +40,9 @@ func TestRegistry_Register_notStrPtr(t *testing.T) {
 
 func TestRegistry_SuggestType(t *testing.T) {
 	r := &resource.Registry{}
-	r.Register(&res{Typename: "aws_lambda_function"})
-	r.Register(&res{Typename: "aws_iam_role"})
-	r.Register(&res{Typename: "aws_iam_policy"})
+	r.Register(&mockDef{Typename: "aws_lambda_function"})
+	r.Register(&mockDef{Typename: "aws_iam_role"})
+	r.Register(&mockDef{Typename: "aws_iam_policy"})
 
 	tests := []struct {
 		name  string
@@ -67,7 +67,7 @@ func TestRegistry_SuggestType(t *testing.T) {
 
 func TestRegistry_Marshal(t *testing.T) {
 	r := &resource.Registry{}
-	foo := &res{Typename: "foo"}
+	foo := &mockDef{Typename: "foo"}
 	r.Register(foo)
 
 	b, err := r.Marshal(foo)
@@ -88,12 +88,15 @@ func TestRegistry_Marshal(t *testing.T) {
 	}
 }
 
-type res struct {
+type mockDef struct {
+	resource.Definition
 	Typename string
 }
 
-func (r *res) Type() string { return r.Typename }
+func (r *mockDef) Type() string { return r.Typename }
 
-type notptr struct{}
+type notptr struct {
+	resource.Definition
+}
 
 func (r notptr) Type() string { return "" }
