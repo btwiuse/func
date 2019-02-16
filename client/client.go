@@ -7,6 +7,7 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/config"
+	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 )
@@ -36,7 +37,9 @@ type ConfigLoader interface {
 
 func (cli *Client) init() {
 	if cli.Loader == nil {
-		cli.Loader = &config.Loader{}
+		cli.Loader = &config.Loader{
+			Compressor: &source.TarGZ{},
+		}
 	}
 }
 
