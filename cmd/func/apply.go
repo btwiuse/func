@@ -72,6 +72,7 @@ var applyCommand = &cobra.Command{
 					Backend:       bolt,
 					ResourceCodec: reg,
 				},
+				Source: src,
 			}
 
 			apicli = &server.Server{

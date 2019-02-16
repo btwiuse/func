@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	"io"
 	"runtime"
 
 	"github.com/func/func/config"
@@ -27,6 +28,11 @@ type StateStorage interface {
 	List(ctx context.Context, namespace, project string) ([]resource.Resource, error)
 }
 
+// SourceStorage provides resource source code.
+type SourceStorage interface {
+	Get(ctx context.Context, filename string) (io.ReadCloser, error)
+}
+
 // A Reconciler reconciles changes to a graph.
 //
 // See package doc for details.
@@ -35,6 +41,7 @@ type Reconciler struct {
 	// If not set, DefaultConcurrency is used.
 	Concurrency int
 	State       StateStorage
+	Source      SourceStorage
 }
 
 // Reconcile reconciles changes to the graph.

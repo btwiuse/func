@@ -58,6 +58,7 @@ var serverCommand = &cobra.Command{
 				Backend:       bolt,
 				ResourceCodec: reg,
 			},
+			Source: src,
 		}
 
 		srv := &server.Server{
