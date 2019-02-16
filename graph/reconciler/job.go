@@ -21,7 +21,7 @@ type job struct {
 	graph    *graph.Graph
 	existing *existingResources
 	project  config.Project
-	storage  Storage
+	state    StateStorage
 
 	mu      sync.Mutex
 	process map[*graph.Resource]chan error
@@ -137,7 +137,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 	pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	if err := j.storage.Put(pctx, j.ns, j.project.Name, res.Config); err != nil {
+	if err := j.state.Put(pctx, j.ns, j.project.Name, res.Config); err != nil {
 		errc <- errors.Wrap(err, "store resource")
 		return errc
 	}
@@ -153,7 +153,7 @@ func (j *job) Prune(ctx context.Context) error {
 		// Use new context so a cancelled context still stores the result.
 		dctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := j.storage.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
+		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}
 	}

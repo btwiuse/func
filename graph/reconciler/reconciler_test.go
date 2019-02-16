@@ -19,7 +19,7 @@ import (
 )
 
 func TestReconciler_Reconcile_empty(t *testing.T) {
-	r := &reconciler.Reconciler{Storage: &mock.Store{}}
+	r := &reconciler.Reconciler{State: &mock.Store{}}
 
 	err := r.Reconcile(context.Background(), "ns", config.Project{Name: "empty"}, graph.New())
 	if err != nil {
@@ -33,7 +33,7 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -50,7 +50,7 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 
 func TestReconciler_Reconcile_create(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -85,7 +85,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 			existing := []mock.Resource{{NS: tt.ns1, Proj: tt.proj1, Res: res}}
 
 			store := &mock.Store{Resources: existing}
-			r := &reconciler.Reconciler{Storage: store}
+			r := &reconciler.Reconciler{State: store}
 
 			desired := fromSnapshot(t, graph.Snapshot{Resources: []resource.Resource{res}})
 
@@ -103,7 +103,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 
 func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -147,7 +147,7 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 
 func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
 	strptr := &strval
@@ -185,7 +185,7 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 
 func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
 	strptr := &strval
@@ -227,7 +227,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -251,7 +251,7 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -287,7 +287,7 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -339,7 +339,7 @@ func TestReconciler_Reconcile_delete(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := graph.New() // empty
 
@@ -361,7 +361,7 @@ func TestReconciler_Reconcile_deleteAfterCreate(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -405,7 +405,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 			}
 
 			r := &reconciler.Reconciler{
-				Storage:     &mock.Store{},
+				State:       &mock.Store{},
 				Concurrency: c,
 			}
 
@@ -431,7 +431,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 
 func TestReconciler_Reconcile_fanIn(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -473,7 +473,7 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 
 func TestReconciler_Reconcile_fanOut(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -519,7 +519,7 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 
 func TestReconciler_Reconcile_errParent(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	wantErr := errors.New("parent err")
 	desired := fromSnapshot(t, graph.Snapshot{
