@@ -68,6 +68,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 		existing: existing,
 		project:  project,
 		state:    r.State,
+		source:   r.Source,
 		process:  make(map[*graph.Resource]chan error),
 	}
 

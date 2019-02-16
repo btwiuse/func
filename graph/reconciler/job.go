@@ -22,6 +22,7 @@ type job struct {
 	existing *existingResources
 	project  config.Project
 	state    StateStorage
+	source   SourceStorage
 
 	mu      sync.Mutex
 	process map[*graph.Resource]chan error
@@ -109,9 +110,19 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 		}
 	}
 
+	srcs := res.Sources()
+	sourceList := make([]resource.SourceCode, len(srcs))
+	for i, src := range res.Sources() {
+		sourceList[i] = &source{
+			info:    src.Config,
+			storage: j.source,
+		}
+	}
+
 	if ex == nil {
 		req := &resource.CreateRequest{
-			Auth: tempLocalAuthProvider{},
+			Auth:   tempLocalAuthProvider{},
+			Source: sourceList,
 		}
 		if err := res.Config.Def.Create(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "create")
@@ -120,6 +131,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 	} else {
 		req := &resource.UpdateRequest{
 			Auth:     tempLocalAuthProvider{},
+			Source:   sourceList,
 			Previous: ex.res,
 		}
 		if err := res.Config.Def.Update(ctx, req); err != nil {
