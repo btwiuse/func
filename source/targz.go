@@ -23,6 +23,10 @@ func (TarGZ) Compress(w io.Writer, dir string) (string, error) {
 	tf := tar.NewWriter(gz)
 
 	if err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if path == dir {
+			// Skip self
+			return nil
+		}
 		if err != nil {
 			return errors.WithStack(err)
 		}
