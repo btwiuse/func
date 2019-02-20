@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	"io"
 	"runtime"
 
 	"github.com/func/func/config"
@@ -13,8 +14,8 @@ import (
 // DefaultConcurrency is the default maximum concurrency to use.
 var DefaultConcurrency = runtime.NumCPU() * 2
 
-// Storage persists resources.
-type Storage interface {
+// StateStorage persists resources.
+type StateStorage interface {
 	// Put creates or updates a resource.
 	// The type & name are used to match the resource.
 	Put(ctx context.Context, namespace, project string, resource resource.Resource) error
@@ -27,6 +28,11 @@ type Storage interface {
 	List(ctx context.Context, namespace, project string) ([]resource.Resource, error)
 }
 
+// SourceStorage provides resource source code.
+type SourceStorage interface {
+	Get(ctx context.Context, filename string) (io.ReadCloser, error)
+}
+
 // A Reconciler reconciles changes to a graph.
 //
 // See package doc for details.
@@ -34,7 +40,8 @@ type Reconciler struct {
 	// Concurrency sets the maximum allowed concurrency to use.
 	// If not set, DefaultConcurrency is used.
 	Concurrency int
-	Storage     Storage
+	State       StateStorage
+	Source      SourceStorage
 }
 
 // Reconcile reconciles changes to the graph.
@@ -44,7 +51,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 		c = DefaultConcurrency
 	}
 
-	rr, err := r.Storage.List(ctx, ns, project.Name)
+	rr, err := r.State.List(ctx, ns, project.Name)
 	if err != nil {
 		return errors.Wrap(err, "list existing resources")
 	}
@@ -60,7 +67,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 		graph:    desired,
 		existing: existing,
 		project:  project,
-		storage:  r.Storage,
+		state:    r.State,
+		source:   r.Source,
 		process:  make(map[*graph.Resource]chan error),
 	}
 

@@ -19,7 +19,7 @@ import (
 )
 
 func TestReconciler_Reconcile_empty(t *testing.T) {
-	r := &reconciler.Reconciler{Storage: &mock.Store{}}
+	r := &reconciler.Reconciler{State: &mock.Store{}}
 
 	err := r.Reconcile(context.Background(), "ns", config.Project{Name: "empty"}, graph.New())
 	if err != nil {
@@ -33,7 +33,7 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -50,7 +50,7 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 
 func TestReconciler_Reconcile_create(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -85,7 +85,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 			existing := []mock.Resource{{NS: tt.ns1, Proj: tt.proj1, Res: res}}
 
 			store := &mock.Store{Resources: existing}
-			r := &reconciler.Reconciler{Storage: store}
+			r := &reconciler.Reconciler{State: store}
 
 			desired := fromSnapshot(t, graph.Snapshot{Resources: []resource.Resource{res}})
 
@@ -103,7 +103,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 
 func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -147,7 +147,7 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 
 func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
 	strptr := &strval
@@ -185,7 +185,7 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 
 func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
 	strptr := &strval
@@ -227,7 +227,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -251,7 +251,7 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -287,7 +287,7 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -339,7 +339,7 @@ func TestReconciler_Reconcile_delete(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := graph.New() // empty
 
@@ -361,7 +361,7 @@ func TestReconciler_Reconcile_deleteAfterCreate(t *testing.T) {
 	}
 
 	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -396,7 +396,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 			var snap graph.Snapshot
 			for i := 0; i < n; i++ {
 				res := resource.Resource{Name: fmt.Sprintf("res%v", i), Def: &mockDef{
-					onCreate: func(ctx context.Context, req *resource.Request) error {
+					onCreate: func(context.Context, *resource.CreateRequest) error {
 						time.Sleep(wait)
 						return nil
 					},
@@ -405,7 +405,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 			}
 
 			r := &reconciler.Reconciler{
-				Storage:     &mock.Store{},
+				State:       &mock.Store{},
 				Concurrency: c,
 			}
 
@@ -431,7 +431,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 
 func TestReconciler_Reconcile_fanIn(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -473,7 +473,7 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 
 func TestReconciler_Reconcile_fanOut(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, graph.Snapshot{
 		Resources: []resource.Resource{
@@ -519,7 +519,7 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 
 func TestReconciler_Reconcile_errParent(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{Storage: store}
+	r := &reconciler.Reconciler{State: store}
 
 	wantErr := errors.New("parent err")
 	desired := fromSnapshot(t, graph.Snapshot{
@@ -554,10 +554,10 @@ type noopDef struct {
 	Err error
 }
 
-func (n *noopDef) Type() string                                                 { return "noop" }
-func (n *noopDef) Create(context.Context, *resource.Request) error              { return n.Err }
-func (n *noopDef) Update(context.Context, *resource.Request, interface{}) error { return n.Err }
-func (n *noopDef) Delete(context.Context) error                                 { return n.Err }
+func (n *noopDef) Type() string                                          { return "noop" }
+func (n *noopDef) Create(context.Context, *resource.CreateRequest) error { return n.Err }
+func (n *noopDef) Update(context.Context, *resource.UpdateRequest) error { return n.Err }
+func (n *noopDef) Delete(context.Context, *resource.DeleteRequest) error { return n.Err }
 
 // concatDef concatenates a value to the input and sets it as the output.
 // Only supports Create().
@@ -570,29 +570,31 @@ type concatDef struct {
 }
 
 func (c *concatDef) Type() string { return "concat" }
-func (c *concatDef) Create(context.Context, *resource.Request) error {
+func (c *concatDef) Create(context.Context, *resource.CreateRequest) error {
 	c.Out = c.In + c.Add
 	return nil
 }
-func (c *concatDef) Update(context.Context, *resource.Request, interface{}) error {
+func (c *concatDef) Update(context.Context, *resource.UpdateRequest) error {
 	c.Out = c.In + c.Add
 	return nil
 }
 
 type mockDef struct {
-	onCreate func(context.Context, *resource.Request) error
-	onUpdate func(context.Context, *resource.Request, interface{}) error
-	onDelete func(context.Context) error
+	onCreate func(context.Context, *resource.CreateRequest) error
+	onUpdate func(context.Context, *resource.UpdateRequest) error
+	onDelete func(context.Context, *resource.DeleteRequest) error
 }
 
 func (s *mockDef) Type() string { return "mock" }
-func (s *mockDef) Create(ctx context.Context, req *resource.Request) error {
+func (s *mockDef) Create(ctx context.Context, req *resource.CreateRequest) error {
 	return s.onCreate(ctx, req)
 }
-func (s *mockDef) Update(ctx context.Context, req *resource.Request, prev interface{}) error {
-	return s.onUpdate(ctx, req, prev)
+func (s *mockDef) Update(ctx context.Context, req *resource.UpdateRequest) error {
+	return s.onUpdate(ctx, req)
 }
-func (s *mockDef) Delete(ctx context.Context) error { return s.onDelete(ctx) }
+func (s *mockDef) Delete(ctx context.Context, req *resource.DeleteRequest) error {
+	return s.onDelete(ctx, req)
+}
 
 // joinDef is a no-op definition that does nothing when executed.
 type joinDef struct {
@@ -602,10 +604,10 @@ type joinDef struct {
 	Out string `output:"out"`
 }
 
-func (j *joinDef) Type() string                                                 { return "noop" }
-func (j *joinDef) Create(context.Context, *resource.Request) error              { j.run(); return nil }
-func (j *joinDef) Update(context.Context, *resource.Request, interface{}) error { j.run(); return nil }
-func (j *joinDef) Delete(context.Context) error                                 { return nil }
+func (j *joinDef) Type() string                                          { return "noop" }
+func (j *joinDef) Create(context.Context, *resource.CreateRequest) error { j.run(); return nil }
+func (j *joinDef) Update(context.Context, *resource.UpdateRequest) error { j.run(); return nil }
+func (j *joinDef) Delete(context.Context, *resource.DeleteRequest) error { return nil }
 func (j *joinDef) run() {
 	j.Out = fmt.Sprintf("%s-%s-%s", j.A, j.B, j.C)
 }

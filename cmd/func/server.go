@@ -54,10 +54,11 @@ var serverCommand = &cobra.Command{
 		}()
 
 		reco := &reconciler.Reconciler{
-			Storage: &storage.KV{
+			State: &storage.KV{
 				Backend:       bolt,
 				ResourceCodec: reg,
 			},
+			Source: src,
 		}
 
 		srv := &server.Server{

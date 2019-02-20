@@ -42,5 +42,6 @@ func WithRegion(auth resource.AuthProvider, region string) (aws.Config, error) {
 		return cfg, errors.Wrap(err, "get credentials")
 	}
 	cfg.Credentials = creds
+	cfg.Region = region
 	return cfg, nil
 }

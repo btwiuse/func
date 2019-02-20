@@ -105,7 +105,7 @@ type IAMRole struct {
 func (i *IAMRole) Type() string { return "aws_iam_role" }
 
 // Create creates a new IAM role.
-func (i *IAMRole) Create(ctx context.Context, r *resource.Request) error {
+func (i *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := i.service(r.Auth)
 	if err != nil {
 		return errors.Wrap(err, "get iam client")
@@ -133,12 +133,12 @@ func (i *IAMRole) Create(ctx context.Context, r *resource.Request) error {
 }
 
 // Delete deletes the IAM role.
-func (i *IAMRole) Delete(ctx context.Context) error {
+func (i *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	return nil
 }
 
 // Update updates the IAM role.
-func (i *IAMRole) Update(ctx context.Context, req *resource.Request, prev interface{}) error {
+func (i *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	return nil
 }
 

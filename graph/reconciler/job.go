@@ -21,7 +21,8 @@ type job struct {
 	graph    *graph.Graph
 	existing *existingResources
 	project  config.Project
-	storage  Storage
+	state    StateStorage
+	source   SourceStorage
 
 	mu      sync.Mutex
 	process map[*graph.Resource]chan error
@@ -109,14 +110,31 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 		}
 	}
 
-	req := &resource.Request{Auth: tempLocalAuthProvider{}}
+	srcs := res.Sources()
+	sourceList := make([]resource.SourceCode, len(srcs))
+	for i, src := range res.Sources() {
+		sourceList[i] = &source{
+			info:    src.Config,
+			storage: j.source,
+		}
+	}
+
 	if ex == nil {
+		req := &resource.CreateRequest{
+			Auth:   tempLocalAuthProvider{},
+			Source: sourceList,
+		}
 		if err := res.Config.Def.Create(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "create")
 			return errc
 		}
 	} else {
-		if err := res.Config.Def.Update(ctx, req, ex.res); err != nil {
+		req := &resource.UpdateRequest{
+			Auth:     tempLocalAuthProvider{},
+			Source:   sourceList,
+			Previous: ex.res,
+		}
+		if err := res.Config.Def.Update(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "update")
 			return errc
 		}
@@ -137,7 +155,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 	pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	if err := j.storage.Put(pctx, j.ns, j.project.Name, res.Config); err != nil {
+	if err := j.state.Put(pctx, j.ns, j.project.Name, res.Config); err != nil {
 		errc <- errors.Wrap(err, "store resource")
 		return errc
 	}
@@ -147,13 +165,16 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 
 func (j *job) Prune(ctx context.Context) error {
 	for _, e := range j.existing.Remaining() {
-		if err := e.res.Def.Delete(ctx); err != nil {
+		req := &resource.DeleteRequest{
+			Auth: tempLocalAuthProvider{},
+		}
+		if err := e.res.Def.Delete(ctx, req); err != nil {
 			return errors.Wrap(err, "delete")
 		}
 		// Use new context so a cancelled context still stores the result.
 		dctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := j.storage.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
+		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}
 	}

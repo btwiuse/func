@@ -1,15 +1,25 @@
 package aws
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"log"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
 	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
+	"github.com/func/func/source/convert"
 	"github.com/pkg/errors"
 )
+
+// iso8601 is almost similar to iso3339, except the timezone is specified as
+// +0000 instead of +00:00.
+const iso8601 = "2006-01-02T15:04:05.999-0700"
 
 // LambdaFunction manages AWS Lambda Functions.
 //
@@ -31,7 +41,7 @@ type LambdaFunction struct {
 	// where Lambda sends asynchronous events when they fail processing. For
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
-	DeadLetterConfigARN *struct {
+	DeadLetterConfig *struct {
 		TargetArn *string `input:"target_arn"`
 	} `input:"dead_letter_config"`
 
@@ -39,7 +49,9 @@ type LambdaFunction struct {
 	Description *string `input:"description"`
 
 	// Environment variables that are accessible from function code during execution.
-	Environment *map[string]string `type:"environment"`
+	Environment *struct {
+		Variables map[string]string `input:"variables"`
+	} `input:"environment"`
 
 	// The name of the Lambda function.
 	//
@@ -72,7 +84,8 @@ type LambdaFunction struct {
 	MemorySize *int64 `input:"memory_size"`
 
 	// Set to true to publish the first version of the function during
-	// creation.  Publish *bool `input:"publish"`
+	// creation.
+	Publish *bool `input:"publish"`
 
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
@@ -135,13 +148,13 @@ type LambdaFunction struct {
 	// Outputs
 
 	// The SHA256 hash of the function's deployment package.
-	CodeSha256 *string `output:"code_sha_256"`
+	CodeSha256 string `output:"code_sha_256"`
 
 	// The size of the function's deployment package in bytes.
-	CodeSize *int64 `output:"code_size"`
+	CodeSize int64 `output:"code_size"`
 
 	// The function's Amazon Resource Name.
-	FunctionArn *string `output:"function_arn"`
+	FunctionArn string `output:"function_arn"`
 
 	// The date and time that the function was last updated.
 	LastModified time.Time `output:"last_modified"`
@@ -150,10 +163,10 @@ type LambdaFunction struct {
 	MasterArn *string `output:"master_arn"`
 
 	// Represents the latest updated revision of the function or alias.
-	RevisionID *string `output:"revision_id"`
+	RevisionID string `output:"revision_id"`
 
 	// The version of the Lambda function.
-	Version *string `output:"version"`
+	Version string `output:"version"`
 
 	svc lambdaiface.LambdaAPI
 }
@@ -162,24 +175,124 @@ type LambdaFunction struct {
 func (l *LambdaFunction) Type() string { return "aws_lambda_function" }
 
 // Create creates an AWS lambda function.
-func (l *LambdaFunction) Create(ctx context.Context, r *resource.Request) error {
-	// Cannot implement until we have source code.
+func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
+	if len(r.Source) == 0 {
+		return errors.New("no source code provided")
+	}
+	if len(r.Source) > 1 {
+		return errors.New("only one source archive allowed")
+	}
+
 	svc, err := l.service(r.Auth)
 	if err != nil {
 		return errors.Wrap(err, "get iam client")
 	}
-	_ = svc
-	return errors.New("not implemented")
+
+	src, err := r.Source[0].Reader(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get source reader")
+	}
+	var zip bytes.Buffer
+	if err := convert.Zip(&zip, src); err != nil {
+		return errors.Wrap(err, "convert zip")
+	}
+	if err := src.Close(); err != nil {
+		return errors.Wrap(err, "close source code")
+	}
+
+	input := &lambda.CreateFunctionInput{
+		Code: &lambda.FunctionCode{
+			ZipFile: zip.Bytes(),
+		},
+		Description:  l.Description,
+		FunctionName: aws.String(l.FunctionName),
+		Handler:      aws.String(l.Handler),
+		KMSKeyArn:    l.KMSKeyArn,
+		MemorySize:   l.MemorySize,
+		Publish:      l.Publish,
+		Role:         aws.String(l.Role),
+		Runtime:      lambda.Runtime(l.Runtime),
+		Timeout:      l.Timeout,
+	}
+	if l.DeadLetterConfig != nil {
+		input.DeadLetterConfig = &lambda.DeadLetterConfig{
+			TargetArn: l.DeadLetterConfig.TargetArn,
+		}
+	}
+	if l.Environment != nil {
+		input.Environment = &lambda.Environment{
+			Variables: l.Environment.Variables,
+		}
+	}
+	if l.Layers != nil {
+		input.Layers = *l.Layers
+	}
+	if l.Tags != nil {
+		input.Tags = *l.Tags
+	}
+	if l.TracingConfig != nil {
+		input.TracingConfig = &lambda.TracingConfig{
+			Mode: lambda.TracingMode(l.TracingConfig.Mode),
+		}
+	}
+	if l.VpcConfig != nil {
+		input.VpcConfig = &lambda.VpcConfig{
+			SecurityGroupIds: l.VpcConfig.SecurityGroupIDs,
+			SubnetIds:        l.VpcConfig.SubnetIds,
+		}
+	}
+
+	req := svc.CreateFunctionRequest(input)
+	req.SetContext(ctx)
+	resp, err := req.Send()
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			fmt.Println(aerr.Code(), aerr.Message())
+		}
+		return err
+	}
+
+	// OK
+
+	l.CodeSha256 = *resp.CodeSha256
+	l.CodeSize = *resp.CodeSize
+	l.FunctionArn = *resp.FunctionArn
+	t, err := time.Parse(iso8601, *resp.LastModified)
+	if err != nil {
+		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
+		t = time.Now()
+	}
+	l.LastModified = t
+	l.MasterArn = resp.MasterArn
+	l.RevisionID = *resp.RevisionId
+	l.Version = *resp.Version
+
+	return nil
 }
 
 // Delete deletes the lambda function.
-func (l *LambdaFunction) Delete(ctx context.Context) error {
+func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
+	svc, err := l.service(r.Auth)
+	if err != nil {
+		return errors.Wrap(err, "get iam client")
+	}
+
+	req := svc.DeleteFunctionRequest(&lambda.DeleteFunctionInput{
+		FunctionName: aws.String(l.FunctionArn),
+	})
+	req.SetContext(ctx)
+	_, err = req.Send()
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			fmt.Println(aerr.Code(), aerr.Message())
+		}
+		return err
+	}
 	return nil
-	// return errors.New("not implemented")
 }
 
 // Update updates the lambda function.
-func (l *LambdaFunction) Update(ctx context.Context, req *resource.Request, prev interface{}) error {
+func (l *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	return nil
 	// return errors.New("not implemented")
 }
