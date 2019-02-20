@@ -162,7 +162,7 @@ type LambdaFunction struct {
 func (l *LambdaFunction) Type() string { return "aws_lambda_function" }
 
 // Create creates an AWS lambda function.
-func (l *LambdaFunction) Create(ctx context.Context, r *resource.Request) error {
+func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
 	// Cannot implement until we have source code.
 	svc, err := l.service(r.Auth)
 	if err != nil {
@@ -173,13 +173,13 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.Request) error 
 }
 
 // Delete deletes the lambda function.
-func (l *LambdaFunction) Delete(ctx context.Context) error {
+func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	return nil
 	// return errors.New("not implemented")
 }
 
 // Update updates the lambda function.
-func (l *LambdaFunction) Update(ctx context.Context, req *resource.Request, prev interface{}) error {
+func (l *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	return nil
 	// return errors.New("not implemented")
 }

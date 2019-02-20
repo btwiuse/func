@@ -109,14 +109,20 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 		}
 	}
 
-	req := &resource.Request{Auth: tempLocalAuthProvider{}}
 	if ex == nil {
+		req := &resource.CreateRequest{
+			Auth: tempLocalAuthProvider{},
+		}
 		if err := res.Config.Def.Create(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "create")
 			return errc
 		}
 	} else {
-		if err := res.Config.Def.Update(ctx, req, ex.res); err != nil {
+		req := &resource.UpdateRequest{
+			Auth:     tempLocalAuthProvider{},
+			Previous: ex.res,
+		}
+		if err := res.Config.Def.Update(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "update")
 			return errc
 		}
@@ -147,7 +153,10 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 
 func (j *job) Prune(ctx context.Context) error {
 	for _, e := range j.existing.Remaining() {
-		if err := e.res.Def.Delete(ctx); err != nil {
+		req := &resource.DeleteRequest{
+			Auth: tempLocalAuthProvider{},
+		}
+		if err := e.res.Def.Delete(ctx, req); err != nil {
 			return errors.Wrap(err, "delete")
 		}
 		// Use new context so a cancelled context still stores the result.

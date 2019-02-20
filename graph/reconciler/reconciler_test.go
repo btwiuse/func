@@ -396,7 +396,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 			var snap graph.Snapshot
 			for i := 0; i < n; i++ {
 				res := resource.Resource{Name: fmt.Sprintf("res%v", i), Def: &mockDef{
-					onCreate: func(ctx context.Context, req *resource.Request) error {
+					onCreate: func(context.Context, *resource.CreateRequest) error {
 						time.Sleep(wait)
 						return nil
 					},
@@ -554,10 +554,10 @@ type noopDef struct {
 	Err error
 }
 
-func (n *noopDef) Type() string                                                 { return "noop" }
-func (n *noopDef) Create(context.Context, *resource.Request) error              { return n.Err }
-func (n *noopDef) Update(context.Context, *resource.Request, interface{}) error { return n.Err }
-func (n *noopDef) Delete(context.Context) error                                 { return n.Err }
+func (n *noopDef) Type() string                                          { return "noop" }
+func (n *noopDef) Create(context.Context, *resource.CreateRequest) error { return n.Err }
+func (n *noopDef) Update(context.Context, *resource.UpdateRequest) error { return n.Err }
+func (n *noopDef) Delete(context.Context, *resource.DeleteRequest) error { return n.Err }
 
 // concatDef concatenates a value to the input and sets it as the output.
 // Only supports Create().
@@ -570,29 +570,31 @@ type concatDef struct {
 }
 
 func (c *concatDef) Type() string { return "concat" }
-func (c *concatDef) Create(context.Context, *resource.Request) error {
+func (c *concatDef) Create(context.Context, *resource.CreateRequest) error {
 	c.Out = c.In + c.Add
 	return nil
 }
-func (c *concatDef) Update(context.Context, *resource.Request, interface{}) error {
+func (c *concatDef) Update(context.Context, *resource.UpdateRequest) error {
 	c.Out = c.In + c.Add
 	return nil
 }
 
 type mockDef struct {
-	onCreate func(context.Context, *resource.Request) error
-	onUpdate func(context.Context, *resource.Request, interface{}) error
-	onDelete func(context.Context) error
+	onCreate func(context.Context, *resource.CreateRequest) error
+	onUpdate func(context.Context, *resource.UpdateRequest) error
+	onDelete func(context.Context, *resource.DeleteRequest) error
 }
 
 func (s *mockDef) Type() string { return "mock" }
-func (s *mockDef) Create(ctx context.Context, req *resource.Request) error {
+func (s *mockDef) Create(ctx context.Context, req *resource.CreateRequest) error {
 	return s.onCreate(ctx, req)
 }
-func (s *mockDef) Update(ctx context.Context, req *resource.Request, prev interface{}) error {
-	return s.onUpdate(ctx, req, prev)
+func (s *mockDef) Update(ctx context.Context, req *resource.UpdateRequest) error {
+	return s.onUpdate(ctx, req)
 }
-func (s *mockDef) Delete(ctx context.Context) error { return s.onDelete(ctx) }
+func (s *mockDef) Delete(ctx context.Context, req *resource.DeleteRequest) error {
+	return s.onDelete(ctx, req)
+}
 
 // joinDef is a no-op definition that does nothing when executed.
 type joinDef struct {
@@ -602,10 +604,10 @@ type joinDef struct {
 	Out string `output:"out"`
 }
 
-func (j *joinDef) Type() string                                                 { return "noop" }
-func (j *joinDef) Create(context.Context, *resource.Request) error              { j.run(); return nil }
-func (j *joinDef) Update(context.Context, *resource.Request, interface{}) error { j.run(); return nil }
-func (j *joinDef) Delete(context.Context) error                                 { return nil }
+func (j *joinDef) Type() string                                          { return "noop" }
+func (j *joinDef) Create(context.Context, *resource.CreateRequest) error { j.run(); return nil }
+func (j *joinDef) Update(context.Context, *resource.UpdateRequest) error { j.run(); return nil }
+func (j *joinDef) Delete(context.Context, *resource.DeleteRequest) error { return nil }
 func (j *joinDef) run() {
 	j.Out = fmt.Sprintf("%s-%s-%s", j.A, j.B, j.C)
 }
