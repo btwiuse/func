@@ -40,9 +40,10 @@ type KV struct {
 
 // an envelope wraps the data and is used when marshalling to json.
 type envelope struct {
-	Name string          `json:"name"`
-	Def  json.RawMessage `json:"def"`
-	Deps [][2]string     `json:"deps"`
+	Name    string          `json:"name"`
+	Def     json.RawMessage `json:"def"`
+	Deps    [][2]string     `json:"deps,omitempty"`
+	Sources []string        `json:"srcs,omitempty"`
 }
 
 // Put stores a resource for a namespace-project.
@@ -58,9 +59,10 @@ func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource
 	}
 
 	env := envelope{
-		Name: res.Name,
-		Def:  def,
-		Deps: deps,
+		Name:    res.Name,
+		Def:     def,
+		Deps:    deps,
+		Sources: res.Sources,
 	}
 	j, err := json.Marshal(env)
 	if err != nil {
@@ -107,7 +109,7 @@ func (kv *KV) List(ctx context.Context, ns, project string) ([]resource.Resource
 		for i, d := range env.Deps {
 			deps[i] = resource.Dependency{Type: d[0], Name: d[1]}
 		}
-		res := resource.Resource{Name: env.Name, Def: def, Deps: deps}
+		res := resource.Resource{Name: env.Name, Def: def, Deps: deps, Sources: env.Sources}
 		ret = append(ret, res)
 	}
 	return ret, nil

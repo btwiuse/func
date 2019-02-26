@@ -10,6 +10,8 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -95,7 +97,19 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 
 	hash := resource.Hash(res.Config.Def)
 
+	srcs := res.Sources()
+	sourceList := make([]resource.SourceCode, len(srcs))
+	for i, src := range res.Sources() {
+		sourceList[i] = &source{
+			info:    src.Config,
+			storage: j.source,
+		}
+		res.Config.Sources = append(res.Config.Sources, src.Config.SHA)
+	}
+
 	ex := j.existing.Find(res.Config.Def.Type(), res.Config.Name)
+	updateConfig := false
+	updateSource := false
 	if ex != nil {
 		j.existing.Keep(ex)
 
@@ -106,17 +120,20 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 				// Change ref source to deployed resource.
 				ref.Source.Resource.Config.Def = ex.res.Def
 			}
-			return errc
+		} else {
+			updateConfig = true
 		}
+
+		opts := []cmp.Option{
+			cmpopts.SortSlices(func(a, b string) bool { return a < b }),
+			cmpopts.EquateEmpty(),
+		}
+		updateSource = !cmp.Equal(ex.res.Sources, res.Config.Sources, opts...)
 	}
 
-	srcs := res.Sources()
-	sourceList := make([]resource.SourceCode, len(srcs))
-	for i, src := range res.Sources() {
-		sourceList[i] = &source{
-			info:    src.Config,
-			storage: j.source,
-		}
+	if ex != nil && !updateConfig && !updateSource {
+		// Nothing to do
+		return errc
 	}
 
 	if ex == nil {
@@ -130,9 +147,11 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 		}
 	} else {
 		req := &resource.UpdateRequest{
-			Auth:     tempLocalAuthProvider{},
-			Source:   sourceList,
-			Previous: ex.res,
+			Auth:          tempLocalAuthProvider{},
+			Source:        sourceList,
+			Previous:      ex.res,
+			ConfigChanged: updateConfig,
+			SourceChanged: updateSource,
 		}
 		if err := res.Config.Def.Update(ctx, req); err != nil {
 			errc <- errors.Wrap(err, "update")
