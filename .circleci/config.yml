@@ -25,7 +25,7 @@ jobs:
       - run:
           name: Install golangci-lnit
           environment:
-            GOLANGCI_LINT_TAG: v1.14.0
+            GOLANGCI_LINT_TAG: v1.15.0
           command: |
             curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -d -b $GOPATH/bin $GOLANGCI_LINT_TAG
       - run:
