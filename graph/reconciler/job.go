@@ -12,6 +12,7 @@ import (
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -122,6 +123,12 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 			}
 		} else {
 			updateConfig = true
+			// Merge existing outputs into resource
+			// Inputs set on the resource are not overwritten.
+			if err := mergo.Merge(res.Config.Def, ex.res.Def); err != nil {
+				errc <- errors.Wrap(err, "merge existing")
+				return errc
+			}
 		}
 
 		opts := []cmp.Option{

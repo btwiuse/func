@@ -414,6 +414,38 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 	}
 }
 
+func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
+	existing := []mock.Resource{
+		{NS: "ns", Proj: "proj", Res: resource.Resource{
+			Name: "a",
+			Def:  &noopDef{Input: "foo", Output: "FOO"}, // Output was set
+		}},
+	}
+
+	store := &mock.Store{Resources: existing}
+	r := &reconciler.Reconciler{State: store}
+
+	desired := fromSnapshot(t, graph.Snapshot{
+		Resources: []resource.Resource{
+			{Name: "a", Def: &noopDef{Input: "bar"}}, // Not output in input
+		},
+	})
+
+	if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+
+	assertEvents(t, store, []mock.Event{
+		{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
+			Name: "a",
+			Def: &noopDef{
+				Input:  "bar",
+				Output: "FOO", // previous output is kept
+			},
+		}},
+	})
+}
+
 func TestReconciler_Reconcile_updateChild(t *testing.T) {
 	existing := []mock.Resource{
 		{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "a", Def: &concatDef{In: "", Add: "a", Out: "a"}}},
