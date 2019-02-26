@@ -1,3 +1,6 @@
+//nolint: lll
+//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct IAMRole --template ../../tools/structdoc/template.txt --data type=aws_iam_role --output ../../docs/resources/aws/iam_role.md
+
 package aws
 
 import (
