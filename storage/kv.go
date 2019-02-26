@@ -69,7 +69,7 @@ func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource
 		return errors.Wrap(err, "marshal envelope")
 	}
 
-	k := fmt.Sprintf("%s/%s/%s/%s", ns, project, res.Def.Type(), res.Name)
+	k := fmt.Sprintf("%s/%s/%s:%s", ns, project, res.Def.Type(), res.Name)
 
 	if err := kv.Backend.Put(ctx, k, j); err != nil {
 		return errors.Wrap(err, "store")
@@ -80,7 +80,7 @@ func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource
 
 // Delete deletes a single resource.
 func (kv *KV) Delete(ctx context.Context, ns, project, typename, name string) error {
-	k := fmt.Sprintf("%s/%s/%s/%s", ns, project, typename, name)
+	k := fmt.Sprintf("%s/%s/%s:%s", ns, project, typename, name)
 	if err := kv.Backend.Delete(ctx, k); err != nil {
 		return errors.Wrap(err, "delete")
 	}
