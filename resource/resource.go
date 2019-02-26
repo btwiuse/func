@@ -29,6 +29,10 @@ type Resource struct {
 	// when creating the resource. The value is only set after reading
 	// resources from storage.
 	Deps []Dependency
+
+	// Sources contain the source code hashes that were provided to the
+	// resource. The value is only set for resources that have been created.
+	Sources []string
 }
 
 // A Dependency describes a resource dependency.

@@ -48,6 +48,31 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 	assertEvents(t, store, nil)
 }
 
+func TestReconciler_Reconcile_noopWithSource(t *testing.T) {
+	existing := []mock.Resource{
+		{NS: "ns", Proj: "proj", Res: resource.Resource{
+			Name:    "foo",
+			Def:     &noopDef{Input: "bar"},
+			Sources: []string{"abc", "xyz"},
+		}},
+	}
+
+	store := &mock.Store{Resources: existing}
+	r := &reconciler.Reconciler{State: store}
+
+	desired := fromSnapshot(t, graph.Snapshot{
+		Resources: []resource.Resource{
+			{Name: "foo", Def: &noopDef{Input: "bar"}, Sources: []string{"abc", "xyz"}}, // exact match to existing resource
+		},
+	})
+
+	if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+
+	assertEvents(t, store, nil)
+}
+
 func TestReconciler_Reconcile_create(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
@@ -145,6 +170,50 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 	})
 }
 
+func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
+	store := &mock.Store{Resources: nil}
+	r := &reconciler.Reconciler{State: store}
+
+	var got []string
+
+	desired := fromSnapshot(t, graph.Snapshot{
+		Resources: []resource.Resource{
+			{Name: "src", Def: &mockDef{
+				onCreate: func(ctx context.Context, r *resource.CreateRequest) error {
+					got = make([]string, len(r.Source))
+					for i, s := range r.Source {
+						got[i] = s.Digest()
+					}
+					return nil
+				},
+			}},
+		},
+		Sources: []config.SourceInfo{
+			{SHA: "abc"},
+		},
+		ResourceSources: map[int][]int{
+			0: {0},
+		},
+	})
+
+	if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+
+	want := []string{"abc"}
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("Source code (-got, +want)\n%s", diff)
+	}
+
+	assertEvents(t, store, []mock.Event{
+		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{
+			Name:    "src",
+			Def:     &mockDef{},
+			Sources: []string{"abc"},
+		}},
+	})
+}
+
 func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
@@ -222,26 +291,127 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_update(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: &noopDef{Input: "before"}}},
-	}
-
-	store := &mock.Store{Resources: existing}
-	r := &reconciler.Reconciler{State: store}
-
-	desired := fromSnapshot(t, graph.Snapshot{
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &noopDef{Input: "after"}},
+	tests := []struct {
+		name     string
+		existing []mock.Resource
+		snapshot graph.Snapshot
+		events   []mock.Event
+	}{
+		{
+			"NoSource",
+			[]mock.Resource{
+				{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: &noopDef{Input: "before"}}},
+			},
+			graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &noopDef{Input: "after"}},
+				},
+			},
+			[]mock.Event{
+				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "after"},
+					Sources: nil,
+				}},
+			},
 		},
-	})
-
-	if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
-		t.Fatalf("Reconcile() error = %v", err)
+		{
+			// Resource has source that did not change
+			"UpdateConfig",
+			[]mock.Resource{
+				{NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "foo"},
+					Sources: []string{"abc"},
+				}},
+			},
+			graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
+				},
+				Sources: []config.SourceInfo{
+					{SHA: "abc"}, // no change
+				},
+				ResourceSources: map[int][]int{0: {0}},
+			},
+			[]mock.Event{
+				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "bar"},
+					Sources: []string{"abc"},
+				}},
+			},
+		},
+		{
+			// Resource has source that did change, config did not
+			"UpdateSource",
+			[]mock.Resource{
+				{NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "foo"},
+					Sources: []string{"abc"},
+				}},
+			},
+			graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &noopDef{Input: "foo"}}, // no change
+				},
+				Sources: []config.SourceInfo{
+					{SHA: "xyz"}, // updated
+				},
+				ResourceSources: map[int][]int{0: {0}},
+			},
+			[]mock.Event{
+				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "foo"},
+					Sources: []string{"xyz"},
+				}},
+			},
+		},
+		{
+			// Resource has source, both source and config changed
+			"UpdateSourceAndConfig",
+			[]mock.Resource{
+				{NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "foo"},
+					Sources: []string{"abc"},
+				}},
+			},
+			graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
+				},
+				Sources: []config.SourceInfo{
+					{SHA: "xyz"}, // updated
+				},
+				ResourceSources: map[int][]int{0: {0}},
+			},
+			[]mock.Event{
+				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
+					Name:    "foo",
+					Def:     &noopDef{Input: "bar"},
+					Sources: []string{"xyz"},
+				}},
+			},
+		},
 	}
 
-	assertEvents(t, store, []mock.Event{
-		{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: &noopDef{Input: "after"}}},
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &mock.Store{Resources: tt.existing}
+			r := &reconciler.Reconciler{State: store}
+
+			desired := fromSnapshot(t, tt.snapshot)
+
+			if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
+				t.Fatalf("Reconcile() error = %v", err)
+			}
+
+			assertEvents(t, store, tt.events)
+		})
+	}
 }
 
 func TestReconciler_Reconcile_updateChild(t *testing.T) {
@@ -629,6 +799,7 @@ func assertEvents(t *testing.T, store *mock.Store, want []mock.Event) {
 		cmpopts.SortSlices(func(a, b resource.Dependency) bool {
 			return a.String() < b.String()
 		}),
+		cmpopts.IgnoreUnexported(mockDef{}),
 	}
 	if diff := cmp.Diff(store.Events, want, opts...); diff != "" {
 		t.Errorf("Events do not match (-got, +want)\n%s", diff)

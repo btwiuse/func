@@ -42,6 +42,9 @@ type UpdateRequest struct {
 	Auth     AuthProvider
 	Source   []SourceCode
 	Previous interface{}
+
+	SourceChanged bool
+	ConfigChanged bool
 }
 
 // A DeleteRequest is passed to a resource when it is being deleted.
