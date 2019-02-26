@@ -32,7 +32,7 @@ func TestKV(t *testing.T) {
 		t.Errorf("List returned %d items, want zero\n%v", len(got), got)
 	}
 
-	res1 := resource.Resource{Name: "a", Def: &mockDef{Value: "foo"}}
+	res1 := resource.Resource{Name: "a", Def: &mockDef{Value: "foo"}, Sources: []string{"abc"}}
 	if err := s.Put(ctx, ns, proj, res1); err != nil {
 		t.Fatalf("Put() res1 error = %v", err)
 	}
