@@ -152,6 +152,21 @@ func (i *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 
 // Update updates the IAM role.
 func (i *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
+	svc, err := i.service(r.Auth)
+	if err != nil {
+		return errors.Wrap(err, "get client")
+	}
+
+	req := svc.UpdateRoleRequest(&iam.UpdateRoleInput{
+		RoleName:           aws.String(i.RoleName),
+		Description:        i.Description,
+		MaxSessionDuration: i.MaxSessionDuration,
+	})
+	req.SetContext(ctx)
+	if _, err := req.Send(); err != nil {
+		return errors.Wrap(err, "send request")
+	}
+
 	return nil
 }
 
