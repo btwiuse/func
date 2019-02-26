@@ -61,12 +61,12 @@ func TestKV(t *testing.T) {
 		t.Errorf("List() (-got, +want)\n%s", diff)
 	}
 
-	err = s.Delete(ctx, ns, proj, "nonexisting")
+	err = s.Delete(ctx, ns, proj, "mock", "nonexisting")
 	if err == nil {
 		t.Errorf("Delete() non-existing returned nil error")
 	}
 
-	err = s.Delete(ctx, ns, proj, "a")
+	err = s.Delete(ctx, ns, proj, "mock", "a")
 	if err != nil {
 		t.Errorf("Delete() error = %v", err)
 	}

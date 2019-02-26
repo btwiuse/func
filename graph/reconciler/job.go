@@ -200,7 +200,7 @@ func (j *job) Prune(ctx context.Context) error {
 		// Use new context so a cancelled context still stores the result.
 		dctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
+		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Def.Type(), e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}
 	}

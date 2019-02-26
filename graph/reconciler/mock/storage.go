@@ -30,9 +30,9 @@ type Store struct {
 	Events    []Event
 }
 
-func (s *Store) resourceIndex(ns, project, id string) int {
+func (s *Store) resourceIndex(ns, project, typename, id string) int {
 	for i, r := range s.Resources {
-		if r.NS == ns && r.Proj == project && r.Res.Name == id {
+		if r.NS == ns && r.Proj == project && r.Res.Def.Type() == typename && r.Res.Name == id {
 			return i
 		}
 	}
@@ -45,7 +45,7 @@ func (s *Store) Put(ctx context.Context, ns, project string, res resource.Resour
 	defer s.mu.Unlock()
 	r := Resource{NS: ns, Proj: project, Res: res}
 	op := "create"
-	idx := s.resourceIndex(ns, project, res.Name)
+	idx := s.resourceIndex(ns, project, res.Def.Type(), res.Name)
 	if idx >= 0 {
 		op = "update"
 		s.Resources[idx] = r
@@ -64,10 +64,10 @@ func (s *Store) Put(ctx context.Context, ns, project string, res resource.Resour
 }
 
 // Delete deletes a single resource.
-func (s *Store) Delete(ctx context.Context, ns, project, name string) error {
+func (s *Store) Delete(ctx context.Context, ns, project, typename, name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	idx := s.resourceIndex(ns, project, name)
+	idx := s.resourceIndex(ns, project, typename, name)
 	if idx < 0 {
 		return errors.New("not found")
 	}
