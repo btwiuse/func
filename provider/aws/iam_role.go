@@ -108,7 +108,7 @@ func (i *IAMRole) Type() string { return "aws_iam_role" }
 func (i *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := i.service(r.Auth)
 	if err != nil {
-		return errors.Wrap(err, "get iam client")
+		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.CreateRoleRequest(&iam.CreateRoleInput{
@@ -134,6 +134,19 @@ func (i *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 
 // Delete deletes the IAM role.
 func (i *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
+	svc, err := i.service(r.Auth)
+	if err != nil {
+		return errors.Wrap(err, "get client")
+	}
+
+	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
+		RoleName: aws.String(i.RoleName),
+	})
+	req.SetContext(ctx)
+	if _, err := req.Send(); err != nil {
+		return errors.Wrap(err, "send request")
+	}
+
 	return nil
 }
 
