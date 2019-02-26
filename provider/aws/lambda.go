@@ -185,7 +185,7 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 
 	svc, err := l.service(r.Auth)
 	if err != nil {
-		return errors.Wrap(err, "get iam client")
+		return errors.Wrap(err, "get client")
 	}
 
 	src, err := r.Source[0].Reader(ctx)
@@ -254,18 +254,7 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 
 	// OK
 
-	l.CodeSha256 = *resp.CodeSha256
-	l.CodeSize = *resp.CodeSize
-	l.FunctionArn = *resp.FunctionArn
-	t, err := time.Parse(iso8601, *resp.LastModified)
-	if err != nil {
-		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
-		t = time.Now()
-	}
-	l.LastModified = t
-	l.MasterArn = resp.MasterArn
-	l.RevisionID = *resp.RevisionId
-	l.Version = *resp.Version
+	l.setFromResp(resp)
 
 	return nil
 }
@@ -274,7 +263,7 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := l.service(r.Auth)
 	if err != nil {
-		return errors.Wrap(err, "get iam client")
+		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.DeleteFunctionRequest(&lambda.DeleteFunctionInput{
@@ -293,8 +282,104 @@ func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) 
 
 // Update updates the lambda function.
 func (l *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
+	svc, err := l.service(r.Auth)
+	if err != nil {
+		return errors.Wrap(err, "get client")
+	}
+	if r.SourceChanged {
+		if err := l.updateCode(ctx, svc, r); err != nil {
+			return errors.Wrap(err, "update code")
+		}
+	}
+	if r.ConfigChanged {
+		if err := l.updateConfig(ctx, svc); err != nil {
+			return errors.Wrap(err, "update config")
+		}
+	}
 	return nil
-	// return errors.New("not implemented")
+}
+
+func (l *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaAPI, r *resource.UpdateRequest) error {
+	if len(r.Source) == 0 {
+		return errors.New("no source code provided")
+	}
+	if len(r.Source) > 1 {
+		return errors.New("only one source archive allowed")
+	}
+
+	src, err := r.Source[0].Reader(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get source reader")
+	}
+	var zip bytes.Buffer
+	if err := convert.Zip(&zip, src); err != nil {
+		return errors.Wrap(err, "convert zip")
+	}
+	if err := src.Close(); err != nil {
+		return errors.Wrap(err, "close source code")
+	}
+
+	req := svc.UpdateFunctionCodeRequest(&lambda.UpdateFunctionCodeInput{
+		FunctionName: aws.String(l.FunctionName),
+		ZipFile:      zip.Bytes(),
+	})
+	req.SetContext(ctx)
+	resp, err := req.Send()
+	if err != nil {
+		return errors.Wrap(err, "send request")
+	}
+
+	l.setFromResp(resp)
+
+	return nil
+}
+
+func (l *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.LambdaAPI) error {
+	input := &lambda.UpdateFunctionConfigurationInput{
+		Description:  l.Description,
+		FunctionName: aws.String(l.FunctionName),
+		Handler:      aws.String(l.Handler),
+		KMSKeyArn:    l.KMSKeyArn,
+		MemorySize:   l.MemorySize,
+		Role:         aws.String(l.Role),
+		Runtime:      lambda.Runtime(l.Runtime),
+		Timeout:      l.Timeout,
+	}
+	if l.DeadLetterConfig != nil {
+		input.DeadLetterConfig = &lambda.DeadLetterConfig{
+			TargetArn: l.DeadLetterConfig.TargetArn,
+		}
+	}
+	if l.Environment != nil {
+		input.Environment = &lambda.Environment{
+			Variables: l.Environment.Variables,
+		}
+	}
+	if l.Layers != nil {
+		input.Layers = *l.Layers
+	}
+	if l.TracingConfig != nil {
+		input.TracingConfig = &lambda.TracingConfig{
+			Mode: lambda.TracingMode(l.TracingConfig.Mode),
+		}
+	}
+	if l.VpcConfig != nil {
+		input.VpcConfig = &lambda.VpcConfig{
+			SecurityGroupIds: l.VpcConfig.SecurityGroupIDs,
+			SubnetIds:        l.VpcConfig.SubnetIds,
+		}
+	}
+
+	req := svc.UpdateFunctionConfigurationRequest(input)
+	req.SetContext(ctx)
+	resp, err := req.Send()
+	if err != nil {
+		return errors.Wrap(err, "send request")
+	}
+
+	l.setFromResp(resp)
+
+	return nil
 }
 
 func (l *LambdaFunction) service(auth resource.AuthProvider) (lambdaiface.LambdaAPI, error) {
@@ -306,4 +391,19 @@ func (l *LambdaFunction) service(auth resource.AuthProvider) (lambdaiface.Lambda
 		l.svc = lambda.New(cfg)
 	}
 	return l.svc, nil
+}
+
+func (l *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOutput) {
+	l.CodeSha256 = *resp.CodeSha256
+	l.CodeSize = *resp.CodeSize
+	l.FunctionArn = *resp.FunctionArn
+	t, err := time.Parse(iso8601, *resp.LastModified)
+	if err != nil {
+		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
+		t = time.Now()
+	}
+	l.LastModified = t
+	l.MasterArn = resp.MasterArn
+	l.RevisionID = *resp.RevisionId
+	l.Version = *resp.Version
 }
