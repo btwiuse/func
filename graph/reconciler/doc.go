@@ -43,4 +43,9 @@
 //       A -> B -> D
 //         \- C -/
 //
+// Retries
+//
+// All operations are retried with exponential backoff. If a non-retryiable
+// error occurs, the resource definition should wrap the returned error with
+// backoff.PermanentError(err).
 package reconciler

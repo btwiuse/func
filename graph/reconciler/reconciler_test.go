@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/reconciler"
@@ -721,7 +722,10 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 
 func TestReconciler_Reconcile_errParent(t *testing.T) {
 	store := &mock.Store{Resources: nil}
-	r := &reconciler.Reconciler{State: store}
+	r := &reconciler.Reconciler{
+		State:   store,
+		Backoff: withoutRetry,
+	}
 
 	wantErr := errors.New("parent err")
 	desired := fromSnapshot(t, graph.Snapshot{
@@ -837,3 +841,12 @@ func assertEvents(t *testing.T, store *mock.Store, want []mock.Event) {
 		t.Errorf("Events do not match (-got, +want)\n%s", diff)
 	}
 }
+
+func withoutRetry() backoff.BackOff {
+	return noretry{}
+}
+
+type noretry struct{}
+
+func (noretry) NextBackOff() time.Duration { return backoff.Stop }
+func (noretry) Reset()                     {}
