@@ -6,12 +6,10 @@ package aws
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
 	"github.com/func/func/provider/aws/internal/config"
@@ -249,9 +247,6 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 	req.SetContext(ctx)
 	resp, err := req.Send()
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			fmt.Println(aerr.Code(), aerr.Message())
-		}
 		return err
 	}
 
@@ -274,13 +269,7 @@ func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) 
 	})
 	req.SetContext(ctx)
 	_, err = req.Send()
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			fmt.Println(aerr.Code(), aerr.Message())
-		}
-		return err
-	}
-	return nil
+	return err
 }
 
 // Update updates the lambda function.
