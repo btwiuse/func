@@ -16,6 +16,10 @@
 //
 //   resource "aws_lambda_function" "test" {
 //       name = "example"
+//
+//       sub {
+//           value = 123
+//       }
 //   }
 //
 // The second label ("test") is used when referring to resources from other
@@ -27,18 +31,26 @@
 //
 //   type MyResource struct {
 //       // Inputs
-//       Name string `input:"input"`
-//       Age  *int   `input:"age"`
+//       Name    string   `input:"input"`
+//       Age     *int     `input:"age"`
+//       Address *Address `input:"address"`
 //
 //       // Outputs
 //       Nickname string `output:"nick"`
+//   }
+//
+//   type Address struct {
+//       StreetName string  `input:"street"`
+//       Country    *string `input:"country"`
 //   }
 //
 // The value in the tag is matched to the attribute in hcl. This means `nick`
 // is the word to use in the example above. By convention, tag names should be
 // lower_snake_case.
 //
-// If an input is set on a pointer, the input is optional.
+// If an input is set on a pointer, the input is optional. In this example,
+// Address is a pointer and thus the entire block is optional. However, if the
+// block is provided, the address required a StreetName.
 //
 // References
 //

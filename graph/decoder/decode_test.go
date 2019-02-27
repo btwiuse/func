@@ -134,6 +134,136 @@ func TestDecodeBody(t *testing.T) {
 			wantProj: config.Project{Name: "test"},
 		},
 		{
+			name: "Map",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					map = {
+						foo = "bar"
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Map: &map[string]string{"foo": "bar"},
+					}},
+				},
+			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "Slice",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					slice = ["hello", "world"]
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Slice: &[]string{"hello", "world"},
+					}},
+				},
+			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "StructBlock",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					nested {
+						sub {
+							value = "hello"
+						}
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Child: &Child{
+							Sub: sub{
+								Val: "hello",
+							},
+						},
+					}},
+				},
+			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "MultipleBlocks",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					nested {
+						value = "hello"
+					}
+					nested {
+						value = "hello"
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Duplicate nested block",
+				Detail:   "Only one nested block is allowed. Another was defined on line 3",
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 6, Column: 6},
+					End:   hcl.Pos{Line: 6, Column: 12},
+				},
+			}},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "MissingBlock",
+			body: parseBody(t, `
+				project "test" {}
+				resource "qux" "foo" {
+					# required block not set
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&quxDef{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Missing required_field block",
+				Detail:   "A required_field block is required.",
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 4, Column: 6},
+					End:   hcl.Pos{Line: 4, Column: 6},
+				},
+			}},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "MissingNestedBlock",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					nested {
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Missing sub block",
+				Detail:   "A sub block is required.",
+				Subject: &hcl.Range{
+					Start: hcl.Pos{Line: 4, Column: 7},
+					End:   hcl.Pos{Line: 4, Column: 7},
+				},
+			}},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
 			name: "NoProject",
 			body: parseBody(t, `
 				resource "foo" "bar" {
@@ -325,5 +455,30 @@ type bazDef struct {
 }
 
 func (r *bazDef) Type() string { return "baz" }
+
+type quxDef struct {
+	resource.Definition
+	Required Child `input:"required_field"`
+}
+
+func (r *quxDef) Type() string { return "qux" }
+
+type complexDef struct {
+	resource.Definition
+
+	Map   *map[string]string `input:"map"`
+	Slice *[]string          `input:"slice"`
+	Child *Child             `input:"nested"`
+}
+
+type Child struct {
+	Sub sub `input:"sub"`
+}
+
+type sub struct {
+	Val string `input:"value"`
+}
+
+func (r *complexDef) Type() string { return "complex" }
 
 func strptr(str string) *string { return &str }
