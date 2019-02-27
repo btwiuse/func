@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -12,6 +13,8 @@ import (
 
 type existingResources struct {
 	*simple.DirectedGraph
+
+	mu   sync.RWMutex
 	keep map[int64]bool
 }
 
@@ -59,6 +62,8 @@ func newExisting(resources []resource.Resource) (*existingResources, error) {
 }
 
 func (ee *existingResources) Find(typename, name string) *existing {
+	ee.mu.RLock()
+	defer ee.mu.RUnlock()
 	it := ee.Nodes()
 	for it.Next() {
 		e := it.Node().(*existing)
@@ -70,7 +75,9 @@ func (ee *existingResources) Find(typename, name string) *existing {
 }
 
 func (ee *existingResources) Keep(ex *existing) {
+	ee.mu.Lock()
 	ee.keep[ex.ID()] = true
+	ee.mu.Unlock()
 }
 
 func (ee *existingResources) Remaining() []*existing {
