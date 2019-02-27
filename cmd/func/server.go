@@ -59,6 +59,7 @@ var serverCommand = &cobra.Command{
 				ResourceCodec: reg,
 			},
 			Source: src,
+			Logger: logger,
 		}
 
 		srv := &server.Server{

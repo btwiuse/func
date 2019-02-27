@@ -73,6 +73,7 @@ var applyCommand = &cobra.Command{
 					ResourceCodec: reg,
 				},
 				Source: src,
+				Logger: logger,
 			}
 
 			apicli = &server.Server{
