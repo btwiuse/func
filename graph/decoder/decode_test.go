@@ -134,6 +134,44 @@ func TestDecodeBody(t *testing.T) {
 			wantProj: config.Project{Name: "test"},
 		},
 		{
+			name: "Map",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					map = {
+						foo = "bar"
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Map: &map[string]string{"foo": "bar"},
+					}},
+				},
+			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "Slice",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					slice = ["hello", "world"]
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Slice: &[]string{"hello", "world"},
+					}},
+				},
+			},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
 			name: "NoProject",
 			body: parseBody(t, `
 				resource "foo" "bar" {
@@ -325,5 +363,14 @@ type bazDef struct {
 }
 
 func (r *bazDef) Type() string { return "baz" }
+
+type complexDef struct {
+	resource.Definition
+
+	Map   *map[string]string `input:"map"`
+	Slice *[]string          `input:"slice"`
+}
+
+func (r *complexDef) Type() string { return "complex" }
 
 func strptr(str string) *string { return &str }
