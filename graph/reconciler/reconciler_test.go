@@ -454,10 +454,11 @@ func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
+	ptr := "old-value-to-remove"
 	existing := []mock.Resource{
 		{NS: "ns", Proj: "proj", Res: resource.Resource{
 			Name: "a",
-			Def:  &noopDef{Input: "foo", Output: "FOO"}, // Output was set
+			Def:  &noopDef{Input: "foo", InputPtr: &ptr, Output: "FOO"}, // InputPtr and Output were set
 		}},
 	}
 
@@ -478,8 +479,9 @@ func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 		{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
 			Name: "a",
 			Def: &noopDef{
-				Input:  "bar",
-				Output: "FOO", // previous output is kept
+				Input:    "bar",
+				InputPtr: nil,   // should be cleared
+				Output:   "FOO", // previous output is kept
 			},
 		}},
 	})

@@ -13,7 +13,6 @@ import (
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -183,11 +182,14 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 			// Resource config did change.
 			logger.Debug("Update configuration")
 			updateConfig = true
-			// Merge existing outputs into resource
-			// Inputs set on the resource are not overwritten.
-			if err := mergo.Merge(res.Config.Def, ex.res.Def); err != nil {
-				errc <- errors.Wrap(err, "merge existing")
-				return errc
+
+			// Copy outputs from previous value
+			prevVal := reflect.Indirect(reflect.ValueOf(ex.res.Def))
+			nextVal := reflect.Indirect(reflect.ValueOf(res.Config.Def))
+			for _, output := range resource.Fields(prevVal.Type(), resource.Output) {
+				prev := prevVal.Field(output.Index)
+				next := nextVal.Field(output.Index)
+				next.Set(prev)
 			}
 		}
 

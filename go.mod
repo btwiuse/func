@@ -8,7 +8,6 @@ require (
 	github.com/golang/protobuf v1.2.0
 	github.com/google/go-cmp v0.2.0
 	github.com/hashicorp/hcl2 v0.0.0-20190110191257-40e962e08e80
-	github.com/imdario/mergo v0.3.7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/segmentio/ksuid v1.0.2
