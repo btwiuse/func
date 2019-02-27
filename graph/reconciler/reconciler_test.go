@@ -415,6 +415,44 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 	}
 }
 
+func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
+	prev := &mockDef{
+		Value: "before",
+	}
+
+	existing := []mock.Resource{
+		{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: prev}},
+	}
+
+	desired := fromSnapshot(t, graph.Snapshot{
+		Resources: []resource.Resource{
+			{Name: "foo", Def: &mockDef{
+				onUpdate: func(ctx context.Context, r *resource.UpdateRequest) error {
+					prev, ok := r.Previous.(*mockDef)
+					if !ok {
+						return errors.Errorf("previous does not match type, got %T, want %T", r.Previous, &mockDef{})
+					}
+					if prev.Value != "before" {
+						return errors.Errorf("Previous value does not match, got %s, want %s", prev.Value, "before")
+					}
+					return nil
+				},
+				Value: "after",
+			}},
+		},
+	})
+
+	store := &mock.Store{Resources: existing}
+	r := &reconciler.Reconciler{
+		State:   store,
+		Backoff: withoutRetry,
+	}
+
+	if err := r.Reconcile(context.Background(), "ns", config.Project{Name: "proj"}, desired); err != nil {
+		t.Fatalf("Reconcile() error = %v", err)
+	}
+}
+
 func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 	existing := []mock.Resource{
 		{NS: "ns", Proj: "proj", Res: resource.Resource{
@@ -789,6 +827,8 @@ type mockDef struct {
 	onCreate func(context.Context, *resource.CreateRequest) error
 	onUpdate func(context.Context, *resource.UpdateRequest) error
 	onDelete func(context.Context, *resource.DeleteRequest) error
+
+	Value string `input:"value"`
 }
 
 func (s *mockDef) Type() string { return "mock" }
