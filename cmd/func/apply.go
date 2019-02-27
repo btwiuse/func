@@ -54,8 +54,7 @@ var applyCommand = &cobra.Command{
 			}
 
 			reg := &resource.Registry{}
-			reg.Register(&aws.LambdaFunction{})
-			reg.Register(&aws.IAMRole{})
+			aws.Register(reg)
 
 			bolt, err := kvbackend.NewBolt()
 			if err != nil {
