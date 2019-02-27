@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,12 +27,15 @@ type job struct {
 	project  config.Project
 	state    StateStorage
 	source   SourceStorage
+	logger   *zap.Logger
 
 	mu      sync.Mutex
 	process map[*graph.Resource]chan error
 }
 
 func (j *job) CreateUpdate(ctx context.Context) error {
+	j.logger.Info("Creating/updating resources")
+
 	var leaves []*graph.Resource
 	for _, r := range j.graph.Resources() {
 		if len(r.Dependents()) == 0 {
@@ -51,24 +55,67 @@ func (j *job) CreateUpdate(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (j *job) waitForDeps(ctx context.Context, res *graph.Resource) error {
+// acquireSem acquires a semaphore to limit concurrency. The function blocks
+// until allowed to execute and periodically logs updates. Returns with an
+// error in case the context is cancelled.
+func (j *job) acquireSem(ctx context.Context, logger *zap.Logger) (func(), error) {
+	done := func() {
+		<-j.sem
+	}
+
+	wait := 100 * time.Millisecond
+	for {
+		select {
+		case j.sem <- 1:
+			// Got semaphore
+			return done, nil
+		case <-ctx.Done():
+			// Context cancelled
+			return nil, ctx.Err()
+		case <-time.After(wait):
+			// Log update
+			if wait < 5*time.Second {
+				wait *= 2
+			}
+			logger.Debug("Waiting for semaphore")
+		}
+	}
+}
+
+func (j *job) waitForDeps(ctx context.Context, res *graph.Resource, logger *zap.Logger) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, ref := range res.Dependencies() {
 		dep := ref.Source.Resource
+		log := logger.With(
+			zap.String("type", dep.Config.Def.Type()),
+			zap.String("name", dep.Config.Name),
+		)
 		g.Go(func() error {
-			return <-j.processResource(ctx, dep)
+			log.Debug("Waiting on dependency")
+			err := <-j.processResource(ctx, dep)
+			log.Debug("Dependency done", zap.Error(err))
+			return err
 		})
 	}
 	return g.Wait()
 }
 
-func (j *job) processResource(ctx context.Context, res *graph.Resource) chan error {
-	j.sem <- 1
-	defer func() {
-		<-j.sem
-	}()
+func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan error {
+	logger := j.logger.With(
+		zap.String("type", res.Config.Def.Type()),
+		zap.String("name", res.Config.Name),
+	)
 
-	if err := j.waitForDeps(ctx, res); err != nil {
+	// Acquire Semaphore to limit concurrency
+	done, err := j.acquireSem(ctx, logger)
+	if err != nil {
+		errc := make(chan error, 1)
+		errc <- errors.Wrap(err, "acquire semaphore")
+		return errc
+	}
+	defer done()
+
+	if err := j.waitForDeps(ctx, res, logger); err != nil {
 		errc := make(chan error, 1)
 		errc <- errors.Wrap(err, "process deps")
 		return errc
@@ -85,8 +132,12 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 	j.mu.Unlock()
 
 	defer func() {
-		for _, ref := range res.Dependents() {
-			updateRef(ref)
+		dd := res.Dependents()
+		if len(dd) > 0 {
+			logger.Debug("Updating dependents", zap.Int("cout", len(dd)))
+			for _, ref := range dd {
+				updateRef(ref)
+			}
 		}
 
 		// Note: It is important to close _after_ updating refs as closing the
@@ -98,6 +149,8 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 
 	hash := resource.Hash(res.Config.Def)
 
+	logger.With(zap.String("config_hash", hash)).Info("Processing")
+
 	srcs := res.Sources()
 	sourceList := make([]resource.SourceCode, len(srcs))
 	for i, src := range res.Sources() {
@@ -106,22 +159,27 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 			storage: j.source,
 		}
 		res.Config.Sources = append(res.Config.Sources, src.Config.SHA)
+		logger.Debug("Set source code", zap.String("sha", src.Config.SHA))
 	}
 
 	ex := j.existing.Find(res.Config.Def.Type(), res.Config.Name)
 	updateConfig := false
 	updateSource := false
 	if ex != nil {
+		logger.Debug("Existing version of resource exists")
 		j.existing.Keep(ex)
 
 		if ex.hash == hash {
-			// Resource did not change.
+			// Resource config did not change.
+			logger.Debug("Configuration did not change")
 			// Set all dependent inputs from existing resource definition.
 			for _, ref := range res.Dependents() {
 				// Change ref source to deployed resource.
 				ref.Source.Resource.Config.Def = ex.res.Def
 			}
 		} else {
+			// Resource config did change.
+			logger.Debug("Update configuration")
 			updateConfig = true
 			// Merge existing outputs into resource
 			// Inputs set on the resource are not overwritten.
@@ -136,23 +194,35 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 			cmpopts.EquateEmpty(),
 		}
 		updateSource = !cmp.Equal(ex.res.Sources, res.Config.Sources, opts...)
+
+		logger.Debug("Compare source",
+			zap.Bool("update", updateSource),
+			zap.Strings("prev", ex.res.Sources),
+			zap.Strings("next", res.Config.Sources),
+		)
 	}
 
 	if ex != nil && !updateConfig && !updateSource {
+		logger.Info("No changes necessary")
 		// Nothing to do
 		return errc
 	}
 
 	if ex == nil {
+		logger.Info("Creating resource")
 		req := &resource.CreateRequest{
 			Auth:   tempLocalAuthProvider{},
 			Source: sourceList,
 		}
 		if err := res.Config.Def.Create(ctx, req); err != nil {
+			// Log and return error. This handles the error twice but makes it
+			// easier to pin-point what went wrong.
+			logger.Error("Could not create resource", zap.Error(err), zap.Any("config", res.Config.Def))
 			errc <- errors.Wrap(err, "create")
 			return errc
 		}
 	} else {
+		logger.Info("Updating resource")
 		req := &resource.UpdateRequest{
 			Auth:          tempLocalAuthProvider{},
 			Source:        sourceList,
@@ -161,6 +231,9 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 			SourceChanged: updateSource,
 		}
 		if err := res.Config.Def.Update(ctx, req); err != nil {
+			// Log and return error. This handles the error twice but makes it
+			// easier to pin-point what went wrong.
+			logger.Error("Could not update resource", zap.Error(err), zap.Any("config", res.Config.Def))
 			errc <- errors.Wrap(err, "update")
 			return errc
 		}
@@ -181,6 +254,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 	pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	logger.Debug("Storing data")
 	if err := j.state.Put(pctx, j.ns, j.project.Name, res.Config); err != nil {
 		errc <- errors.Wrap(err, "store resource")
 		return errc
@@ -190,16 +264,27 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) chan err
 }
 
 func (j *job) Prune(ctx context.Context) error {
-	for _, e := range j.existing.Remaining() {
+	rem := j.existing.Remaining()
+	j.logger.Info("Removing previous resources", zap.Int("count", len(rem)))
+	for _, e := range rem {
+		logger := j.logger.With(
+			zap.String("type", e.res.Def.Type()),
+			zap.String("name", e.res.Name),
+		)
+
+		logger.Debug("Deleting resource")
 		req := &resource.DeleteRequest{
 			Auth: tempLocalAuthProvider{},
 		}
 		if err := e.res.Def.Delete(ctx, req); err != nil {
 			return errors.Wrap(err, "delete")
 		}
+
 		// Use new context so a cancelled context still stores the result.
 		dctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
+
+		logger.Debug("Removing deleted resource from store")
 		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Def.Type(), e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}

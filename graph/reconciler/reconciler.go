@@ -9,6 +9,8 @@ import (
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
+	"github.com/segmentio/ksuid"
+	"go.uber.org/zap"
 )
 
 // DefaultConcurrency is the default maximum concurrency to use.
@@ -42,19 +44,38 @@ type Reconciler struct {
 	Concurrency int
 	State       StateStorage
 	Source      SourceStorage
+
+	// Logger logs reconciliation updates. If not set, logs are discarded.
+	Logger *zap.Logger
 }
 
 // Reconcile reconciles changes to the graph.
 func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Project, desired *graph.Graph) error {
+	logger := r.Logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	logger = logger.With(
+		zap.String("ns", ns),
+		zap.String("project", project.Name),
+		zap.String("job_id", ksuid.New().String()),
+	)
+
+	logger.Info("Reconcile")
+
 	c := r.Concurrency
 	if c == 0 {
 		c = DefaultConcurrency
 	}
+	logger.Debug("Set concurrency", zap.Int("max", c))
 
 	rr, err := r.State.List(ctx, ns, project.Name)
 	if err != nil {
 		return errors.Wrap(err, "list existing resources")
 	}
+
+	logger.Debug("Received existing resources", zap.Int("count", len(rr)))
 
 	existing, err := newExisting(rr)
 	if err != nil {
@@ -70,6 +91,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 		state:    r.State,
 		source:   r.Source,
 		process:  make(map[*graph.Resource]chan error),
+		logger:   logger,
 	}
 
 	// Create/update resources.
@@ -81,6 +103,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 	if err := j.Prune(ctx); err != nil {
 		return errors.Wrap(err, "prune")
 	}
+
+	logger.Info("Done")
 
 	return nil
 }
