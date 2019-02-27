@@ -227,7 +227,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		req := &resource.UpdateRequest{
 			Auth:          tempLocalAuthProvider{},
 			Source:        sourceList,
-			Previous:      ex.res,
+			Previous:      ex.res.Def,
 			ConfigChanged: updateConfig,
 			SourceChanged: updateSource,
 		}
