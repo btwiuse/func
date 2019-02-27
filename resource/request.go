@@ -41,7 +41,7 @@ type CreateRequest struct {
 type UpdateRequest struct {
 	Auth     AuthProvider
 	Source   []SourceCode
-	Previous interface{}
+	Previous Definition
 
 	SourceChanged bool
 	ConfigChanged bool
