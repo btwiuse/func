@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
@@ -28,6 +29,7 @@ type job struct {
 	state    StateStorage
 	source   SourceStorage
 	logger   *zap.Logger
+	backoff  func() backoff.BackOff
 
 	mu      sync.Mutex
 	process map[*graph.Resource]chan error
@@ -208,18 +210,17 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		return errc
 	}
 
+	var op func() error
+
 	if ex == nil {
 		logger.Info("Creating resource")
 		req := &resource.CreateRequest{
 			Auth:   tempLocalAuthProvider{},
 			Source: sourceList,
 		}
-		if err := res.Config.Def.Create(ctx, req); err != nil {
-			// Log and return error. This handles the error twice but makes it
-			// easier to pin-point what went wrong.
-			logger.Error("Could not create resource", zap.Error(err), zap.Any("config", res.Config.Def))
-			errc <- errors.Wrap(err, "create")
-			return errc
+
+		op = func() error {
+			return res.Config.Def.Create(ctx, req)
 		}
 	} else {
 		logger.Info("Updating resource")
@@ -230,13 +231,23 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 			ConfigChanged: updateConfig,
 			SourceChanged: updateSource,
 		}
-		if err := res.Config.Def.Update(ctx, req); err != nil {
-			// Log and return error. This handles the error twice but makes it
-			// easier to pin-point what went wrong.
-			logger.Error("Could not update resource", zap.Error(err), zap.Any("config", res.Config.Def))
-			errc <- errors.Wrap(err, "update")
-			return errc
+
+		op = func() error {
+			return res.Config.Def.Update(ctx, req)
 		}
+	}
+
+	algo := backoff.WithContext(j.backoff(), ctx)
+	notify := func(err error, dur time.Duration) {
+		logger.Info("Retrying", zap.Error(err), zap.Duration("duration", dur))
+	}
+
+	if err := backoff.RetryNotify(op, algo, notify); err != nil {
+		// Log and return error. This handles the error twice but makes it
+		// easier to pin-point what went wrong.
+		logger.Error("Could not put resource", zap.Error(err), zap.Any("config", res.Config.Def))
+		errc <- errors.Wrap(err, "put resource")
+		return errc
 	}
 
 	refs := res.Dependencies()
@@ -276,7 +287,12 @@ func (j *job) Prune(ctx context.Context) error {
 		req := &resource.DeleteRequest{
 			Auth: tempLocalAuthProvider{},
 		}
-		if err := e.res.Def.Delete(ctx, req); err != nil {
+
+		err := backoff.Retry(func() error {
+			return e.res.Def.Delete(ctx, req)
+		}, backoff.NewExponentialBackOff())
+
+		if err != nil {
 			return errors.Wrap(err, "delete")
 		}
 

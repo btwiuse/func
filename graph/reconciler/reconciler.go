@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime"
 
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
@@ -47,6 +48,10 @@ type Reconciler struct {
 
 	// Logger logs reconciliation updates. If not set, logs are discarded.
 	Logger *zap.Logger
+
+	// Backoff is the backoff algorithm used for retries. If not set,
+	// exponential backoff is used.
+	Backoff func() backoff.BackOff
 }
 
 // Reconcile reconciles changes to the graph.
@@ -54,6 +59,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 	logger := r.Logger
 	if logger == nil {
 		logger = zap.NewNop()
+	}
+
+	algo := r.Backoff
+	if algo == nil {
+		algo = func() backoff.BackOff {
+			return backoff.NewExponentialBackOff()
+		}
 	}
 
 	logger = logger.With(
@@ -92,6 +104,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, ns string, project config.Pr
 		source:   r.Source,
 		process:  make(map[*graph.Resource]chan error),
 		logger:   logger,
+		backoff:  algo,
 	}
 
 	// Create/update resources.

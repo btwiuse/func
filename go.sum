@@ -7,6 +7,8 @@ github.com/aws/aws-sdk-go-v2 v0.7.1-0.20190104002603-381987c30353 h1:EDfXpXXUqJY
 github.com/aws/aws-sdk-go-v2 v0.7.1-0.20190104002603-381987c30353/go.mod h1:17MaCZ9g0q5BIMxwzRQeiv8M3c8+W7iuBnlWAEprcxE=
 github.com/bsm/go-vlq v0.0.0-20150828105119-ec6e8d4f5f4e h1:D64GF/Xr5zSUnM3q1Jylzo4sK7szhP/ON+nb2DB5XJA=
 github.com/bsm/go-vlq v0.0.0-20150828105119-ec6e8d4f5f4e/go.mod h1:N+BjUcTjSxc2mtRGSCPsat1kze3CUtvJN3/jTXlp29k=
+github.com/cenkalti/backoff v2.1.1+incompatible h1:tKJnvO2kl0zmb/jA5UKAt4VoEVw1qxKWjE/Bpp46npY=
+github.com/cenkalti/backoff v2.1.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fatih/structtag v1.0.0 h1:pTHj65+u3RKWYPSGaU290FpI/dXxTaHdVwVwbcPKmEc=
