@@ -86,12 +86,12 @@ func (p *IAMRolePolicyAttachment) Update(ctx context.Context, r *resource.Update
 
 	// Delete previous
 	prev := r.Previous.(*IAMRolePolicyAttachment)
-	if err := prev.Delete(ctx, nil); err != nil {
+	if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
 		return errors.Wrap(err, "update-delete")
 	}
 
 	// Create next
-	if err := p.Create(ctx, nil); err != nil {
+	if err := p.Create(ctx, r.CreateRequest()); err != nil {
 		return errors.Wrap(err, "update-create")
 	}
 
