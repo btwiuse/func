@@ -189,6 +189,8 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 		apigatewaypatch.Field{Name: "Description", Path: "/description"},
 		apigatewaypatch.Field{Name: "MinimumCompressionSize", Path: "/minimumCompressionSize"},
 		apigatewaypatch.Field{Name: "Name", Path: "/name"},
+		apigatewaypatch.Field{Name: "Policy", Path: "/policy"},
+		apigatewaypatch.Field{Name: "Version", Path: "/version"},
 		apigatewaypatch.Field{
 			Name: "EndpointConfiguration.Types",
 			Path: "/endpointConfiguration/types",
