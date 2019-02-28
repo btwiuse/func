@@ -11,6 +11,7 @@ type registry interface {
 // Register adds all supported AWS resources to the registry.
 func Register(reg registry) {
 	reg.Register(&LambdaFunction{})
+	reg.Register(&IAMPolicyDocument{})
 	reg.Register(&IAMRole{})
 	reg.Register(&APIGatewayRestAPI{})
 }
