@@ -13,6 +13,7 @@ func Register(reg registry) {
 	reg.Register(&LambdaFunction{})
 	reg.Register(&IAMPolicyDocument{})
 	reg.Register(&IAMRole{})
+	reg.Register(&IAMRolePolicy{})
 	reg.Register(&APIGatewayRestAPI{})
 	reg.Register(&APIGatewayResource{})
 }
