@@ -47,6 +47,21 @@ type UpdateRequest struct {
 	ConfigChanged bool
 }
 
+// CreateRequest converts the update to a Create Request.
+func (r *UpdateRequest) CreateRequest() *CreateRequest {
+	return &CreateRequest{
+		Auth:   r.Auth,
+		Source: r.Source,
+	}
+}
+
+// DeleteRequest converts the update to a Delete Request.
+func (r *UpdateRequest) DeleteRequest() *DeleteRequest {
+	return &DeleteRequest{
+		Auth: r.Auth,
+	}
+}
+
 // A DeleteRequest is passed to a resource when it is being deleted.
 type DeleteRequest struct {
 	Auth AuthProvider
