@@ -69,22 +69,24 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 			continue
 		}
 		blocks := blocksByType[input.Name]
+		field := val.Type().Field(input.Index)
 
-		if len(blocks) == 0 {
-			if input.Type.Kind() == reflect.Ptr {
-				// Missing optional block
-				continue
-			}
-			// Missing required block
-			diags = append(diags, &hcl.Diagnostic{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf("Missing %s block", input.Name),
-				Detail:   fmt.Sprintf("A %s block is required.", input.Name),
-				Subject:  config.MissingItemRange().Ptr(),
-			})
-			continue
+		ty := field.Type
+		isPtr := false
+		if ty.Kind() == reflect.Ptr {
+			// Pointers are optional
+			isPtr = true
+			ty = ty.Elem()
 		}
-		if len(blocks) > 1 {
+
+		isSlice := false
+		if ty.Kind() == reflect.Slice {
+			// Slices can capture multiple blocks
+			isSlice = true
+			ty = ty.Elem()
+		}
+
+		if len(blocks) > 1 && !isSlice {
 			diags = append(diags, &hcl.Diagnostic{
 				Severity: hcl.DiagError,
 				Summary:  fmt.Sprintf("Duplicate %s block", input.Name),
@@ -98,25 +100,65 @@ func decodeInput(val reflect.Value, config hcl.Body) (vals map[string]cty.Value,
 			continue
 		}
 
-		if input.Type.Kind() == reflect.Ptr {
-			// Initialize struct
-			v := reflect.New(input.Type.Elem())
-			val.Field(input.Index).Set(v)
-		}
-
-		field := reflect.Indirect(val.Field(input.Index))
-
-		if !field.IsValid() {
+		if len(blocks) == 0 {
+			if isPtr || isSlice {
+				// Missing optional block, or empty slice
+				continue
+			}
+			// Missing required block
 			diags = append(diags, &hcl.Diagnostic{
 				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf("huh"),
-				Subject:  blocks[0].DefRange.Ptr(),
+				Summary:  fmt.Sprintf("Missing %s block", input.Name),
+				Detail:   fmt.Sprintf("A %s block is required.", input.Name),
+				Subject:  config.MissingItemRange().Ptr(),
 			})
 			continue
 		}
 
+		fieldVal := val.Field(input.Index)
+
+		if isSlice {
+			elemType := ty
+			slice := reflect.MakeSlice(reflect.SliceOf(elemType), len(blocks), len(blocks))
+
+			for i, block := range blocks {
+				sliceIndex := slice.Index(i)
+				if elemType.Kind() == reflect.Ptr {
+					// Initialize struct pointer in slice
+					v := reflect.New(elemType.Elem())
+					slice.Index(i).Set(v)
+					sliceIndex = v.Elem()
+				}
+
+				kv, r, d := decodeInput(sliceIndex, block.Body)
+				for k, v := range kv {
+					vals[k] = v
+				}
+				refs = append(refs, r...)
+				diags = append(diags, d...)
+			}
+
+			if isPtr {
+				// Set slice pointer
+				slicePtr := reflect.New(slice.Type())
+				slicePtr.Elem().Set(slice)
+				fieldVal.Set(slicePtr)
+				continue
+			}
+
+			// Set slice value
+			fieldVal.Set(slice)
+			continue
+		}
+
+		if isPtr {
+			// Initialize struct pointer
+			v := reflect.New(input.Type.Elem())
+			fieldVal.Set(v)
+		}
+
 		block := blocks[0]
-		kv, r, d := decodeInput(field, block.Body)
+		kv, r, d := decodeInput(reflect.Indirect(fieldVal), block.Body)
 		for k, v := range kv {
 			vals[k] = v
 		}
@@ -134,15 +176,19 @@ type ref struct {
 }
 
 func isBlock(f resource.Field) bool {
-	if f.Type.Kind() == reflect.Struct {
-		// Required block
+	t := f.Type
+	if t.Kind() == reflect.Ptr {
+		// Optional
+		t = t.Elem()
+	}
+
+	if t.Kind() == reflect.Struct {
 		return true
 	}
-	if f.Type.Kind() == reflect.Ptr && f.Type.Elem().Kind() == reflect.Struct {
-		// Optional block
+	if t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Struct {
 		return true
 	}
-	return f.Type.Kind() == reflect.Struct
+	return false
 }
 
 func inputSchema(ff []resource.Field) *hcl.BodySchema {

@@ -198,7 +198,7 @@ func TestDecodeBody(t *testing.T) {
 			wantProj: config.Project{Name: "test"},
 		},
 		{
-			name: "MultipleBlocks",
+			name: "MultipleBlocksNotAllowed",
 			body: parseBody(t, `
 				project "test" {}
 				resource "complex" "foo" {
@@ -206,7 +206,7 @@ func TestDecodeBody(t *testing.T) {
 						value = "hello"
 					}
 					nested {
-						value = "hello"
+						value = "world"
 					}
 				}
 			`),
@@ -220,6 +220,29 @@ func TestDecodeBody(t *testing.T) {
 					End:   hcl.Pos{Line: 6, Column: 12},
 				},
 			}},
+			wantProj: config.Project{Name: "test"},
+		},
+		{
+			name: "MultipleBlocksAllowed",
+			body: parseBody(t, `
+				project "test" {}
+				resource "complex" "foo" {
+					multi {
+						value = "hello"
+					}
+					multi {
+						value = "world"
+					}
+				}
+			`),
+			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
+			wantSnap: graph.Snapshot{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &complexDef{
+						Multiple: &[]sub{{Val: "hello"}, {Val: "world"}},
+					}},
+				},
+			},
 			wantProj: config.Project{Name: "test"},
 		},
 		{
@@ -466,9 +489,10 @@ func (r *quxDef) Type() string { return "qux" }
 type complexDef struct {
 	resource.Definition
 
-	Map   *map[string]string `input:"map"`
-	Slice *[]string          `input:"slice"`
-	Child *Child             `input:"nested"`
+	Map      *map[string]string `input:"map"`
+	Slice    *[]string          `input:"slice"`
+	Child    *Child             `input:"nested"`
+	Multiple *[]sub             `input:"multi"`
 }
 
 type Child struct {
