@@ -290,9 +290,11 @@ func (j *job) Prune(ctx context.Context) error {
 			Auth: tempLocalAuthProvider{},
 		}
 
+		algo := backoff.WithContext(j.backoff(), ctx)
+
 		err := backoff.Retry(func() error {
 			return e.res.Def.Delete(ctx, req)
-		}, backoff.NewExponentialBackOff())
+		}, algo)
 
 		if err != nil {
 			return errors.Wrap(err, "delete")
