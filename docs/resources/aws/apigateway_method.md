@@ -3,7 +3,7 @@
 
 # aws_apigateway_method
 
-APIGatewayMethod provides a resource (GET /, POST /user etc) in a REST
+APIGatewayMethod provides a resource (`GET /`, `POST /user` etc) in a REST
 API.
 
 ## Overview
@@ -30,7 +30,7 @@ API.
 
 `optional bool`
 
-Specifies whether the method required a valid API key.
+Specifies whether the method requires a valid API key.
 
 ### authorization_scopes
 

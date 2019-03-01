@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// APIGatewayMethod provides a resource (GET /, POST /user etc) in a REST
+// APIGatewayMethod provides a resource (`GET /`, `POST /user` etc) in a REST
 // API.
 type APIGatewayMethod struct {
 	// Specifies whether the method requires a valid API key.
@@ -160,8 +160,10 @@ func (p *APIGatewayMethod) Delete(ctx context.Context, r *resource.DeleteRequest
 func (p *APIGatewayMethod) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	prev := r.Previous.(*APIGatewayMethod)
 
-	if prev.HTTPMethod != p.HTTPMethod {
-		// HTTP Method cannot be updated with patch.
+	if prev.HTTPMethod != p.HTTPMethod ||
+		prev.ResourceID != p.ResourceID ||
+		prev.RestAPIID != p.RestAPIID {
+		// These cannot be updated with patch.
 		if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
 			return errors.Wrap(err, "update-delete")
 		}
