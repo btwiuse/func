@@ -13,6 +13,7 @@ import (
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/graph/reconciler/mock"
+	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -36,7 +37,7 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &noopDef{Input: "bar"}}, // exact match to existing resource
 		},
@@ -61,7 +62,7 @@ func TestReconciler_Reconcile_noopWithSource(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &noopDef{Input: "bar"}, Sources: []string{"abc", "xyz"}}, // exact match to existing resource
 		},
@@ -78,7 +79,7 @@ func TestReconciler_Reconcile_create(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &noopDef{Input: "bar"}},
 		},
@@ -113,7 +114,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 			store := &mock.Store{Resources: existing}
 			r := &reconciler.Reconciler{State: store}
 
-			desired := fromSnapshot(t, graph.Snapshot{Resources: []resource.Resource{res}})
+			desired := fromSnapshot(t, snapshot.Snap{Resources: []resource.Resource{res}})
 
 			if err := r.Reconcile(context.Background(), tt.ns2, config.Project{Name: tt.proj2}, desired); err != nil {
 				t.Fatalf("Reconcile() error = %v", err)
@@ -131,14 +132,14 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			// Deliberately out of order to ensure dependency order is followed.
 			{Name: "b", Def: &concatDef{Add: "b"}},
 			{Name: "c", Def: &concatDef{Add: "c"}},
 			{Name: "a", Def: &concatDef{Add: "a"}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 2, Target: 0, SourceIndex: []int{2}, TargetIndex: []int{0}}, // a -> b
 			{Source: 0, Target: 1, SourceIndex: []int{2}, TargetIndex: []int{0}}, // b -> c
 		},
@@ -177,7 +178,7 @@ func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
 
 	var got []string
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "src", Def: &mockDef{
 				onCreate: func(ctx context.Context, r *resource.CreateRequest) error {
@@ -222,12 +223,12 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 	strval := "hello"
 	strptr := &strval
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &noopDef{OutputPtr: strptr}},
 			{Name: "b", Def: &noopDef{}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			// Output is a *string, input is a string
 			{Source: 0, Target: 1, SourceIndex: []int{3}, TargetIndex: []int{0}}, // OutputPtr -> Input
 		},
@@ -260,12 +261,12 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 	strval := "hello"
 	strptr := &strval
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &noopDef{Output: strval}},
 			{Name: "b", Def: &noopDef{}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			// Output is a *string, input is a string
 			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{2}}, // Output -> InputPtr
 		},
@@ -295,7 +296,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 	tests := []struct {
 		name     string
 		existing []mock.Resource
-		snapshot graph.Snapshot
+		snapshot snapshot.Snap
 		events   []mock.Event
 	}{
 		{
@@ -303,7 +304,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 			[]mock.Resource{
 				{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: &noopDef{Input: "before"}}},
 			},
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &noopDef{Input: "after"}},
 				},
@@ -326,7 +327,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					Sources: []string{"abc"},
 				}},
 			},
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
 				},
@@ -353,7 +354,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					Sources: []string{"abc"},
 				}},
 			},
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &noopDef{Input: "foo"}}, // no change
 				},
@@ -380,7 +381,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					Sources: []string{"abc"},
 				}},
 			},
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
 				},
@@ -424,7 +425,7 @@ func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
 		{NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo", Def: prev}},
 	}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{
 				onUpdate: func(ctx context.Context, r *resource.UpdateRequest) error {
@@ -465,7 +466,7 @@ func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &noopDef{Input: "bar"}}, // Not output in input
 		},
@@ -496,12 +497,12 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &concatDef{Add: "a"}}, // Out is resolved to same value
 			{Name: "b", Def: &concatDef{Add: "x"}}, // Add changed to x
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
 		},
 	})
@@ -532,12 +533,12 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &concatDef{Add: "x"}}, // Add changed to x
 			{Name: "b", Def: &concatDef{Add: "b"}}, // Did not change, but will receive new input from a
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
 		},
 	})
@@ -606,7 +607,7 @@ func TestReconciler_Reconcile_deleteAfterCreate(t *testing.T) {
 	store := &mock.Store{Resources: existing}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "bar", Def: &noopDef{Input: "new"}},
 		},
@@ -636,7 +637,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 
 	for _, c := range concurrencies {
 		t.Run(strconv.Itoa(c), func(t *testing.T) {
-			var snap graph.Snapshot
+			var snap snapshot.Snap
 			for i := 0; i < n; i++ {
 				res := resource.Resource{Name: fmt.Sprintf("res%v", i), Def: &mockDef{
 					onCreate: func(context.Context, *resource.CreateRequest) error {
@@ -676,14 +677,14 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &noopDef{Output: "a"}},
 			{Name: "b", Def: &noopDef{Output: "b"}},
 			{Name: "c", Def: &noopDef{Output: "c"}},
 			{Name: "x", Def: &joinDef{}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a Out -> x A
 			{Source: 1, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{1}}, // b Out -> x B
 			{Source: 2, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{2}}, // c Out -> x C
@@ -718,14 +719,14 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 	store := &mock.Store{Resources: nil}
 	r := &reconciler.Reconciler{State: store}
 
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "a", Def: &noopDef{Output: "hello"}},
 			{Name: "x", Def: &noopDef{}},
 			{Name: "y", Def: &noopDef{}},
 			{Name: "z", Def: &noopDef{}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> x
 			{Source: 0, Target: 2, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> y
 			{Source: 0, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> z
@@ -768,12 +769,12 @@ func TestReconciler_Reconcile_errParent(t *testing.T) {
 	}
 
 	wantErr := errors.New("parent err")
-	desired := fromSnapshot(t, graph.Snapshot{
+	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "parent", Def: &noopDef{Err: wantErr}},
 			{Name: "child", Def: &noopDef{}},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
 		},
 	})
@@ -862,9 +863,9 @@ func (j *joinDef) run() {
 
 // Test helpers
 
-func fromSnapshot(t *testing.T, snap graph.Snapshot) *graph.Graph {
+func fromSnapshot(t *testing.T, snap snapshot.Snap) *graph.Graph {
 	t.Helper()
-	g, err := graph.FromSnapshot(snap)
+	g, err := snap.Graph()
 	if err != nil {
 		t.Fatalf("Make graph from snapshot: %v", err)
 	}

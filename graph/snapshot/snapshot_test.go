@@ -1,4 +1,4 @@
-package graph_test
+package snapshot_test
 
 import (
 	"fmt"
@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/func/func/config"
-	"github.com/func/func/graph"
+	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 )
 
 func TestSnapshot_roundtrip(t *testing.T) {
-	start := graph.Snapshot{
+	start := snapshot.Snap{
 		// Nodes
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{Value: "foo"}},
@@ -28,12 +28,12 @@ func TestSnapshot_roundtrip(t *testing.T) {
 		ResourceSources: map[int][]int{
 			0: {0},
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{1}},
 		},
 	}
 
-	g, err := graph.FromSnapshot(start)
+	g, err := start.Graph()
 	if err != nil {
 		t.Fatalf("FromSnapshot() err = %v", err)
 	}
@@ -44,7 +44,7 @@ func TestSnapshot_roundtrip(t *testing.T) {
 	}
 	t.Logf("Generated graph\n%s", string(dot))
 
-	end := g.Snapshot()
+	end := snapshot.Take(g)
 
 	if diff := cmp.Diff(start, end); diff != "" {
 		t.Errorf("Diff() (-start, +end)\n%s", diff)
@@ -54,11 +54,11 @@ func TestSnapshot_roundtrip(t *testing.T) {
 func TestFromSnapshot_errors(t *testing.T) {
 	tests := []struct {
 		name string
-		snap graph.Snapshot
+		snap snapshot.Snap
 	}{
 		{
 			"NoResource",
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: nil,
 				Sources:   []config.SourceInfo{{SHA: "123"}},
 				ResourceSources: map[int][]int{
@@ -68,7 +68,7 @@ func TestFromSnapshot_errors(t *testing.T) {
 		},
 		{
 			"NoSourceOwner",
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources:       []resource.Resource{{Name: "foo", Def: &mockDef{Value: "foo"}}},
 				Sources:         []config.SourceInfo{{SHA: "123"}},
 				ResourceSources: map[int][]int{}, // empty
@@ -76,22 +76,22 @@ func TestFromSnapshot_errors(t *testing.T) {
 		},
 		{
 			"NoResourceSource",
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &mockDef{Value: "foo"}},
 				},
-				References: []graph.SnapshotRef{
+				References: []snapshot.Ref{
 					{Source: 1, Target: 0, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Source
 				},
 			},
 		},
 		{
 			"NoResourceTarget",
-			graph.Snapshot{
+			snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &mockDef{Value: "foo"}},
 				},
-				References: []graph.SnapshotRef{
+				References: []snapshot.Ref{
 					{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Target
 				},
 			},
@@ -100,7 +100,7 @@ func TestFromSnapshot_errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := graph.FromSnapshot(tt.snap)
+			_, err := tt.snap.Graph()
 			t.Log(err)
 			if err == nil {
 				t.Errorf("Want error")
@@ -111,14 +111,14 @@ func TestFromSnapshot_errors(t *testing.T) {
 
 // Output not asserted as the dot marshalling will quickly change and it's not
 // too relevant for this example.
-func ExampleFromSnapshot() {
+func ExampleSnap_Graph() {
 	// digraph {
 	//   proj   -> {foo, bar}
 	//   source -> foo        // sha: 123
 	//   foo    -> bar        // index {0} -> {1}
 	// }
 
-	snap := graph.Snapshot{
+	snap := snapshot.Snap{
 		// Nodes
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{Value: "foo"}},
@@ -132,12 +132,12 @@ func ExampleFromSnapshot() {
 		ResourceSources: map[int][]int{
 			0: {0}, // 123 -> foo
 		},
-		References: []graph.SnapshotRef{
+		References: []snapshot.Ref{
 			{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{1}}, // foo@0 -> bar@1
 		},
 	}
 
-	g, err := graph.FromSnapshot(snap)
+	g, err := snap.Graph()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -150,8 +150,8 @@ func ExampleFromSnapshot() {
 	fmt.Println(string(d))
 }
 
-func ExampleSnapshot_Diff() {
-	snap1 := graph.Snapshot{
+func ExampleSnap_Diff() {
+	snap1 := snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{Value: "foo"}},
 			{Name: "bar", Def: &mockDef{Value: "bar"}},
@@ -161,7 +161,7 @@ func ExampleSnapshot_Diff() {
 		},
 	}
 
-	snap2 := graph.Snapshot{
+	snap2 := snapshot.Snap{
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{Value: "foo"}},
 		},
@@ -172,10 +172,15 @@ func ExampleSnapshot_Diff() {
 
 	fmt.Println(snap1.Diff(snap2))
 	// Output:
-	// {graph.Snapshot}.Resources[1->?]:
-	// 	-: resource.Resource{Name: "bar", Def: &graph_test.mockDef{Value: "bar"}}
+	// {snapshot.Snap}.Resources[1->?]:
+	// 	-: resource.Resource{Name: "bar", Def: &snapshot_test.mockDef{Value: "bar"}}
 	// 	+: <non-existent>
-	// {graph.Snapshot}.Sources[0].SHA:
+	// {snapshot.Snap}.Sources[0].SHA:
 	// 	-: "123"
 	// 	+: "abc"
+}
+
+type mockDef struct {
+	resource.Definition
+	Value string
 }

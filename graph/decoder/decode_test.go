@@ -7,6 +7,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
+	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl2/hcl"
@@ -18,7 +19,7 @@ func TestDecodeBody(t *testing.T) {
 		name     string
 		body     hcl.Body
 		ctx      *decoder.DecodeContext
-		wantSnap graph.Snapshot
+		wantSnap snapshot.Snap
 		wantProj config.Project
 		diags    hcl.Diagnostics
 	}{
@@ -28,7 +29,7 @@ func TestDecodeBody(t *testing.T) {
 				project "test" {}
 			`),
 			ctx:      &decoder.DecodeContext{},
-			wantSnap: graph.Snapshot{},
+			wantSnap: snapshot.Snap{},
 			wantProj: config.Project{Name: "test"},
 		},
 		{
@@ -40,7 +41,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "bar", Def: &fooDef{Input: "hello"}},
 				},
@@ -61,7 +62,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "bar", Def: &fooDef{Input: "hello"}},
 				},
@@ -86,7 +87,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{}, &barDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "bar", Def: &fooDef{Input: "hello"}},
 					{Name: "baz", Def: &barDef{Input: strptr("hello")}},
@@ -106,12 +107,12 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{}, &barDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "bar", Def: &fooDef{Input: "hello"}},
 					{Name: "foo", Def: &barDef{}},
 				},
-				References: []graph.SnapshotRef{
+				References: []snapshot.Ref{
 					{Source: 0, Target: 1, SourceIndex: []int{2}, TargetIndex: []int{1}},
 				},
 			},
@@ -126,7 +127,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&fooDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "bar", Def: &fooDef{Input: "3.14159"}},
 				},
@@ -144,7 +145,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &complexDef{
 						Map: &map[string]string{"foo": "bar"},
@@ -162,7 +163,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &complexDef{
 						Slice: &[]string{"hello", "world"},
@@ -184,7 +185,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &complexDef{
 						Child: &Child{
@@ -236,7 +237,7 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`),
 			ctx: &decoder.DecodeContext{Resources: resource.RegistryFromResources(&complexDef{})},
-			wantSnap: graph.Snapshot{
+			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Name: "foo", Def: &complexDef{
 						Multiple: &[]sub{{Val: "hello"}, {Val: "world"}},
@@ -436,7 +437,7 @@ func TestDecodeBody(t *testing.T) {
 				// Do not match snapshot if errors are expected.
 				return
 			}
-			snap := g.Snapshot()
+			snap := snapshot.Take(g)
 			if diff := snap.Diff(tt.wantSnap); diff != "" {
 				t.Errorf("Snapshot does not match (-got, +want)\n%s", diff)
 			}

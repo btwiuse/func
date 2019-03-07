@@ -96,3 +96,8 @@ func TestGraph_reverse(t *testing.T) {
 		}
 	}
 }
+
+type mockDef struct {
+	resource.Definition
+	Value string
+}
