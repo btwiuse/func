@@ -63,7 +63,15 @@
 //   }
 //
 //   resource "lambda" "logic" {
-//      role = iam.role.arn        # A dependency for the iam.role.arn -> lambda.logic.role is created.
+//      # A dependency for the iam.role.arn -> lambda.logic.role is created.
+//      role = iam.role.arn
+//   }
+//
+//   resource "apigateway" "integration" {
+//      # A dependency from the iam.role and lambda.logic is created.
+//        When both values have been resolved at runtime, the concatenated
+//        value is inserted as uri.
+//      uri = "${iam.role.arn}-${lambda.logic.arn}
 //   }
 //
 // In case a resource references an attribute which is an input, the value is
@@ -75,6 +83,27 @@
 //
 //   resource "lambda" "logic" {
 //      role = iam.role.role_name  # No dependency is created, a lambda resource is added with the role "example" set.
+//   }
+//
+// Inputs are followed until an output is discovered, at which point a
+// dependency is created. Inputs that can be statically resolved are resolved
+// in place to allows resources to execute concurrently.
+//
+// Nested blocks
+//
+// Nested blocks do currently NOT support dynamic inputs. This is a known limitation.
+//
+// The following hypothetical example would result in an error:
+//
+//   resource "iam" "role" {
+//   }
+//
+//   resource "lambda" logic" {
+//     value = iam.role.arn            # Argument level reference is ok
+//
+//     environment {
+//       nested_value = iam.role.arn   # Cannot add dynamic dependency inside of a block
+//     }
 //   }
 //
 // Source
