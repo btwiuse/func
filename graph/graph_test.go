@@ -12,7 +12,7 @@ import (
 
 func TestGraph_AddResource(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
 
 	got := g.Resources()
 	want := []*graph.Resource{res}
@@ -26,7 +26,7 @@ func TestGraph_AddResource(t *testing.T) {
 
 func TestGraph_AddSource(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
 	src := g.AddSource(res, config.SourceInfo{SHA: "123"})
 
 	got := g.Sources()
@@ -41,39 +41,45 @@ func TestGraph_AddSource(t *testing.T) {
 
 func TestGraph_AddDependency(t *testing.T) {
 	g := graph.New()
-	res1 := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
-	res2 := g.AddResource(resource.Resource{Name: "bar", Def: &mockDef{Value: "bar"}})
-	ref := graph.Reference{
-		Source: graph.Field{Resource: res1, Index: []int{0}},
-		Target: graph.Field{Resource: res2, Index: []int{0}},
+	res1 := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
+	res2 := g.AddResource(resource.Resource{Name: "bar", Def: &mockDef{}})
+	expr := noopExpr{Parents: []graph.Field{{Type: "mock", Name: "foo", Field: "output"}}}
+
+	target := graph.Field{Type: "mock", Name: "bar", Field: "input"}
+	if err := g.AddDependency(target, expr); err != nil {
+		t.Fatalf("Add dependency: %v", err)
 	}
-	g.AddDependency(ref)
 
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(graph.Resource{}),
+		cmpopts.IgnoreUnexported(graph.Dependency{}),
 		cmpopts.EquateEmpty(),
 	}
 
 	got := res1.Dependencies()
-	want := []graph.Reference{}
+	want := []*graph.Dependency{}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("res1.Dependencies() (-got, +want)\n%s", diff)
 	}
 
 	got = res1.Dependents()
-	want = []graph.Reference{ref}
+	want = []*graph.Dependency{
+		{Target: target, Expr: expr},
+	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("res1.Dependents() (-got, +want)\n%s", diff)
 	}
 
 	got = res2.Dependencies()
-	want = []graph.Reference{ref}
+	want = []*graph.Dependency{
+		{Target: target, Expr: expr},
+	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("res2.Dependencies() (-got, +want)\n%s", diff)
 	}
 
 	got = res2.Dependents()
-	want = []graph.Reference{}
+	want = []*graph.Dependency{}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("res2.Dependents() (-got, +want)\n%s", diff)
 	}
@@ -81,7 +87,7 @@ func TestGraph_AddDependency(t *testing.T) {
 
 func TestGraph_reverse(t *testing.T) {
 	g := graph.New()
-	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Value: "foo"}})
+	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
 	g.AddSource(res, config.SourceInfo{SHA: "abc"})
 
 	// Traverse to source, then back to resource
@@ -99,5 +105,15 @@ func TestGraph_reverse(t *testing.T) {
 
 type mockDef struct {
 	resource.Definition
-	Value string
+	Input  string
+	Output string
 }
+
+func (m mockDef) Type() string { return "mock" }
+
+type noopExpr struct {
+	Parents []graph.Field
+}
+
+func (x noopExpr) Fields() []graph.Field                               { return x.Parents }
+func (x noopExpr) Eval(map[graph.Field]interface{}, interface{}) error { return nil }
