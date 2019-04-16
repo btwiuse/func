@@ -3,20 +3,22 @@ package graph
 import (
 	"github.com/func/func/config"
 	"github.com/func/func/resource"
-	"gonum.org/v1/gonum/graph"
 )
 
 // A Resource is an instance of a resource definition added to the graph.
 type Resource struct {
-	graph.Node
-	g      *Graph
+	id     int64
+	graph  *Graph
 	Config resource.Resource
 }
+
+// ID returns the unique identifier for a resource node.
+func (n *Resource) ID() int64 { return n.id }
 
 // Sources return all sources belonging to a resource.
 func (n *Resource) Sources() []*Source {
 	var ret []*Source
-	for _, l := range n.g.linesTo(n) {
+	for _, l := range n.graph.linesTo(n) {
 		if x, ok := l.From().(*Source); ok {
 			ret = append(ret, x)
 		}
@@ -31,7 +33,7 @@ func (n *Resource) Sources() []*Source {
 //   A is a dependency of B.
 func (n *Resource) Dependencies() []Reference {
 	var list []Reference
-	for _, l := range n.g.linesTo(n) {
+	for _, l := range n.graph.linesTo(n) {
 		if x, ok := l.(*ref); ok {
 			list = append(list, x.Reference)
 		}
@@ -47,7 +49,7 @@ func (n *Resource) Dependencies() []Reference {
 //   B is a dependent on A.
 func (n *Resource) Dependents() []Reference {
 	var list []Reference
-	for _, l := range n.g.linesFrom(n) {
+	for _, l := range n.graph.linesFrom(n) {
 		if x, ok := l.(*ref); ok {
 			list = append(list, x.Reference)
 		}
@@ -57,14 +59,17 @@ func (n *Resource) Dependents() []Reference {
 
 // A Source node contains the source code for a resource.
 type Source struct {
-	graph.Node
-	g      *Graph
+	id     int64
+	graph  *Graph
 	Config config.SourceInfo
 }
 
+// ID returns the unique identifier for a source node.
+func (n *Source) ID() int64 { return n.id }
+
 // Resource returns the resource the source belongs to.
 func (n *Source) Resource() *Resource {
-	for _, l := range n.g.linesFrom(n) {
+	for _, l := range n.graph.linesFrom(n) {
 		if p, ok := l.To().(*Resource); ok {
 			return p
 		}
