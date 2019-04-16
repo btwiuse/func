@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/func/func/config"
@@ -22,7 +23,7 @@ type Snap struct {
 
 	// Edges
 	ResourceSources map[int][]int // Resource index -> Source indices.
-	References      []Ref         // References between resources.
+	Dependencies    map[Expr]Expr // Dependencies between resources.
 }
 
 // A Ref is a reference in a snapshot.
@@ -57,19 +58,14 @@ func (s Snap) Graph() (*graph.Graph, error) {
 		src := g.AddSource(res, data)
 		srcLookup[i] = src
 	}
-	for i, ref := range s.References {
-		from, ok := resLookup[ref.Source]
-		if !ok {
-			return nil, errors.Errorf("add reference %d: source resource %d does not exist", i, ref.Source)
+	for target, expr := range s.Dependencies {
+		fields := target.Fields()
+		if len(fields) != 1 {
+			return nil, errors.Errorf("%s must contain one target", target)
 		}
-		to, ok := resLookup[ref.Target]
-		if !ok {
-			return nil, errors.Errorf("add reference %d: target resource %d does not exist", i, ref.Target)
+		if err := g.AddDependency(fields[0], expr); err != nil {
+			return nil, errors.Wrap(err, "add dependency")
 		}
-		g.AddDependency(graph.Reference{
-			Source: graph.Field{Resource: from, Index: ref.SourceIndex},
-			Target: graph.Field{Resource: to, Index: ref.TargetIndex},
-		})
 	}
 
 	return g, nil
@@ -90,6 +86,7 @@ func findParent(want int, edges map[int][]int) int {
 func Take(g *graph.Graph) Snap {
 	s := Snap{
 		ResourceSources: make(map[int][]int),
+		Dependencies:    make(map[Expr]Expr),
 	}
 
 	// Nodes
@@ -119,13 +116,16 @@ func Take(g *graph.Graph) Snap {
 		}
 
 		for _, dep := range res.Dependencies() {
-			di := resIndex[dep.Source.Resource]
-			s.References = append(s.References, Ref{
-				Source:      di,
-				Target:      ri,
-				SourceIndex: dep.Source.Index,
-				TargetIndex: dep.Target.Index,
-			})
+			to := ExprFrom(dep.Target)
+			data := make(map[graph.Field]interface{})
+			for _, f := range dep.Expr.Fields() {
+				data[f] = string(ExprFrom(f))
+			}
+			var exprStr string
+			if err := dep.Expr.Eval(data, &exprStr); err != nil {
+				panic(fmt.Sprintf("evaluate expression %s: %v", dep.Expr, err))
+			}
+			s.Dependencies[to] = Expr(exprStr)
 		}
 	}
 
