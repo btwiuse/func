@@ -199,36 +199,6 @@ func ExampleSnap_Graph() {
 	fmt.Println(string(d))
 }
 
-func ExampleSnap_Diff() {
-	snap1 := snapshot.Snap{
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Input: "foo"}},
-			{Name: "bar", Def: &mockDef{Input: "bar"}},
-		},
-		Sources: []config.SourceInfo{
-			{SHA: "123"},
-		},
-	}
-
-	snap2 := snapshot.Snap{
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Input: "foo"}},
-		},
-		Sources: []config.SourceInfo{
-			{SHA: "abc"},
-		},
-	}
-
-	fmt.Println(snap1.Diff(snap2))
-	// Output:
-	// {snapshot.Snap}.Resources[1->?]:
-	// 	-: resource.Resource{Name: "bar", Def: &snapshot_test.mockDef{Input: "bar"}}
-	// 	+: <non-existent>
-	// {snapshot.Snap}.Sources[0].SHA:
-	// 	-: "123"
-	// 	+: "abc"
-}
-
 type mockDef struct {
 	Input  string `input:"in"`
 	Output string `output:"out"`

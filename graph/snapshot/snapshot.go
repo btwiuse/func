@@ -7,8 +7,6 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 )
 
@@ -135,10 +133,4 @@ func Take(g *graph.Graph) Snap {
 	}
 
 	return s
-}
-
-// Diff computes the difference between two snapshots. Returns an empty string
-// if the snapshots are equal.
-func (s Snap) Diff(other Snap) string {
-	return cmp.Diff(s, other, cmpopts.EquateEmpty())
 }
