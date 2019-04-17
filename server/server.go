@@ -68,6 +68,15 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		}
 		return nil, twerr
 	}
+
+	if proj == nil {
+		twerr := twirp.NewError(twirp.InvalidArgument, "Project not set")
+		if j, err := json.Marshal(diags); err == nil {
+			twerr = twerr.WithMeta("diagnostics", string(j))
+		}
+		return nil, twerr
+	}
+
 	logger = logger.With(zap.String("project", proj.Name))
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
 
@@ -102,7 +111,7 @@ func (s *Server) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 	// }
 	// fmt.Println(string(dot))
 
-	if err := s.Reconciler.Reconcile(ctx, req.GetNamespace(), proj, g); err != nil {
+	if err := s.Reconciler.Reconcile(ctx, req.GetNamespace(), *proj, g); err != nil {
 		logger.Error("Could not reconcile graph", zap.Error(err))
 		return nil, twirp.NewError(twirp.Unavailable, "reconcile graph")
 	}
