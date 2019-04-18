@@ -21,7 +21,7 @@ func TestSnapshot_roundtrip(t *testing.T) {
 			{Name: "baz", Def: &mockDef{Value: "baz"}},
 		},
 		Sources: []config.SourceInfo{
-			{SHA: "123"},
+			{SHA: "123456789"},
 		},
 
 		// Edges
@@ -184,3 +184,5 @@ type mockDef struct {
 	resource.Definition
 	Value string
 }
+
+func (mockDef) Type() string { return "mock" }

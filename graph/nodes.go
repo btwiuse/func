@@ -1,8 +1,11 @@
 package graph
 
 import (
+	"fmt"
+
 	"github.com/func/func/config"
 	"github.com/func/func/resource"
+	"gonum.org/v1/gonum/graph/encoding"
 )
 
 // A Resource is an instance of a resource definition added to the graph.
@@ -14,6 +17,14 @@ type Resource struct {
 
 // ID returns the unique identifier for a resource node.
 func (n *Resource) ID() int64 { return n.id }
+
+// Attributes returns attributes for the node when the graph is marshalled to
+// graphviz dot format.
+func (n *Resource) Attributes() []encoding.Attribute {
+	return []encoding.Attribute{
+		{Key: "label", Value: fmt.Sprintf("Resource\n%s.%s", n.Config.Def.Type(), n.Config.Name)},
+	}
+}
 
 // Sources return all sources belonging to a resource.
 func (n *Resource) Sources() []*Source {
@@ -66,6 +77,14 @@ type Source struct {
 
 // ID returns the unique identifier for a source node.
 func (n *Source) ID() int64 { return n.id }
+
+// Attributes returns attributes for the node when the graph is marshalled to
+// graphviz dot format.
+func (n *Source) Attributes() []encoding.Attribute {
+	return []encoding.Attribute{
+		{Key: "label", Value: fmt.Sprintf("Source\n%s", n.Config.SHA[:7])},
+	}
+}
 
 // Resource returns the resource the source belongs to.
 func (n *Source) Resource() *Resource {
