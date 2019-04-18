@@ -107,7 +107,15 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		zap.String("name", res.Config.Name),
 	)
 
-	// Acquire Semaphore to limit concurrency
+	if err := j.waitForDeps(ctx, res, logger); err != nil {
+		errc := make(chan error, 1)
+		errc <- errors.Wrap(err, "process deps")
+		return errc
+	}
+
+	// Acquire Semaphore to limit concurrency.
+	// This must be done after dependencies are resolved, otherwise
+	// dependencies may not get a semaphore to run.
 	done, err := j.acquireSem(ctx, logger)
 	if err != nil {
 		errc := make(chan error, 1)
@@ -115,12 +123,6 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		return errc
 	}
 	defer done()
-
-	if err := j.waitForDeps(ctx, res, logger); err != nil {
-		errc := make(chan error, 1)
-		errc <- errors.Wrap(err, "process deps")
-		return errc
-	}
 
 	j.mu.Lock()
 	errc := j.process[res]
