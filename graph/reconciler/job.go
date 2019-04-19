@@ -2,7 +2,6 @@ package reconciler
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -85,22 +84,47 @@ func (j *job) acquireSem(ctx context.Context, logger *zap.Logger) (func(), error
 
 func (j *job) waitForDeps(ctx context.Context, res *graph.Resource, logger *zap.Logger) error {
 	g, ctx := errgroup.WithContext(ctx)
-	for _, ref := range res.Dependencies() {
-		dep := ref.Source.Resource
+	for _, dep := range res.Dependencies() {
+		dep := dep
+		g.Go(func() error {
+			if err := j.waitForDep(ctx, dep, logger); err != nil {
+				return errors.Wrap(err, "wait for dep")
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (j *job) waitForDep(ctx context.Context, dep *graph.Dependency, logger *zap.Logger) error {
+	g, ctx := errgroup.WithContext(ctx)
+	for _, p := range dep.Parents() {
+		p := p
 		log := logger.With(
-			zap.String("type", dep.Config.Def.Type()),
-			zap.String("name", dep.Config.Name),
+			zap.String("type", p.Config.Def.Type()),
+			zap.String("name", p.Config.Name),
 		)
 		g.Go(func() error {
 			log.Debug("Waiting on dependency")
-			err := <-j.processResource(ctx, dep)
+			err := <-j.processResource(ctx, p)
 			log.Debug("Dependency done", zap.Error(err))
 			return err
 		})
 	}
-	return g.Wait()
-}
+	if err := g.Wait(); err != nil {
+		return errors.WithStack(err)
+	}
 
+	// All dependencies resolved, evaluate and set value.
+	if err := evalDependency(dep); err != nil {
+		return errors.Wrap(err, "eval")
+	}
+
+	return nil
+}
 func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan error {
 	logger := j.logger.With(
 		zap.String("type", res.Config.Def.Type()),
@@ -135,18 +159,6 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 	j.mu.Unlock()
 
 	defer func() {
-		dd := res.Dependents()
-		if len(dd) > 0 {
-			logger.Debug("Updating dependents", zap.Int("cout", len(dd)))
-			for _, ref := range dd {
-				updateRef(ref)
-			}
-		}
-
-		// Note: It is important to close _after_ updating refs as closing the
-		// channel allows the flow to continue, which could cause a race
-		// condition when the resource is being hashed (read) while refs being
-		// updated (written).
 		close(errc)
 	}()
 
@@ -172,27 +184,22 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		logger.Debug("Existing version of resource exists")
 		j.existing.Keep(ex)
 
+		// Copy outputs from previous value
+		prevVal := reflect.Indirect(reflect.ValueOf(ex.res.Def))
+		nextVal := reflect.Indirect(reflect.ValueOf(res.Config.Def))
+		for _, output := range resource.Fields(prevVal.Type(), resource.Output) {
+			prev := prevVal.Field(output.Index)
+			next := nextVal.Field(output.Index)
+			next.Set(prev)
+		}
+
 		if ex.hash == hash {
 			// Resource config did not change.
 			logger.Debug("Configuration did not change")
-			// Set all dependent inputs from existing resource definition.
-			for _, ref := range res.Dependents() {
-				// Change ref source to deployed resource.
-				ref.Source.Resource.Config.Def = ex.res.Def
-			}
 		} else {
 			// Resource config did change.
 			logger.Debug("Update configuration")
 			updateConfig = true
-
-			// Copy outputs from previous value
-			prevVal := reflect.Indirect(reflect.ValueOf(ex.res.Def))
-			nextVal := reflect.Indirect(reflect.ValueOf(res.Config.Def))
-			for _, output := range resource.Fields(prevVal.Type(), resource.Output) {
-				prev := prevVal.Field(output.Index)
-				next := nextVal.Field(output.Index)
-				next.Set(prev)
-			}
 		}
 
 		opts := []cmp.Option{
@@ -254,17 +261,15 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		return errc
 	}
 
-	refs := res.Dependencies()
-	if len(refs) > 0 {
-		res.Config.Deps = make([]resource.Dependency, len(refs))
-		for i, ref := range refs {
-			res.Config.Deps[i] = resource.Dependency{
-				Type: ref.Source.Resource.Config.Def.Type(),
-				Name: ref.Source.Resource.Config.Name,
-			}
+	// Collect dependencies that were used.
+	for _, d := range res.Dependencies() {
+		for _, p := range d.Parents() {
+			res.Config.Deps = append(res.Config.Deps, resource.Dependency{
+				Type: p.Config.Def.Type(),
+				Name: p.Config.Name,
+			})
 		}
 	}
-
 	// Use new context so a cancelled context still stores the result.
 	pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -312,38 +317,4 @@ func (j *job) Prune(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func updateRef(ref graph.Reference) {
-	src := ref.Source.Value()
-	dst := ref.Target.Value()
-	srcType := src.Type()
-	dstType := dst.Type()
-
-	// Direct (or close enough; int32 -> int64 etc) match
-	// string -> string
-	if srcType.AssignableTo(dstType) {
-		dst.Set(src)
-		return
-	}
-
-	// Output Pointer to Input Value
-	// *string -> string
-	if src.Kind() == reflect.Ptr && src.Elem().Type() == dstType {
-		dst.Set(src.Elem()) // Set value from pointer's underlying value
-		return
-	}
-
-	// Output Value to Input Pointer
-	// string -> *string
-	if dstType.Kind() == reflect.Ptr && dstType.Elem() == srcType {
-		ptr := reflect.New(dstType.Elem()) // Create new pointer
-		ptr.Elem().Set(src)                // Set pointer value
-		dst.Set(ptr)                       // Set destination to pointer
-		return
-	}
-
-	// If the application ever reached this point, it is likely because input
-	// validation was not performed correctly when the configs were parsed.
-	panic(fmt.Sprintf("Cannot assign %s to %s", srcType, dstType))
 }

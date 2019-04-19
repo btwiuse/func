@@ -139,9 +139,9 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 			{Name: "c", Def: &concatDef{Add: "c"}},
 			{Name: "a", Def: &concatDef{Add: "a"}},
 		},
-		References: []snapshot.Ref{
-			{Source: 2, Target: 0, SourceIndex: []int{2}, TargetIndex: []int{0}}, // a -> b
-			{Source: 0, Target: 1, SourceIndex: []int{2}, TargetIndex: []int{0}}, // b -> c
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${concat.b.in}": "${concat.a.out}",
+			"${concat.c.in}": "${concat.b.out}",
 		},
 	})
 
@@ -228,9 +228,8 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 			{Name: "a", Def: &noopDef{OutputPtr: strptr}},
 			{Name: "b", Def: &noopDef{}},
 		},
-		References: []snapshot.Ref{
-			// Output is a *string, input is a string
-			{Source: 0, Target: 1, SourceIndex: []int{3}, TargetIndex: []int{0}}, // OutputPtr -> Input
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${noop.b.in}": "${noop.a.outptr}", // *string -> string
 		},
 	})
 
@@ -266,9 +265,8 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 			{Name: "a", Def: &noopDef{Output: strval}},
 			{Name: "b", Def: &noopDef{}},
 		},
-		References: []snapshot.Ref{
-			// Output is a *string, input is a string
-			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{2}}, // Output -> InputPtr
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${noop.b.inptr}": "${noop.a.out}", // string -> *string
 		},
 	})
 
@@ -499,11 +497,11 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
-			{Name: "a", Def: &concatDef{Add: "a"}}, // Out is resolved to same value
-			{Name: "b", Def: &concatDef{Add: "x"}}, // Add changed to x
+			{Name: "a", Def: &concatDef{Add: "a", Out: "a"}}, // Out is resolved to same value
+			{Name: "b", Def: &concatDef{Add: "x"}},           // Add changed to x
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${concat.b.in}": "${concat.a.out}",
 		},
 	})
 
@@ -538,8 +536,8 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 			{Name: "a", Def: &concatDef{Add: "x"}}, // Add changed to x
 			{Name: "b", Def: &concatDef{Add: "b"}}, // Did not change, but will receive new input from a
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${concat.b.in}": "${concat.a.out}",
 		},
 	})
 
@@ -679,15 +677,13 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
-			{Name: "a", Def: &noopDef{Output: "a"}},
-			{Name: "b", Def: &noopDef{Output: "b"}},
-			{Name: "c", Def: &noopDef{Output: "c"}},
-			{Name: "x", Def: &joinDef{}},
+			{Name: "a", Def: &noopDef{Output: "A"}},
+			{Name: "b", Def: &noopDef{Output: "B"}},
+			{Name: "c", Def: &noopDef{Output: "C"}},
+			{Name: "x", Def: &noopDef{}},
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a Out -> x A
-			{Source: 1, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{1}}, // b Out -> x B
-			{Source: 2, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{2}}, // c Out -> x C
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${noop.x.in}": "${noop.a.out}-${noop.b.out}-${noop.c.out}",
 		},
 	})
 
@@ -700,12 +696,12 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 		return store.Events[i].Res.Name < store.Events[j].Res.Name
 	})
 	assertEvents(t, store, []mock.Event{
-		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "a", Def: &noopDef{Output: "a"}}},
-		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "b", Def: &noopDef{Output: "b"}}},
-		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "c", Def: &noopDef{Output: "c"}}},
+		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "a", Def: &noopDef{Output: "A"}}},
+		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "b", Def: &noopDef{Output: "B"}}},
+		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "c", Def: &noopDef{Output: "C"}}},
 		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{
 			Name: "x",
-			Def:  &joinDef{A: "a", B: "b", C: "c", Out: "a-b-c"},
+			Def:  &noopDef{Input: "A-B-C"},
 			Deps: []resource.Dependency{
 				{Type: "noop", Name: "a"},
 				{Type: "noop", Name: "b"},
@@ -726,10 +722,10 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 			{Name: "y", Def: &noopDef{}},
 			{Name: "z", Def: &noopDef{}},
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> x
-			{Source: 0, Target: 2, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> y
-			{Source: 0, Target: 3, SourceIndex: []int{1}, TargetIndex: []int{0}}, // a -> z
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${noop.x.in}": "${noop.a.out}",
+			"${noop.y.in}": "${noop.a.out}",
+			"${noop.z.in}": "${noop.a.out}",
 		},
 	})
 
@@ -774,8 +770,8 @@ func TestReconciler_Reconcile_errParent(t *testing.T) {
 			{Name: "parent", Def: &noopDef{Err: wantErr}},
 			{Name: "child", Def: &noopDef{}},
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{1}, TargetIndex: []int{0}},
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${noop.child.in}": "${noop.parent.out}",
 		},
 	})
 
@@ -796,7 +792,7 @@ type noopDef struct {
 	Output string `output:"out"`
 
 	InputPtr  *string `input:"inptr"`
-	OutputPtr *string `input:"outptr"`
+	OutputPtr *string `output:"outptr"`
 
 	Err error
 }
@@ -822,6 +818,7 @@ func (c *concatDef) Create(context.Context, *resource.CreateRequest) error {
 	return nil
 }
 func (c *concatDef) Update(context.Context, *resource.UpdateRequest) error {
+	fmt.Printf("Update %#v\n", c)
 	c.Out = c.In + c.Add
 	return nil
 }
@@ -845,22 +842,6 @@ func (s *mockDef) Delete(ctx context.Context, req *resource.DeleteRequest) error
 	return s.onDelete(ctx, req)
 }
 
-// joinDef is a no-op definition that does nothing when executed.
-type joinDef struct {
-	A   string `input:"a"`
-	B   string `input:"b"`
-	C   string `input:"c"`
-	Out string `output:"out"`
-}
-
-func (j *joinDef) Type() string                                          { return "noop" }
-func (j *joinDef) Create(context.Context, *resource.CreateRequest) error { j.run(); return nil }
-func (j *joinDef) Update(context.Context, *resource.UpdateRequest) error { j.run(); return nil }
-func (j *joinDef) Delete(context.Context, *resource.DeleteRequest) error { return nil }
-func (j *joinDef) run() {
-	j.Out = fmt.Sprintf("%s-%s-%s", j.A, j.B, j.C)
-}
-
 // Test helpers
 
 func fromSnapshot(t *testing.T, snap snapshot.Snap) *graph.Graph {
@@ -881,7 +862,7 @@ func assertEvents(t *testing.T, store *mock.Store, want []mock.Event) {
 		cmpopts.IgnoreUnexported(mockDef{}),
 	}
 	if diff := cmp.Diff(store.Events, want, opts...); diff != "" {
-		t.Errorf("Events do not match (-got, +want)\n%s", diff)
+		t.Errorf("Events do not match (-got %d, +want %d)\n%s", len(store.Events), len(want), diff)
 	}
 }
 

@@ -1,11 +1,13 @@
 package snapshot_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"testing"
 
 	"github.com/func/func/config"
+	"github.com/func/func/graph"
 	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
@@ -16,9 +18,9 @@ func TestSnapshot_roundtrip(t *testing.T) {
 	start := snapshot.Snap{
 		// Nodes
 		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Value: "foo"}},
-			{Name: "bar", Def: &mockDef{Value: "bar"}},
-			{Name: "baz", Def: &mockDef{Value: "baz"}},
+			{Name: "foo", Def: &mockDef{Input: "foo"}},
+			{Name: "bar", Def: &mockDef{}},
+			{Name: "baz", Def: &mockDef{}},
 		},
 		Sources: []config.SourceInfo{
 			{SHA: "123456789"},
@@ -28,8 +30,9 @@ func TestSnapshot_roundtrip(t *testing.T) {
 		ResourceSources: map[int][]int{
 			0: {0},
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{1}},
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${mock.bar.in}": "${mock.foo.out}",
+			"${mock.baz.in}": "${mock.foo.out}-${mock.bar.out}",
 		},
 	}
 
@@ -69,30 +72,72 @@ func TestFromSnapshot_errors(t *testing.T) {
 		{
 			"NoSourceOwner",
 			snapshot.Snap{
-				Resources:       []resource.Resource{{Name: "foo", Def: &mockDef{Value: "foo"}}},
+				Resources:       []resource.Resource{{Name: "foo", Def: &mockDef{Input: "foo"}}},
 				Sources:         []config.SourceInfo{{SHA: "123"}},
 				ResourceSources: map[int][]int{}, // empty
 			},
 		},
 		{
-			"NoResourceSource",
+			"NoDependencyParentType",
 			snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &mockDef{Value: "foo"}},
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
 				},
-				References: []snapshot.Ref{
-					{Source: 1, Target: 0, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Source
+				Dependencies: map[snapshot.Expr]snapshot.Expr{
+					"${mock.bar.in}": "${notfound.foo.out}",
 				},
 			},
 		},
 		{
-			"NoResourceTarget",
+			"NoDependencyParentName",
 			snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &mockDef{Value: "foo"}},
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
 				},
-				References: []snapshot.Ref{
-					{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{0}}, // Invalid Target
+				Dependencies: map[snapshot.Expr]snapshot.Expr{"${mock.bar.in}": "${mock.notfound.out}"},
+			},
+		},
+		{
+			"NoDependencyParentField",
+			snapshot.Snap{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
+				},
+				Dependencies: map[snapshot.Expr]snapshot.Expr{
+					"${mock.bar.in}": "${mock.foo.notfound}",
+				},
+			},
+		},
+		{
+			"NoDependencyChildType",
+			snapshot.Snap{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
+				},
+				Dependencies: map[snapshot.Expr]snapshot.Expr{
+					"${notfound.bar.in}": "${mock.foo.out}",
+				},
+			},
+		},
+		{
+			"NoDependencyChildName",
+			snapshot.Snap{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
+				},
+				Dependencies: map[snapshot.Expr]snapshot.Expr{
+					"${mock.notfound.in}": "${mock.foo.out}",
+				},
+			},
+		},
+		{
+			"NoDependencyChildField",
+			snapshot.Snap{
+				Resources: []resource.Resource{
+					{Name: "foo", Def: &mockDef{Input: "foo"}},
+				},
+				Dependencies: map[snapshot.Expr]snapshot.Expr{
+					"${mock.bar.notfound}": "${mock.foo.out}",
 				},
 			},
 		},
@@ -109,6 +154,10 @@ func TestFromSnapshot_errors(t *testing.T) {
 	}
 }
 
+type ExampleExpression struct{}
+
+func (ExampleExpression) Eval(data map[graph.Field]interface{}, target interface{}) error { return nil }
+
 // Output not asserted as the dot marshalling will quickly change and it's not
 // too relevant for this example.
 func ExampleSnap_Graph() {
@@ -121,8 +170,8 @@ func ExampleSnap_Graph() {
 	snap := snapshot.Snap{
 		// Nodes
 		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Value: "foo"}},
-			{Name: "bar", Def: &mockDef{Value: "bar"}},
+			{Name: "foo", Def: &mockDef{Input: "foo"}},
+			{Name: "bar", Def: &mockDef{Input: "bar"}},
 		},
 		Sources: []config.SourceInfo{
 			{SHA: "123"},
@@ -132,8 +181,8 @@ func ExampleSnap_Graph() {
 		ResourceSources: map[int][]int{
 			0: {0}, // 123 -> foo
 		},
-		References: []snapshot.Ref{
-			{Source: 0, Target: 1, SourceIndex: []int{0}, TargetIndex: []int{1}}, // foo@0 -> bar@1
+		Dependencies: map[snapshot.Expr]snapshot.Expr{
+			"${mock.bar.in}": "${mock.foo.out",
 		},
 	}
 
@@ -150,39 +199,12 @@ func ExampleSnap_Graph() {
 	fmt.Println(string(d))
 }
 
-func ExampleSnap_Diff() {
-	snap1 := snapshot.Snap{
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Value: "foo"}},
-			{Name: "bar", Def: &mockDef{Value: "bar"}},
-		},
-		Sources: []config.SourceInfo{
-			{SHA: "123"},
-		},
-	}
-
-	snap2 := snapshot.Snap{
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Value: "foo"}},
-		},
-		Sources: []config.SourceInfo{
-			{SHA: "abc"},
-		},
-	}
-
-	fmt.Println(snap1.Diff(snap2))
-	// Output:
-	// {snapshot.Snap}.Resources[1->?]:
-	// 	-: resource.Resource{Name: "bar", Def: &snapshot_test.mockDef{Value: "bar"}}
-	// 	+: <non-existent>
-	// {snapshot.Snap}.Sources[0].SHA:
-	// 	-: "123"
-	// 	+: "abc"
-}
-
 type mockDef struct {
-	resource.Definition
-	Value string
+	Input  string `input:"in"`
+	Output string `output:"out"`
 }
 
-func (mockDef) Type() string { return "mock" }
+func (mockDef) Type() string                                          { return "mock" }
+func (mockDef) Create(context.Context, *resource.CreateRequest) error { return nil }
+func (mockDef) Update(context.Context, *resource.UpdateRequest) error { return nil }
+func (mockDef) Delete(context.Context, *resource.DeleteRequest) error { return nil }
