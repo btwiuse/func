@@ -22,4 +22,5 @@ func Register(reg registry) {
 	reg.Register(&IAMRole{})
 	reg.Register(&LambdaFunction{})
 	reg.Register(&LambdaInvokePermission{})
+	reg.Register(&STSCallerIdentity{})
 }
