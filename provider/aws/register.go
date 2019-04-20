@@ -10,6 +10,7 @@ type registry interface {
 
 // Register adds all supported AWS resources to the registry.
 func Register(reg registry) {
+	reg.Register(&APIGatewayDeployment{})
 	reg.Register(&APIGatewayIntegration{})
 	reg.Register(&APIGatewayMethod{})
 	reg.Register(&APIGatewayResource{})
