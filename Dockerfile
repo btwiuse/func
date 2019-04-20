@@ -1,6 +1,6 @@
 FROM golang:1.12.4 AS build-env
 WORKDIR /src
-ARG GOLANGCI_LINT_TAG=v1.15.0
+ARG GOLANGCI_LINT_TAG=v1.16.0
 RUN curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -d -b $GOPATH/bin $GOLANGCI_LINT_TAG
 COPY go.mod go.sum ./
 RUN go mod download
