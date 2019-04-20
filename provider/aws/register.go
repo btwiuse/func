@@ -21,4 +21,5 @@ func Register(reg registry) {
 	reg.Register(&IAMRolePolicy{})
 	reg.Register(&IAMRole{})
 	reg.Register(&LambdaFunction{})
+	reg.Register(&LambdaInvokePermission{})
 }
