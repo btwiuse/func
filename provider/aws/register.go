@@ -15,6 +15,7 @@ func Register(reg registry) {
 	reg.Register(&APIGatewayMethod{})
 	reg.Register(&APIGatewayResource{})
 	reg.Register(&APIGatewayRestAPI{})
+	reg.Register(&APIGatewayStage{})
 	reg.Register(&IAMPolicyDocument{})
 	reg.Register(&IAMPolicy{})
 	reg.Register(&IAMRolePolicyAttachment{})

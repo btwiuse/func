@@ -11,17 +11,18 @@ APIGatewayDeployment provides a Serverless REST API.
 | --- | ---- | ---- | -------: |
 | input | [`cache_cluster_enabled`](#cache_cluster_enabled) | `bool` |  |
 | input | [`cache_cluster_size`](#cache_cluster_size) | `string` |  |
-| input | [`canary_settings`](#canary_settings) | `APIGatewayCanarySettings` |  |
+| input | [`canary_settings`](#canary_settings) | `APIGatewayDeploymentCanarySettings` |  |
 | input | [`description`](#description) | `string` |  |
 | input | [`rest_api_id`](#rest_api_id) | `string` | required |
 | input | [`state_description`](#state_description) | `string` |  |
-| input | [`stage_name`](#stage_name) | `string` | required |
+| input | [`stage_name`](#stage_name) | `string` |  |
 | input | [`tracing_enabled`](#tracing_enabled) | `bool` |  |
 | input | [`variables`](#variables) | `map` |  |
 | input | [`region`](#region) | `string` | required |
 | input | [`change_trigger`](#change_trigger) | `string` | required |
 | output | [`api_summary`](#api_summary) | `map` ||
 | output | [`created_date`](#created_date) | `time` ||
+| output | [`id`](#id) | `string` ||
 
 
 ## Inputs
@@ -51,7 +52,7 @@ Value must be one of:
 
 ### canary_settings
 
-`optional APIGatewayCanarySettings`
+`optional APIGatewayDeploymentCanarySettings`
 
 The input configuration for the canary deployment when the deployment is
 a canary release deployment.
@@ -77,7 +78,7 @@ create.
 
 ### stage_name
 
-`string`
+`optional string`
 
 The name of the Stage resource for the Deployment resource to create.
 
@@ -122,3 +123,8 @@ was created.
 `time`
 
 The date and time that the deployment resource was created.
+### id
+
+`string`
+
+The identifier for the deployment resource.

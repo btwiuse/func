@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -21,7 +20,7 @@ import (
 )
 
 // APIGatewayDeployment provides a Serverless REST API.
-type APIGatewayDeployment struct {
+type APIGatewayDeployment struct { // nolint: malign
 	// Inputs
 
 	// Enables a cache cluster for the Stage resource specified in the input.
@@ -43,7 +42,7 @@ type APIGatewayDeployment struct {
 
 	// The input configuration for the canary deployment when the deployment is
 	// a canary release deployment.
-	CanarySettings *APIGatewayCanarySettings `input:"canary_settings"`
+	CanarySettings *APIGatewayDeploymentCanarySettings `input:"canary_settings"`
 
 	// The description for the Deployment resource to create.
 	Description *string `input:"description"`
@@ -56,7 +55,7 @@ type APIGatewayDeployment struct {
 	StageDescription *string `input:"state_description"`
 
 	// The name of the Stage resource for the Deployment resource to create.
-	StageName string `input:"stage_name"`
+	StageName *string `input:"stage_name"`
 
 	// Specifies whether active tracing with X-ray is enabled for the Stage.
 	TracingEnabled *bool `input:"tracing_enabled"`
@@ -83,14 +82,14 @@ type APIGatewayDeployment struct {
 	CreatedDate time.Time `output:"created_date"`
 
 	// The identifier for the deployment resource.
-	ID string `locationName:"id" type:"string"`
+	ID string `output:"id"`
 
 	svc apigatewayiface.APIGatewayAPI
 }
 
-// APIGatewayCanarySettings contains settings for canary deployment, passed as
-// input to APIGatewayDeployment.
-type APIGatewayCanarySettings struct {
+// APIGatewayDeploymentCanarySettings contains settings for canary deployment,
+// passed as input to APIGatewayDeployment.
+type APIGatewayDeploymentCanarySettings struct {
 	// The percentage (0.0-100.0) of traffic routed to the canary deployment.
 	PercentTraffic *float64 `input:"percent_traffic"`
 
@@ -132,7 +131,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 		Description:      p.Description,
 		RestApiId:        aws.String(p.RestAPIID),
 		StageDescription: p.StageDescription,
-		StageName:        aws.String(p.StageName),
+		StageName:        p.StageName,
 		TracingEnabled:   p.TracingEnabled,
 		Variables:        make(map[string]string),
 	}
@@ -184,9 +183,6 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 
 	p.CreatedDate = *resp.CreatedDate
 	p.ID = *resp.Id
-
-	// TODO: Provide way to log this
-	fmt.Printf("---\nhttps://%s.execute-api.%s.amazonaws.com/%s\n---\n", p.RestAPIID, p.Region, p.StageName)
 
 	return nil
 }
