@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/func/func/api"
+	"github.com/func/func/core"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
-	"github.com/func/func/server"
+	"github.com/func/func/rpc"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
 	"github.com/spf13/cobra"
@@ -31,8 +31,21 @@ var serverCommand = &cobra.Command{
 			log.Fatalf("Get server address: %v", err)
 		}
 
-		logger, done := loggerOrExit()
-		defer done()
+		var logger *zap.Logger
+		if terminal.IsTerminal(int(os.Stdout.Fd())) {
+			logger, err = zap.NewDevelopment()
+		} else {
+			logger, err = zap.NewProduction()
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer func() {
+			// Ignore potential sync error
+			// https://github.com/uber-go/zap/issues/370
+			_ = logger.Sync()
+		}()
 
 		src, err := startLocalStorage()
 		if err != nil {
@@ -53,25 +66,21 @@ var serverCommand = &cobra.Command{
 		}()
 
 		reco := &reconciler.Reconciler{
-			State: &storage.KV{
-				Backend:       bolt,
-				ResourceCodec: reg,
-			},
+			State:  &storage.KV{Backend: bolt, ResourceCodec: reg},
 			Source: src,
 			Logger: logger,
 		}
 
-		srv := &server.Server{
+		api := &core.Func{
 			Logger:     logger,
 			Source:     src,
 			Resources:  reg,
 			Reconciler: reco,
 		}
-		handler := api.NewFuncServer(srv, nil)
 
 		server := &http.Server{
 			Addr:    addr,
-			Handler: handler,
+			Handler: rpc.NewHandler(logger, api),
 		}
 
 		go func() {
@@ -104,32 +113,4 @@ func init() {
 	serverCommand.Flags().String("address", "0.0.0.0:5088", "Address to listen to")
 
 	Func.AddCommand(serverCommand)
-}
-
-// loggerOrExit creates a logger and returns it, or prints the error and
-// exits with code 1 if there was an error.
-//
-// If a TTY is attached, the logger is started with debug mode, otherwise in
-// production mode. In production mode logs are printed as json.
-func loggerOrExit() (*zap.Logger, func()) {
-	var log *zap.Logger
-	var err error
-
-	if terminal.IsTerminal(int(os.Stdout.Fd())) {
-		log, err = zap.NewDevelopment()
-	} else {
-		log, err = zap.NewProduction()
-	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
-	done := func() {
-		// Ignore potential sync error
-		// https://github.com/uber-go/zap/issues/370
-		_ = log.Sync()
-	}
-
-	return log, done
 }

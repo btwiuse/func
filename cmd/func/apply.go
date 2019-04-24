@@ -9,12 +9,12 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/func/func/api"
 	"github.com/func/func/client"
+	"github.com/func/func/core"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
-	"github.com/func/func/server"
+	"github.com/func/func/rpc"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
 	"github.com/func/func/storage"
@@ -38,19 +38,12 @@ var applyCommand = &cobra.Command{
 			log.Fatalf("Get server address: %v", err)
 		}
 
-		var apicli api.Func
+		var api core.API
 		if addr == "local" {
 			// Start local server
 			src, err := startLocalStorage()
 			if err != nil {
 				log.Fatalf("Could not start local storage: %v", err)
-			}
-
-			logCfg := zap.NewDevelopmentConfig()
-			logCfg.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
-			logger, err := logCfg.Build()
-			if err != nil {
-				log.Fatalf("Build logger: %v", err)
 			}
 
 			reg := &resource.Registry{}
@@ -67,28 +60,21 @@ var applyCommand = &cobra.Command{
 			}()
 
 			reco := &reconciler.Reconciler{
-				State: &storage.KV{
-					Backend:       bolt,
-					ResourceCodec: reg,
-				},
+				State:  &storage.KV{Backend: bolt, ResourceCodec: reg},
 				Source: src,
-				Logger: logger,
 			}
 
-			apicli = &server.Server{
-				Logger:     logger,
+			api = &core.Func{
+				Logger:     zap.NewNop(),
 				Source:     src,
 				Resources:  reg,
 				Reconciler: reco,
 			}
 		} else {
-			// Start protobuf client
-			apicli = api.NewFuncProtobufClient(addr, http.DefaultClient)
+			api = rpc.NewClient(addr, nil)
 		}
 
-		cli := &client.Client{
-			API: apicli,
-		}
+		cli := &client.Client{API: api}
 
 		ns, err := cmd.Flags().GetString("namespace")
 		if err != nil {

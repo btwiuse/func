@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package func;
+package io.func;
 
-option go_package = "api";
+option go_package = "rpc";
 
 service Func {
   // Apply applies resources changes.
@@ -26,19 +26,12 @@ message ApplyRequest {
 // rejected due to missing source code. The source code should be uploaded and
 // then Apply should be retried.
 message ApplyResponse {
-  oneof response {
-    // SourceRequired is set if source code uploads are required.
-    SourceRequired source_request = 1;
-  }
+  // SourcesRequired is set if source code uploads are required.
+  repeated SourceRequest sources_required = 1;
 }
 
-// An UploadRequest contains the required sources to upload.
-message SourceRequired {
-  repeated UploadRequest uploads = 1;
-}
-
-// An UploadRequest describes a single upload request.
-message UploadRequest {
+// An SourceRequest describes a single upload request.
+message SourceRequest {
   // Digest is the digest to upload.
   // The digest maps back to a resource in the ApplyRequest config.
   string digest = 1;

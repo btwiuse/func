@@ -2,14 +2,12 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
-	"github.com/func/func/api"
+	"github.com/func/func/core"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/pkg/errors"
-	"github.com/twitchtv/twirp"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,60 +24,41 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 		return cli.errDiagnostics(diags)
 	}
 
-	j, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	req := &api.ApplyRequest{Namespace: namespace, Config: j}
+	req := &core.ApplyRequest{Namespace: namespace, Config: body}
 
 	resp, err := cli.API.Apply(ctx, req)
 	if err != nil {
-		if twerr, ok := err.(twirp.Error); ok {
-			if diagJSON := twerr.Meta("diagnostics"); diagJSON != "" {
-				var diags hcl.Diagnostics
-				if derr := json.Unmarshal([]byte(diagJSON), &diags); derr == nil {
-					return cli.errDiagnostics(diags)
-				}
-			}
+		if diags, ok := err.(hcl.Diagnostics); ok {
+			return cli.errDiagnostics(diags)
 		}
-		return err
+		return errors.Wrap(err, "apply")
 	}
 
-	if srcReq := resp.GetSourceRequest(); srcReq != nil {
-		if err = cli.upload(ctx, srcReq); err != nil {
+	if len(resp.SourcesRequired) > 0 {
+		g, ctx := errgroup.WithContext(ctx)
+		for _, sr := range resp.SourcesRequired {
+			sr := sr
+			g.Go(func() error {
+				src := cli.Loader.Source(sr.Digest)
+				err := source.Upload(
+					ctx,
+					http.DefaultClient,
+					sr.URL,
+					sr.Headers,
+					src,
+				)
+				if err != nil {
+					return errors.Wrapf(err, "Upload %s", sr.Digest)
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
 			return errors.Wrap(err, "upload source")
 		}
-		resp, err = cli.API.Apply(ctx, req)
-		if err != nil {
-			return err
-		}
+		// Try again
+		return cli.Apply(ctx, rootDir, namespace)
 	}
-
-	_ = resp
 
 	return nil
-}
-
-// upload concurrently uploads all the requested sources.
-func (cli *Client) upload(ctx context.Context, srcReq *api.SourceRequired) error {
-	g, ctx := errgroup.WithContext(ctx)
-	for _, ur := range srcReq.GetUploads() {
-		ur := ur
-		g.Go(func() error {
-			src := cli.Loader.Source(ur.GetDigest())
-			err := source.Upload(
-				ctx,
-				http.DefaultClient,
-				ur.GetUrl(),
-				ur.GetHeaders(),
-				src,
-			)
-			if err != nil {
-				return errors.Wrap(err, ur.GetDigest())
-			}
-			return nil
-		})
-	}
-	return g.Wait()
 }
