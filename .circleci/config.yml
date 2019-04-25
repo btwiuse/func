@@ -4,6 +4,12 @@ jobs:
   build:
     docker:
       - image: golang:1.12.4
+      - image: minio/minio
+        environment:
+          MINIO_ACCESS_KEY: miniotest
+          MINIO_SECRET_KEY: miniotest
+          MINIO_HTTP_TRACE: /dev/stderr
+        command: server /data
     working_directory: /src
     steps:
       - checkout
@@ -20,8 +26,13 @@ jobs:
             - /go/pkg/mod
       - run:
           name: Test
+          environment:
+            TEST_S3_ACCESS_KEY: miniotest
+            TEST_S3_SECRET_KEY: miniotest
+            TEST_S3_REGION: us-east-1
+            TEST_S3_ENDPOINT: "http://localhost:9000"
           command: |
-            go test -cover -race ./...
+            go test -cover -race -tags integration ./... 
       - run:
           name: Install golangci-lnit
           environment:

@@ -9,11 +9,14 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/func/func/api"
 	"github.com/func/func/api/rpc"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
+	"github.com/func/func/source/s3"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
 	"github.com/spf13/cobra"
@@ -29,6 +32,20 @@ var serverCommand = &cobra.Command{
 		addr, err := cmd.Flags().GetString("address")
 		if err != nil {
 			log.Fatalf("Get server address: %v", err)
+		}
+
+		bucket, err := cmd.Flags().GetString("bucket")
+		if err != nil {
+			log.Fatalf("Get server address: %v", err)
+		}
+
+		if bucket == "" {
+			// TODO(akupila): Move this somewhere else
+			bucket = os.Getenv("FUNC_S3_BUCKET")
+		}
+		if bucket == "" {
+			fmt.Fprintf(os.Stderr, "Required flag \"bucket\" or FUNC_S3_BUCKET env var not set\n\n%s\n", cmd.UsageString())
+			os.Exit(2)
 		}
 
 		var logger *zap.Logger
@@ -47,9 +64,16 @@ var serverCommand = &cobra.Command{
 			_ = logger.Sync()
 		}()
 
-		src, err := startLocalStorage()
+		cfg, err := external.LoadDefaultAWSConfig()
 		if err != nil {
-			log.Fatalf("Could not start local storage: %v", err)
+			log.Fatalf("Could not load AWS SDK config: %v", err)
+		}
+		cfg.Region = "eu-central-1"
+
+		src := &s3.Storage{
+			Bucket:          bucket,
+			UploadURLExpiry: 5 * time.Minute,
+			Client:          awss3.New(cfg),
 		}
 
 		reg := &resource.Registry{}
@@ -111,6 +135,7 @@ var serverCommand = &cobra.Command{
 
 func init() {
 	serverCommand.Flags().String("address", "0.0.0.0:5088", "Address to listen to")
+	serverCommand.Flags().String("bucket", "", "S3 bucket for source code storage (FUNC_S3_BUCKET)")
 
 	Func.AddCommand(serverCommand)
 }
