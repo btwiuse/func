@@ -1,0 +1,13 @@
+# For integration tests
+version: '3'
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio_test
+    ports:
+      - ${MINIO_PORT}:9000
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINiO_SECRET_KEY}
+      MINIO_HTTP_TRACE: /dev/stderr
+    command: server /data

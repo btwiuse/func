@@ -2,7 +2,7 @@ module github.com/func/func
 
 require (
 	github.com/agext/levenshtein v1.2.1
-	github.com/aws/aws-sdk-go-v2 v0.7.1-0.20190104002603-381987c30353
+	github.com/aws/aws-sdk-go-v2 v0.7.0
 	github.com/cenkalti/backoff v2.1.1+incompatible
 	github.com/fatih/structtag v1.0.0
 	github.com/golang/protobuf v1.2.0
