@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
@@ -32,14 +32,14 @@ func TestHandler_Apply_Request(t *testing.T) {
 	h := &handler{
 		logger: zaptest.NewLogger(t),
 		api: &mockAPI{
-			apply: func(ctx context.Context, req *core.ApplyRequest) (*core.ApplyResponse, error) {
+			apply: func(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) {
 				if req.Namespace != "ns" {
 					t.Errorf("Namespace = %q, want = %q", req.Namespace, "ns")
 				}
 				if req.Config == nil {
 					t.Error("Config is nil")
 				}
-				return &core.ApplyResponse{}, nil
+				return &api.ApplyResponse{}, nil
 			},
 		},
 	}
@@ -53,8 +53,8 @@ func TestHandler_Apply_Request(t *testing.T) {
 func TestHandler_Apply_Response(t *testing.T) {
 	tests := []struct {
 		name            string
-		coreResp        *core.ApplyResponse
-		coreErr         error
+		apiResp         *api.ApplyResponse
+		apiErr          error
 		wantResp        *ApplyResponse
 		wantErr         error
 		wantDiagnostics bool
@@ -62,13 +62,13 @@ func TestHandler_Apply_Response(t *testing.T) {
 	}{
 		{
 			name:     "Empty",
-			coreResp: &core.ApplyResponse{},
+			apiResp:  &api.ApplyResponse{},
 			wantResp: &ApplyResponse{},
 		},
 		{
 			name: "Source",
-			coreResp: &core.ApplyResponse{
-				SourcesRequired: []core.SourceRequest{
+			apiResp: &api.ApplyResponse{
+				SourcesRequired: []api.SourceRequest{
 					{
 						Digest:  "abc",
 						URL:     "https://abc.com",
@@ -88,7 +88,7 @@ func TestHandler_Apply_Response(t *testing.T) {
 		},
 		{
 			name:    "Error",
-			coreErr: errors.New("some internal error"),
+			apiErr:  errors.New("some internal error"),
 			wantErr: twirp.NewError(twirp.Unavailable, "Could not apply changes"), // Actual error is hidden
 			wantLogs: []observer.LoggedEntry{
 				{
@@ -101,7 +101,7 @@ func TestHandler_Apply_Response(t *testing.T) {
 		},
 		{
 			name: "Diagnostics",
-			coreErr: hcl.Diagnostics{
+			apiErr: hcl.Diagnostics{
 				{Severity: hcl.DiagError, Summary: "summary", Detail: "detail"},
 			},
 			wantErr:         twirp.NewError(twirp.InvalidArgument, "Configuration contains errors"),
@@ -125,8 +125,8 @@ func TestHandler_Apply_Response(t *testing.T) {
 			h := &handler{
 				logger: zap.New(obs),
 				api: &mockAPI{
-					apply: func(ctx context.Context, req *core.ApplyRequest) (*core.ApplyResponse, error) {
-						return tt.coreResp, tt.coreErr
+					apply: func(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) {
+						return tt.apiResp, tt.apiErr
 					},
 				},
 			}
@@ -182,9 +182,9 @@ func TestHandler_Apply_Response(t *testing.T) {
 }
 
 type mockAPI struct {
-	apply func(context.Context, *core.ApplyRequest) (*core.ApplyResponse, error)
+	apply func(context.Context, *api.ApplyRequest) (*api.ApplyResponse, error)
 }
 
-func (m *mockAPI) Apply(ctx context.Context, req *core.ApplyRequest) (*core.ApplyResponse, error) {
+func (m *mockAPI) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) {
 	return m.apply(ctx, req)
 }

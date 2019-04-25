@@ -9,12 +9,12 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/func/func/api"
+	"github.com/func/func/api/rpc"
 	"github.com/func/func/client"
-	"github.com/func/func/core"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
-	"github.com/func/func/rpc"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
 	"github.com/func/func/storage"
@@ -38,7 +38,7 @@ var applyCommand = &cobra.Command{
 			log.Fatalf("Get server address: %v", err)
 		}
 
-		var api core.API
+		var funcAPI api.API
 		if addr == "local" {
 			// Start local server
 			src, err := startLocalStorage()
@@ -64,17 +64,17 @@ var applyCommand = &cobra.Command{
 				Source: src,
 			}
 
-			api = &core.Func{
+			funcAPI = &api.Func{
 				Logger:     zap.NewNop(),
 				Source:     src,
 				Resources:  reg,
 				Reconciler: reco,
 			}
 		} else {
-			api = rpc.NewClient(addr, nil)
+			funcAPI = rpc.NewClient(addr, nil)
 		}
 
-		cli := &client.Client{API: api}
+		cli := &client.Client{API: funcAPI}
 
 		ns, err := cmd.Flags().GetString("namespace")
 		if err != nil {

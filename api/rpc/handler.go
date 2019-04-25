@@ -5,7 +5,7 @@ import (
 	json "encoding/json"
 	http "net/http"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
@@ -15,7 +15,7 @@ import (
 
 // NewHandler creates a new RPC handler.
 // The handler will handle all func RPC traffic.
-func NewHandler(logger *zap.Logger, api core.API) http.Handler {
+func NewHandler(logger *zap.Logger, api api.API) http.Handler {
 	h := &handler{
 		logger: logger,
 		api:    api,
@@ -26,7 +26,7 @@ func NewHandler(logger *zap.Logger, api core.API) http.Handler {
 // handler implements a HTTP handler for handling RPC responses.
 type handler struct {
 	logger *zap.Logger
-	api    core.API
+	api    api.API
 }
 
 func (h *handler) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, error) {
@@ -36,7 +36,7 @@ func (h *handler) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse,
 		return nil, twirp.InvalidArgumentError("config", err.Error())
 	}
 
-	resp, err := h.api.Apply(ctx, &core.ApplyRequest{
+	resp, err := h.api.Apply(ctx, &api.ApplyRequest{
 		Namespace: req.GetNamespace(),
 		Config:    &body,
 	})

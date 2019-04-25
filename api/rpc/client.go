@@ -5,7 +5,7 @@ import (
 	json "encoding/json"
 	http "net/http"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/pkg/errors"
 	twirp "github.com/twitchtv/twirp"
@@ -13,8 +13,10 @@ import (
 
 // Client is an RPC client.
 //
-// The client implements core.API, meaning it can be used in between to perform
-// API calls on a remote server.
+// The client implements the api.API interface, meaning it can be used in
+// between to perform API calls on a remote server.
+//
+// The client should be created with NewClient().
 type Client struct {
 	cli Func
 }
@@ -30,7 +32,7 @@ func NewClient(address string, httpClient *http.Client) *Client {
 }
 
 // Apply marshals the request and sends it.
-func (c *Client) Apply(ctx context.Context, req *core.ApplyRequest) (*core.ApplyResponse, error) {
+func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) {
 	// Marshal body.
 	j, err := json.Marshal(req.Config)
 	if err != nil {
@@ -53,12 +55,12 @@ func (c *Client) Apply(ctx context.Context, req *core.ApplyRequest) (*core.Apply
 	}
 
 	// Convert response.
-	resp := &core.ApplyResponse{
-		SourcesRequired: make([]core.SourceRequest, len(rpcResp.GetSourcesRequired())),
+	resp := &api.ApplyResponse{
+		SourcesRequired: make([]api.SourceRequest, len(rpcResp.GetSourcesRequired())),
 	}
 
 	for i, sr := range rpcResp.GetSourcesRequired() {
-		resp.SourcesRequired[i] = core.SourceRequest{
+		resp.SourcesRequired[i] = api.SourceRequest{
 			Digest:  sr.GetDigest(),
 			URL:     sr.GetUrl(),
 			Headers: sr.GetHeaders(),

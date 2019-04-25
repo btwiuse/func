@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
+	"github.com/func/func/api/rpc"
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
-	"github.com/func/func/rpc"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
 	"github.com/spf13/cobra"
@@ -71,7 +71,7 @@ var serverCommand = &cobra.Command{
 			Logger: logger,
 		}
 
-		api := &core.Func{
+		funcAPI := &api.Func{
 			Logger:     logger,
 			Source:     src,
 			Resources:  reg,
@@ -80,7 +80,7 @@ var serverCommand = &cobra.Command{
 
 		server := &http.Server{
 			Addr:    addr,
-			Handler: rpc.NewHandler(logger, api),
+			Handler: rpc.NewHandler(logger, funcAPI),
 		}
 
 		go func() {

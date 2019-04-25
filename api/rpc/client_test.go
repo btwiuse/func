@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
@@ -29,7 +29,7 @@ func TestClientApply_Request(t *testing.T) {
 		},
 	}
 
-	req := &core.ApplyRequest{
+	req := &api.ApplyRequest{
 		Namespace: "ns",
 		Config:    &hclpack.Body{},
 	}
@@ -46,13 +46,13 @@ func TestClientApply_Response(t *testing.T) {
 		name     string
 		rpcResp  *ApplyResponse
 		rpcErr   error
-		wantResp *core.ApplyResponse
+		wantResp *api.ApplyResponse
 		wantErr  error
 	}{
 		{
 			name:     "Empty",
 			rpcResp:  &ApplyResponse{},
-			wantResp: &core.ApplyResponse{},
+			wantResp: &api.ApplyResponse{},
 		},
 		{
 			name: "Source",
@@ -65,8 +65,8 @@ func TestClientApply_Response(t *testing.T) {
 					},
 				},
 			},
-			wantResp: &core.ApplyResponse{
-				SourcesRequired: []core.SourceRequest{
+			wantResp: &api.ApplyResponse{
+				SourcesRequired: []api.SourceRequest{
 					{
 						Digest:  "abc",
 						URL:     "https://abc.com",
@@ -100,7 +100,7 @@ func TestClientApply_Response(t *testing.T) {
 				},
 			}
 
-			req := &core.ApplyRequest{
+			req := &api.ApplyRequest{
 				Namespace: "ns",
 				Config:    &hclpack.Body{},
 			}

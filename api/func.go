@@ -1,4 +1,4 @@
-package core
+package api
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// API is the core API that must be implemented by all intermediate clients.
+// API is the core interface for the API. The API is implemented by Func.
 type API interface {
 	Apply(context.Context, *ApplyRequest) (*ApplyResponse, error)
 }

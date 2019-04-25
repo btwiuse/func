@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/func/func/core"
+	"github.com/func/func/api"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/pkg/errors"
@@ -24,7 +24,7 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 		return cli.errDiagnostics(diags)
 	}
 
-	req := &core.ApplyRequest{Namespace: namespace, Config: body}
+	req := &api.ApplyRequest{Namespace: namespace, Config: body}
 
 	resp, err := cli.API.Apply(ctx, req)
 	if err != nil {
