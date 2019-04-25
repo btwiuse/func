@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/api"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
@@ -26,39 +27,44 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 
 	req := &api.ApplyRequest{Namespace: namespace, Config: body}
 
-	resp, err := cli.API.Apply(ctx, req)
-	if err != nil {
-		if diags, ok := err.(hcl.Diagnostics); ok {
-			return cli.errDiagnostics(diags)
+	op := func() error {
+		resp, err := cli.API.Apply(ctx, req)
+		if err != nil {
+			if diags, ok := err.(hcl.Diagnostics); ok {
+				return cli.errDiagnostics(diags)
+			}
+			return errors.Wrap(err, "apply")
 		}
-		return errors.Wrap(err, "apply")
+
+		if len(resp.SourcesRequired) > 0 {
+			g, uctx := errgroup.WithContext(ctx)
+			for _, sr := range resp.SourcesRequired {
+				sr := sr
+				g.Go(func() error {
+					src := cli.Loader.Source(sr.Digest)
+					err := source.Upload(
+						uctx,
+						http.DefaultClient,
+						sr.URL,
+						sr.Headers,
+						src,
+					)
+					if err != nil {
+						return errors.Wrapf(err, "Upload %s", sr.Digest)
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				return errors.Wrap(err, "upload source")
+			}
+			return errors.New("retry after source")
+		}
+
+		return nil
 	}
 
-	if len(resp.SourcesRequired) > 0 {
-		g, ctx := errgroup.WithContext(ctx)
-		for _, sr := range resp.SourcesRequired {
-			sr := sr
-			g.Go(func() error {
-				src := cli.Loader.Source(sr.Digest)
-				err := source.Upload(
-					ctx,
-					http.DefaultClient,
-					sr.URL,
-					sr.Headers,
-					src,
-				)
-				if err != nil {
-					return errors.Wrapf(err, "Upload %s", sr.Digest)
-				}
-				return nil
-			})
-		}
-		if err := g.Wait(); err != nil {
-			return errors.Wrap(err, "upload source")
-		}
-		// Try again
-		return cli.Apply(ctx, rootDir, namespace)
-	}
+	algo := backoff.WithContext(backoff.NewExponentialBackOff(), ctx)
 
-	return nil
+	return backoff.Retry(op, algo)
 }
