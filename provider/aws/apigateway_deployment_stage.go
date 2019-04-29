@@ -10,10 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway/apigatewayiface"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -51,6 +49,9 @@ type APIGatewayStage struct { // nolint: malign
 	// The version of the associated API documentation.
 	DocumentationVersion *string `input:"deployment_version"`
 
+	// The region the API Gateway is deployed to.
+	Region string `input:"region"`
+
 	// The string identifier of the associated RestApi.
 	RestAPIID string `input:"rest_api_id"`
 
@@ -69,9 +70,6 @@ type APIGatewayStage struct { // nolint: malign
 	// names can have alphanumeric and underscore characters, and the values must
 	// match `[A-Za-z0-9-._~:/?#&=,]+`.
 	Variables *map[string]string `input:"variables"`
-
-	// The region API Gateway is deployed to.
-	Region string `input:"region"`
 
 	// Outputs
 
@@ -104,8 +102,6 @@ type APIGatewayStage struct { // nolint: malign
 
 	// The ARN of the WebAcl associated with the Stage.
 	WebACLARN *string `output:"web_acl_arn"`
-
-	svc apigatewayiface.APIGatewayAPI
 }
 
 // APIGatewayCanarySettings contains settings for canary deployment.
@@ -197,7 +193,7 @@ func (p *APIGatewayStage) Type() string { return "aws_apigateway_stage" }
 
 // Create creates a new deployment.
 func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -241,8 +237,7 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 	}
 
 	req := svc.CreateStageRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
@@ -259,7 +254,7 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 
 // Delete removes a deployment.
 func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -268,8 +263,7 @@ func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest)
 		RestApiId: aws.String(p.RestAPIID),
 		StageName: aws.String(p.StageName),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 
@@ -315,7 +309,7 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		return nil
 	}
 
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -325,8 +319,7 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		RestApiId:       aws.String(p.RestAPIID),
 		StageName:       aws.String(p.StageName),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
@@ -339,17 +332,6 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 	p.setFromResp(resp)
 
 	return nil
-}
-
-func (p *APIGatewayStage) service(auth resource.AuthProvider) (apigatewayiface.APIGatewayAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.WithRegion(auth, p.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = apigateway.New(cfg)
-	}
-	return p.svc, nil
 }
 
 func (p *APIGatewayStage) setFromResp(resp *apigateway.UpdateStageOutput) {

@@ -8,8 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
-	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -17,9 +15,6 @@ import (
 // LambdaInvokePermission sets permissions on a Lambda function.
 type LambdaInvokePermission struct {
 	// Inputs
-
-	// The region the function is in.
-	Region string `input:"region"`
 
 	// The AWS Lambda action you want to allow in this statement. Each Lambda action
 	// is a string starting with lambda: followed by the API name . For example,
@@ -49,6 +44,9 @@ type LambdaInvokePermission struct {
 	// service as a principal, use the SourceArn parameter to limit who can
 	// invoke the function through that service.
 	Principal string `input:"principal"`
+
+	// Region the Lambda function has been deployed to.
+	Region string `input:"region"`
 
 	// Specify a version or alias to add permissions to a published version of the
 	// function.
@@ -85,64 +83,60 @@ type LambdaInvokePermission struct {
 	// the same as a string using a backslash ("\") as an escape character in the
 	// JSON.
 	Statement string `output:"statement"`
-
-	svc lambdaiface.LambdaAPI
 }
 
 // Type returns the type name for an AWS Lambda function.
-func (l *LambdaInvokePermission) Type() string { return "aws_lambda_invoke_permission" }
+func (p *LambdaInvokePermission) Type() string { return "aws_lambda_invoke_permission" }
 
 // Create creates an AWS lambda function.
-func (l *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := l.service(r.Auth)
+func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateRequest) error {
+	svc, err := lambdaService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	input := &lambda.AddPermissionInput{
-		Action:           aws.String(l.Action),
-		EventSourceToken: l.EventSourceToken,
-		FunctionName:     aws.String(l.FunctionName),
-		Principal:        aws.String(l.Principal),
-		Qualifier:        l.Qualifier,
-		RevisionId:       l.RevisionID,
-		SourceAccount:    l.SourceAccount,
-		SourceArn:        l.SourceARN,
-		StatementId:      aws.String(l.StatementID),
+		Action:           aws.String(p.Action),
+		EventSourceToken: p.EventSourceToken,
+		FunctionName:     aws.String(p.FunctionName),
+		Principal:        aws.String(p.Principal),
+		Qualifier:        p.Qualifier,
+		RevisionId:       p.RevisionID,
+		SourceAccount:    p.SourceAccount,
+		SourceArn:        p.SourceARN,
+		StatementId:      aws.String(p.StatementID),
 	}
 
 	req := svc.AddPermissionRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
 
-	l.Statement = *resp.Statement
+	p.Statement = *resp.Statement
 
 	return nil
 }
 
 // Delete deletes the lambda function.
-func (l *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := l.service(r.Auth)
+func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteRequest) error {
+	svc, err := lambdaService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.RemovePermissionRequest(&lambda.RemovePermissionInput{
-		FunctionName: aws.String(l.FunctionName),
-		Qualifier:    l.Qualifier,
-		RevisionId:   l.RevisionID,
-		StatementId:  aws.String(l.StatementID),
+		FunctionName: aws.String(p.FunctionName),
+		Qualifier:    p.Qualifier,
+		RevisionId:   p.RevisionID,
+		StatementId:  aws.String(p.StatementID),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 
 // Update updates the lambda function.
-func (l *LambdaInvokePermission) Update(ctx context.Context, r *resource.UpdateRequest) error {
+func (p *LambdaInvokePermission) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	// Permission cannot be updated, delete and create nwe
 
 	prev := r.Previous.(*LambdaInvokePermission)
@@ -150,20 +144,9 @@ func (l *LambdaInvokePermission) Update(ctx context.Context, r *resource.UpdateR
 	if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
 		return errors.Wrap(err, "update-delete")
 	}
-	if err := l.Create(ctx, r.CreateRequest()); err != nil {
+	if err := p.Create(ctx, r.CreateRequest()); err != nil {
 		return errors.Wrap(err, "update-create")
 	}
 
 	return nil
-}
-
-func (l *LambdaInvokePermission) service(auth resource.AuthProvider) (lambdaiface.LambdaAPI, error) {
-	if l.svc == nil {
-		cfg, err := config.WithRegion(auth, l.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		l.svc = lambda.New(cfg)
-	}
-	return l.svc, nil
 }

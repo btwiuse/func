@@ -19,6 +19,7 @@ API.
 | input | [`http_method`](#http_method) | `string` | required |
 | input | [`integration_http_method`](#integration_http_method) | `string` | required |
 | input | [`passthrough_behavior`](#passthrough_behavior) | `string` |  |
+| input | [`region`](#region) | `string` | required |
 | input | [`request_parameters`](#request_parameters) | `map` |  |
 | input | [`request_templates`](#request_templates) | `map` |  |
 | input | [`resource_id`](#resource_id) | `string` | required |
@@ -26,7 +27,6 @@ API.
 | input | [`timeout`](#timeout) | `time` |  |
 | input | [`type`](#type) | `string` | required |
 | input | [`uri`](#uri) | `string` |  |
-| input | [`region`](#region) | `string` | required |
 | output | [`integration_responses`](#integration_responses) | `map` ||
 
 
@@ -122,6 +122,12 @@ There are three valid values:
 - `WHEN_NO_TEMPLATES` allows pass-through when the integration has NO content
   types mapped to templates. However if there is at least one content type
   defined, unmapped content types will be rejected with the same 415 response.
+
+### region
+
+`string`
+
+The region the API Gateway is deployed to.
 
 ### request_parameters
 
@@ -225,12 +231,6 @@ Specifies Uniform Resource Identifier (URI) of the integration endpoint.
   the uri can be either
   `arn:aws:apigateway:us-west-2:s3:action/GetObject&Bucket={bucket}&Key={key}`
   or `arn:aws:apigateway:us-west-2:s3:path/{bucket}/{key}`
-
-### region
-
-`string`
-
-
 
 ## Outputs
 

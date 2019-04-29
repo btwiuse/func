@@ -152,7 +152,9 @@ func getAPI(t *testing.T) *s3.S3 {
 func makeBucket(t *testing.T, cli s3iface.S3API, name string) func() {
 	t.Helper()
 
-	_, err := cli.CreateBucketRequest(&s3.CreateBucketInput{Bucket: aws.String(name)}).Send()
+	ctx := context.Background()
+
+	_, err := cli.CreateBucketRequest(&s3.CreateBucketInput{Bucket: aws.String(name)}).Send(ctx)
 	if err != nil {
 		t.Fatalf("create bucket: %v", err)
 	}
@@ -160,7 +162,7 @@ func makeBucket(t *testing.T, cli s3iface.S3API, name string) func() {
 	cleanup := func() {
 		res, err := cli.ListObjectsV2Request(&s3.ListObjectsV2Input{
 			Bucket: aws.String(name),
-		}).Send()
+		}).Send(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -177,11 +179,11 @@ func makeBucket(t *testing.T, cli s3iface.S3API, name string) func() {
 			Delete: &s3.Delete{
 				Objects: ids,
 			},
-		}).Send(); err != nil {
+		}).Send(ctx); err != nil {
 			t.Fatal(err)
 		}
 
-		if _, err = cli.DeleteBucketRequest(&s3.DeleteBucketInput{Bucket: aws.String(name)}).Send(); err != nil {
+		if _, err = cli.DeleteBucketRequest(&s3.DeleteBucketInput{Bucket: aws.String(name)}).Send(ctx); err != nil {
 			t.Fatal(err)
 		}
 	}

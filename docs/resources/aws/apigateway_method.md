@@ -86,7 +86,7 @@ method in [PetStore](https://petstore-demo-endpoint.execute-api.com/petstore/pet
 
 `string`
 
-
+The region the API Gateway is deployed to.
 
 ### request_models
 

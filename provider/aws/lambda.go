@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/func/func/source/convert"
 	"github.com/pkg/errors"
@@ -88,6 +87,9 @@ type LambdaFunction struct {
 	// creation.
 	Publish *bool `input:"publish"`
 
+	// Region to run the Lambda function in.
+	Region string `input:"region"`
+
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
 	Role string `input:"role"`
@@ -111,9 +113,6 @@ type LambdaFunction struct {
 	//   - ruby2.5
 	//   - provided
 	Runtime string `input:"runtime"` // TODO: enum
-
-	// The region the function should run in.
-	Region string `input:"region"`
 
 	// The list of tags (key-value pairs) assigned to the new function. For
 	// more information, see
@@ -168,15 +167,13 @@ type LambdaFunction struct {
 
 	// The version of the Lambda function.
 	Version string `output:"version"`
-
-	svc lambdaiface.LambdaAPI
 }
 
 // Type returns the type name for an AWS Lambda function.
-func (l *LambdaFunction) Type() string { return "aws_lambda_function" }
+func (p *LambdaFunction) Type() string { return "aws_lambda_function" }
 
 // Create creates an AWS lambda function.
-func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
+func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
 	if len(r.Source) == 0 {
 		return errors.New("no source code provided")
 	}
@@ -184,7 +181,7 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 		return errors.New("only one source archive allowed")
 	}
 
-	svc, err := l.service(r.Auth)
+	svc, err := lambdaService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -205,93 +202,91 @@ func (l *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 		Code: &lambda.FunctionCode{
 			ZipFile: zip.Bytes(),
 		},
-		Description:  l.Description,
-		FunctionName: aws.String(l.FunctionName),
-		Handler:      aws.String(l.Handler),
-		KMSKeyArn:    l.KMSKeyArn,
-		MemorySize:   l.MemorySize,
-		Publish:      l.Publish,
-		Role:         aws.String(l.Role),
-		Runtime:      lambda.Runtime(l.Runtime),
-		Timeout:      l.Timeout,
+		Description:  p.Description,
+		FunctionName: aws.String(p.FunctionName),
+		Handler:      aws.String(p.Handler),
+		KMSKeyArn:    p.KMSKeyArn,
+		MemorySize:   p.MemorySize,
+		Publish:      p.Publish,
+		Role:         aws.String(p.Role),
+		Runtime:      lambda.Runtime(p.Runtime),
+		Timeout:      p.Timeout,
 	}
-	if l.DeadLetterConfig != nil {
+	if p.DeadLetterConfig != nil {
 		input.DeadLetterConfig = &lambda.DeadLetterConfig{
-			TargetArn: l.DeadLetterConfig.TargetArn,
+			TargetArn: p.DeadLetterConfig.TargetArn,
 		}
 	}
-	if l.Environment != nil {
+	if p.Environment != nil {
 		input.Environment = &lambda.Environment{
-			Variables: l.Environment.Variables,
+			Variables: p.Environment.Variables,
 		}
 	}
-	if l.Layers != nil {
-		input.Layers = *l.Layers
+	if p.Layers != nil {
+		input.Layers = *p.Layers
 	}
-	if l.Tags != nil {
-		input.Tags = *l.Tags
+	if p.Tags != nil {
+		input.Tags = *p.Tags
 	}
-	if l.TracingConfig != nil {
+	if p.TracingConfig != nil {
 		input.TracingConfig = &lambda.TracingConfig{
-			Mode: lambda.TracingMode(l.TracingConfig.Mode),
+			Mode: lambda.TracingMode(p.TracingConfig.Mode),
 		}
 	}
-	if l.VpcConfig != nil {
+	if p.VpcConfig != nil {
 		input.VpcConfig = &lambda.VpcConfig{
-			SecurityGroupIds: l.VpcConfig.SecurityGroupIDs,
-			SubnetIds:        l.VpcConfig.SubnetIds,
+			SecurityGroupIds: p.VpcConfig.SecurityGroupIDs,
+			SubnetIds:        p.VpcConfig.SubnetIds,
 		}
 	}
 
 	req := svc.CreateFunctionRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
 
 	// OK
 
-	l.setFromResp(resp)
+	p.setFromResp(resp)
 
 	return nil
 }
 
 // Delete deletes the lambda function.
-func (l *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := l.service(r.Auth)
+func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
+	svc, err := lambdaService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.DeleteFunctionRequest(&lambda.DeleteFunctionInput{
-		FunctionName: aws.String(l.FunctionArn),
+		FunctionName: aws.String(p.FunctionArn),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 
 // Update updates the lambda function.
-func (l *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
-	svc, err := l.service(r.Auth)
+func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
+	svc, err := lambdaService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 	if r.SourceChanged {
-		if err := l.updateCode(ctx, svc, r); err != nil {
+		if err := p.updateCode(ctx, svc, r); err != nil {
 			return errors.Wrap(err, "update code")
 		}
 	}
 	if r.ConfigChanged {
-		if err := l.updateConfig(ctx, svc); err != nil {
+		if err := p.updateConfig(ctx, svc); err != nil {
 			return errors.Wrap(err, "update config")
 		}
 	}
 	return nil
 }
 
-func (l *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaAPI, r *resource.UpdateRequest) error {
+func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaAPI, r *resource.UpdateRequest) error {
 	if len(r.Source) == 0 {
 		return errors.New("no source code provided")
 	}
@@ -312,90 +307,77 @@ func (l *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaA
 	}
 
 	req := svc.UpdateFunctionCodeRequest(&lambda.UpdateFunctionCodeInput{
-		FunctionName: aws.String(l.FunctionName),
+		FunctionName: aws.String(p.FunctionName),
 		ZipFile:      zip.Bytes(),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
-	l.setFromResp(resp)
+	p.setFromResp(resp)
 
 	return nil
 }
 
-func (l *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.LambdaAPI) error {
+func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.LambdaAPI) error {
 	input := &lambda.UpdateFunctionConfigurationInput{
-		Description:  l.Description,
-		FunctionName: aws.String(l.FunctionName),
-		Handler:      aws.String(l.Handler),
-		KMSKeyArn:    l.KMSKeyArn,
-		MemorySize:   l.MemorySize,
-		Role:         aws.String(l.Role),
-		Runtime:      lambda.Runtime(l.Runtime),
-		Timeout:      l.Timeout,
+		Description:  p.Description,
+		FunctionName: aws.String(p.FunctionName),
+		Handler:      aws.String(p.Handler),
+		KMSKeyArn:    p.KMSKeyArn,
+		MemorySize:   p.MemorySize,
+		Role:         aws.String(p.Role),
+		Runtime:      lambda.Runtime(p.Runtime),
+		Timeout:      p.Timeout,
 	}
-	if l.DeadLetterConfig != nil {
+	if p.DeadLetterConfig != nil {
 		input.DeadLetterConfig = &lambda.DeadLetterConfig{
-			TargetArn: l.DeadLetterConfig.TargetArn,
+			TargetArn: p.DeadLetterConfig.TargetArn,
 		}
 	}
-	if l.Environment != nil {
+	if p.Environment != nil {
 		input.Environment = &lambda.Environment{
-			Variables: l.Environment.Variables,
+			Variables: p.Environment.Variables,
 		}
 	}
-	if l.Layers != nil {
-		input.Layers = *l.Layers
+	if p.Layers != nil {
+		input.Layers = *p.Layers
 	}
-	if l.TracingConfig != nil {
+	if p.TracingConfig != nil {
 		input.TracingConfig = &lambda.TracingConfig{
-			Mode: lambda.TracingMode(l.TracingConfig.Mode),
+			Mode: lambda.TracingMode(p.TracingConfig.Mode),
 		}
 	}
-	if l.VpcConfig != nil {
+	if p.VpcConfig != nil {
 		input.VpcConfig = &lambda.VpcConfig{
-			SecurityGroupIds: l.VpcConfig.SecurityGroupIDs,
-			SubnetIds:        l.VpcConfig.SubnetIds,
+			SecurityGroupIds: p.VpcConfig.SecurityGroupIDs,
+			SubnetIds:        p.VpcConfig.SubnetIds,
 		}
 	}
 
 	req := svc.UpdateFunctionConfigurationRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
-	l.setFromResp(resp)
+	p.setFromResp(resp)
 
 	return nil
 }
 
-func (l *LambdaFunction) service(auth resource.AuthProvider) (lambdaiface.LambdaAPI, error) {
-	if l.svc == nil {
-		cfg, err := config.WithRegion(auth, l.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		l.svc = lambda.New(cfg)
-	}
-	return l.svc, nil
-}
-
-func (l *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOutput) {
-	l.CodeSha256 = *resp.CodeSha256
-	l.CodeSize = *resp.CodeSize
-	l.FunctionArn = *resp.FunctionArn
+func (p *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOutput) {
+	p.CodeSha256 = *resp.CodeSha256
+	p.CodeSize = *resp.CodeSize
+	p.FunctionArn = *resp.FunctionArn
 	t, err := time.Parse(iso8601, *resp.LastModified)
 	if err != nil {
 		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
 		t = time.Now()
 	}
-	l.LastModified = t
-	l.MasterArn = resp.MasterArn
-	l.RevisionID = *resp.RevisionId
-	l.Version = *resp.Version
+	p.LastModified = t
+	p.MasterArn = resp.MasterArn
+	p.RevisionID = *resp.RevisionId
+	p.Version = *resp.Version
 }

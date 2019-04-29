@@ -8,34 +8,38 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/iamiface"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
 
 // IAMRolePolicy is an inline role policy, attached to a role.
 type IAMRolePolicy struct {
+	// Inputs
+
 	// The policy document.
 	PolicyDocument string `input:"policy_document"`
 
 	// The name of the policy document.
 	PolicyName string `input:"policy_name"`
 
+	// Region to use for IAM API calls.
+	//
+	// IAM is global so the calls are not regional but the Region will specify
+	// which region the API calls are sent to.
+	Region *string
+
 	// The name of the role to associate the policy with.
 	RoleName string `input:"role_name"`
 
 	// No outputs
-
-	svc iamiface.IAMAPI
 }
 
 // Type returns the type name for an AWS IAM role policy resource.
-func (p *IAMRolePolicy) Type() string { return "aws_iam_role_policy" }
+func (IAMRolePolicy) Type() string { return "aws_iam_role_policy" }
 
 // Create attaches an inline role policy to and IAM role.
 func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -45,8 +49,7 @@ func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) e
 		PolicyName:     aws.String(p.PolicyName),
 		RoleName:       aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
@@ -57,7 +60,7 @@ func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) e
 
 // Delete removes an inline role policy from an IAM role.
 func (p *IAMRolePolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -66,8 +69,7 @@ func (p *IAMRolePolicy) Delete(ctx context.Context, r *resource.DeleteRequest) e
 		PolicyName: aws.String(p.PolicyName),
 		RoleName:   aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
@@ -90,15 +92,4 @@ func (p *IAMRolePolicy) Update(ctx context.Context, r *resource.UpdateRequest) e
 	}
 
 	return nil
-}
-
-func (p *IAMRolePolicy) service(auth resource.AuthProvider) (iamiface.IAMAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.DefaultRegion(auth)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = iam.New(cfg)
-	}
-	return p.svc, nil
 }

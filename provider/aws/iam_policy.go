@@ -9,9 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/iamiface"
 	"github.com/cenkalti/backoff"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -20,6 +18,8 @@ import (
 //
 // The policy can be attached to a role using `aws_iam_role_policy_attachment`.
 type IAMPolicy struct {
+	// Inputs
+
 	// A friendly description of the policy.
 	//
 	// Typically used to store information about the permissions defined in the
@@ -44,6 +44,12 @@ type IAMPolicy struct {
 
 	// The friendly name of the policy.
 	PolicyName string `input:"policy_name"`
+
+	// Region to use for IAM API calls.
+	//
+	// IAM is global so the calls are not regional but the Region will specify
+	// which region the API calls are sent to.
+	Region *string
 
 	// Outputs
 
@@ -90,8 +96,6 @@ type IAMPolicy struct {
 	// field contains the date and time when the most recent policy version was
 	// created.
 	UpdateDate time.Time `output:"update_date"`
-
-	svc iamiface.IAMAPI
 }
 
 // Type returns the type name for an AWS IAM policy resource.
@@ -99,7 +103,7 @@ func (p *IAMPolicy) Type() string { return "aws_iam_policy" }
 
 // Create creates a new IAM policy.
 func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -110,8 +114,7 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 		PolicyDocument: aws.String(p.PolicyDocument),
 		PolicyName:     aws.String(p.PolicyName),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
@@ -130,7 +133,7 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 
 // Delete deletes the IAM policy.
 func (p *IAMPolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -138,8 +141,7 @@ func (p *IAMPolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error
 	req := svc.DeletePolicyRequest(&iam.DeletePolicyInput{
 		PolicyArn: aws.String(p.ARN),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
@@ -152,15 +154,4 @@ func (p *IAMPolicy) Update(ctx context.Context, r *resource.UpdateRequest) error
 	// problems in case the policy is attached somewhere. For now, return an
 	// error instead.
 	return backoff.Permanent(errors.New("policy cannot be updated"))
-}
-
-func (p *IAMPolicy) service(auth resource.AuthProvider) (iamiface.IAMAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.DefaultRegion(auth)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = iam.New(cfg)
-	}
-	return p.svc, nil
 }

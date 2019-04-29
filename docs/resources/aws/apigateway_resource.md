@@ -12,8 +12,8 @@ API.
 | --- | ---- | ---- | -------: |
 | input | [`parent_id`](#parent_id) | `string` | required |
 | input | [`path_part`](#path_part) | `string` | required |
-| input | [`rest_api_id`](#rest_api_id) | `string` | required |
 | input | [`region`](#region) | `string` | required |
+| input | [`rest_api_id`](#rest_api_id) | `string` | required |
 | output | [`id`](#id) | `string` ||
 | output | [`path`](#path) | `string` ||
 
@@ -32,17 +32,17 @@ The parent resource's identifier.
 
 The last path segment for this resource.
 
+### region
+
+`string`
+
+The region the API Gateway is deployed to.
+
 ### rest_api_id
 
 `string`
 
 The string identifier of the associated RestApi.
-
-### region
-
-`string`
-
-
 
 ## Outputs
 

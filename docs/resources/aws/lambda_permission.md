@@ -9,11 +9,11 @@ LambdaInvokePermission sets permissions on a Lambda function.
 
 | i/o | name | type | required |
 | --- | ---- | ---- | -------: |
-| input | [`region`](#region) | `string` | required |
 | input | [`action`](#action) | `string` | required |
 | input | [`event_source_token`](#event_source_token) | `string` |  |
 | input | [`function_name`](#function_name) | `string` | required |
 | input | [`principal`](#principal) | `string` | required |
+| input | [`region`](#region) | `string` | required |
 | input | [`qualifier`](#qualifier) | `string` |  |
 | input | [`revision_id`](#revision_id) | `string` |  |
 | input | [`service_account`](#service_account) | `string` |  |
@@ -23,12 +23,6 @@ LambdaInvokePermission sets permissions on a Lambda function.
 
 
 ## Inputs
-
-### region
-
-`string`
-
-The region the function is in.
 
 ### action
 
@@ -70,6 +64,12 @@ AWS service (e.g. `s3.amazonaws.com` or `sns.amazonaws.com`) for service
 triggers, or an account ID for cross-account access. If you specify a
 service as a principal, use the SourceArn parameter to limit who can
 invoke the function through that service.
+
+### region
+
+`string`
+
+Region the Lambda function has been deployed to.
 
 ### qualifier
 

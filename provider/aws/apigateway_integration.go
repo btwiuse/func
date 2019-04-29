@@ -12,10 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway/apigatewayiface"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -86,6 +84,9 @@ type APIGatewayIntegration struct {
 	//   types mapped to templates. However if there is at least one content type
 	//   defined, unmapped content types will be rejected with the same 415 response.
 	PassthroughBehavior *string `input:"passthrough_behavior"`
+
+	// The region the API Gateway is deployed to.
+	Region string `input:"region"`
 
 	// A key-value map specifying request parameters that are passed from the
 	// method request to the back end. The key is an integration request
@@ -169,16 +170,12 @@ type APIGatewayIntegration struct {
 	//   or `arn:aws:apigateway:us-west-2:s3:path/{bucket}/{key}`
 	URI *string `input:"uri"`
 
-	Region string `input:"region"`
-
 	// Outputs
 
 	// Specifies the integration's responses.
 	//
 	// The key in the map is the HTTP status code.
 	IntegrationResponses map[string]APIGatewayIntegrationResponse `output:"integration_responses"`
-
-	svc apigatewayiface.APIGatewayAPI
 }
 
 // APIGatewayIntegrationResponse is the output from an integration for a
@@ -238,7 +235,7 @@ func (p *APIGatewayIntegration) Type() string { return "aws_apigateway_integrati
 
 // Create creates a new resource.
 func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -276,8 +273,7 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 	}
 
 	req := svc.PutIntegrationRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException || aerr.Code() == "ValidationException" {
@@ -303,7 +299,7 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 
 // Delete removes a resource.
 func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -313,8 +309,7 @@ func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRe
 		ResourceId: aws.String(p.ResourceID),
 		RestApiId:  aws.String(p.RestAPIID),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeNotFoundException {
 				return nil
@@ -384,7 +379,7 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		return nil
 	}
 
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -395,8 +390,7 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		RestApiId:       aws.String(p.RestAPIID),
 		PatchOperations: ops,
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
 				return backoff.Permanent(err)
@@ -406,15 +400,4 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 	}
 
 	return nil
-}
-
-func (p *APIGatewayIntegration) service(auth resource.AuthProvider) (apigatewayiface.APIGatewayAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.WithRegion(auth, p.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = apigateway.New(cfg)
-	}
-	return p.svc, nil
 }

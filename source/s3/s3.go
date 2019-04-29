@@ -43,8 +43,7 @@ func (s *Storage) Has(ctx context.Context, filename string) (bool, error) {
 	}
 
 	req := s.Client.HeadObjectRequest(input)
-	req.SetContext(ctx)
-	_, err := req.Send()
+	_, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == "NotFound" {
@@ -70,8 +69,7 @@ func (s *Storage) Get(ctx context.Context, filename string) (io.ReadCloser, erro
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(filename),
 	})
-	req.SetContext(ctx)
-	res, err := req.Send()
+	res, err := req.Send(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "send request")
 	}
