@@ -16,7 +16,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type APIGatewayStage struct { // nolint: malign
+// APIGatewayStage provides a stage for an APIGateway Deployment.
+type APIGatewayStage struct {
 	// Inputs
 
 	// Whether cache clustering is enabled for the stage.

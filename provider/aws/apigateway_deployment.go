@@ -18,7 +18,7 @@ import (
 )
 
 // APIGatewayDeployment provides a Serverless REST API.
-type APIGatewayDeployment struct { // nolint: malign
+type APIGatewayDeployment struct {
 	// Inputs
 
 	// Enables a cache cluster for the Stage resource specified in the input.
