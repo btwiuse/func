@@ -114,8 +114,7 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 		PolicyDocument: aws.String(p.PolicyDocument),
 		PolicyName:     aws.String(p.PolicyName),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
@@ -142,8 +141,7 @@ func (p *IAMPolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error
 	req := svc.DeletePolicyRequest(&iam.DeletePolicyInput{
 		PolicyArn: aws.String(p.ARN),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 

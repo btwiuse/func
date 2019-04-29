@@ -156,8 +156,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 	input.Variables["func_change_trigger_hash"] = hex.EncodeToString(sha.Sum(nil))
 
 	req := svc.CreateDeploymentRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
@@ -195,8 +194,7 @@ func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteReq
 		RestApiId:    aws.String(p.RestAPIID),
 		DeploymentId: aws.String(p.ID),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 

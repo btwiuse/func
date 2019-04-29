@@ -237,8 +237,7 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 	}
 
 	req := svc.CreateStageRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
@@ -264,8 +263,7 @@ func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest)
 		RestApiId: aws.String(p.RestAPIID),
 		StageName: aws.String(p.StageName),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 
@@ -321,8 +319,7 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		RestApiId:       aws.String(p.RestAPIID),
 		StageName:       aws.String(p.StageName),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {

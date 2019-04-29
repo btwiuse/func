@@ -120,8 +120,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 	}
 
 	req := svc.CreateRestApiRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 	rootReq := svc.GetResourcesRequest(&apigateway.GetResourcesInput{
 		RestApiId: resp.Id,
 	})
-	rootRes, err := rootReq.Send()
+	rootRes, err := rootReq.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "read root resource")
 	}
@@ -158,8 +157,7 @@ func (p *APIGatewayRestAPI) Delete(ctx context.Context, r *resource.DeleteReques
 	}
 
 	req := svc.DeleteRestApiRequest(input)
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return err
 	}
 
@@ -240,8 +238,7 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 	}
 
 	req := svc.UpdateRestApiRequest(input)
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
 				if strings.Contains(aerr.Message(), "update is still in progress") {

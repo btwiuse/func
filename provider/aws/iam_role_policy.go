@@ -49,8 +49,7 @@ func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) e
 		PolicyName:     aws.String(p.PolicyName),
 		RoleName:       aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
@@ -70,8 +69,7 @@ func (p *IAMRolePolicy) Delete(ctx context.Context, r *resource.DeleteRequest) e
 		PolicyName: aws.String(p.PolicyName),
 		RoleName:   aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 

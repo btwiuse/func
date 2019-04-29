@@ -273,8 +273,7 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 	}
 
 	req := svc.PutIntegrationRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException || aerr.Code() == "ValidationException" {
@@ -310,8 +309,7 @@ func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRe
 		ResourceId: aws.String(p.ResourceID),
 		RestApiId:  aws.String(p.RestAPIID),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeNotFoundException {
 				return nil
@@ -392,8 +390,7 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		RestApiId:       aws.String(p.RestAPIID),
 		PatchOperations: ops,
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
 				return backoff.Permanent(err)

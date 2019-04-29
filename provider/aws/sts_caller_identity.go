@@ -47,8 +47,7 @@ func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateReques
 	}
 
 	req := svc.GetCallerIdentityRequest(&sts.GetCallerIdentityInput{})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}

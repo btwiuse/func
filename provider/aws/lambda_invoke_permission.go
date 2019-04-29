@@ -108,8 +108,7 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 	}
 
 	req := svc.AddPermissionRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -132,8 +131,7 @@ func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteR
 		RevisionId:   p.RevisionID,
 		StatementId:  aws.String(p.StatementID),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 

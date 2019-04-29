@@ -126,8 +126,7 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 		PermissionsBoundary:      p.PermissionsBoundary,
 		RoleName:                 aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	res, err := req.Send()
+	res, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
@@ -149,8 +148,7 @@ func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
 		RoleName: aws.String(p.RoleName),
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
@@ -169,8 +167,7 @@ func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 		Description:        p.Description,
 		MaxSessionDuration: p.MaxSessionDuration,
 	})
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
 	}
 

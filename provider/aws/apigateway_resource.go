@@ -56,8 +56,7 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 	}
 
 	req := svc.CreateResourceRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -87,8 +86,7 @@ func (p *APIGatewayResource) Delete(ctx context.Context, r *resource.DeleteReque
 	}
 
 	req := svc.DeleteResourceRequest(input)
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return err
 	}
 
@@ -123,8 +121,7 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 	}
 
 	req := svc.UpdateResourceRequest(input)
-	req.SetContext(ctx)
-	if _, err := req.Send(); err != nil {
+	if _, err := req.Send(ctx); err != nil {
 		return err
 	}
 

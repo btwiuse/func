@@ -241,8 +241,7 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 	}
 
 	req := svc.CreateFunctionRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return err
 	}
@@ -264,8 +263,7 @@ func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) 
 	req := svc.DeleteFunctionRequest(&lambda.DeleteFunctionInput{
 		FunctionName: aws.String(p.FunctionArn),
 	})
-	req.SetContext(ctx)
-	_, err = req.Send()
+	_, err = req.Send(ctx)
 	return err
 }
 
@@ -312,8 +310,7 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaA
 		FunctionName: aws.String(p.FunctionName),
 		ZipFile:      zip.Bytes(),
 	})
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
@@ -360,8 +357,7 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Lambd
 	}
 
 	req := svc.UpdateFunctionConfigurationRequest(input)
-	req.SetContext(ctx)
-	resp, err := req.Send()
+	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
