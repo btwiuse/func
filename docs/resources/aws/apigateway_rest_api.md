@@ -90,7 +90,7 @@ of the caller and Method
 
 `string`
 
-The region to deploy the RestApi in.
+The region the API Gateway is deployed to.
 
 ### version
 

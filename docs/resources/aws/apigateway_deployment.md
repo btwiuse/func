@@ -13,12 +13,12 @@ APIGatewayDeployment provides a Serverless REST API.
 | input | [`cache_cluster_size`](#cache_cluster_size) | `string` |  |
 | input | [`canary_settings`](#canary_settings) | `APIGatewayDeploymentCanarySettings` |  |
 | input | [`description`](#description) | `string` |  |
+| input | [`region`](#region) | `string` | required |
 | input | [`rest_api_id`](#rest_api_id) | `string` | required |
 | input | [`state_description`](#state_description) | `string` |  |
 | input | [`stage_name`](#stage_name) | `string` |  |
 | input | [`tracing_enabled`](#tracing_enabled) | `bool` |  |
 | input | [`variables`](#variables) | `map` |  |
-| input | [`region`](#region) | `string` | required |
 | input | [`change_trigger`](#change_trigger) | `string` | required |
 | output | [`api_summary`](#api_summary) | `map` ||
 | output | [`created_date`](#created_date) | `time` ||
@@ -63,6 +63,12 @@ a canary release deployment.
 
 The description for the Deployment resource to create.
 
+### region
+
+`string`
+
+The region the API Gateway is deployed to.
+
 ### rest_api_id
 
 `string`
@@ -96,12 +102,6 @@ A map that defines the stage variables for the Stage resource that is
 associated with the new deployment. Variable names can have alphanumeric
 and underscore characters, and the values must match
 `[A-Za-z0-9-._~:/?#&=,]+`.
-
-### region
-
-`string`
-
-
 
 ### change_trigger
 

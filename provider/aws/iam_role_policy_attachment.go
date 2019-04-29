@@ -8,8 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/iamiface"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -18,12 +16,20 @@ import (
 //
 // The same policy can be attached to many roles.
 type IAMRolePolicyAttachment struct {
+	// Inputs
+
 	// The Amazon Resource Name (ARN) of the IAM policy you want to attach.
 	//
 	// For more information about ARNs, see Amazon Resource Names (ARNs) and AWS
 	// Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// in the AWS General Reference.
 	PolicyARN string `input:"policy_arn"`
+
+	// Region to use for IAM API calls.
+	//
+	// IAM is global so the calls are not regional but the Region will specify
+	// which region the API calls are sent to.
+	Region *string
 
 	// The name (friendly name, not ARN) of the role to attach the policy to.
 	//
@@ -33,8 +39,6 @@ type IAMRolePolicyAttachment struct {
 	RoleName string `input:"role_name"`
 
 	// No outputs
-
-	svc iamiface.IAMAPI
 }
 
 // Type returns the type name for an AWS IAM policy attachment.
@@ -42,7 +46,7 @@ func (p *IAMRolePolicyAttachment) Type() string { return "aws_iam_role_policy_at
 
 // Create attaches a policy to a role.
 func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -63,7 +67,7 @@ func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.Create
 
 // Delete removes a policy attachment.
 func (p *IAMRolePolicyAttachment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -96,15 +100,4 @@ func (p *IAMRolePolicyAttachment) Update(ctx context.Context, r *resource.Update
 	}
 
 	return nil
-}
-
-func (p *IAMRolePolicyAttachment) service(auth resource.AuthProvider) (iamiface.IAMAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.DefaultRegion(auth)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = iam.New(cfg)
-	}
-	return p.svc, nil
 }

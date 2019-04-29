@@ -9,8 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/iamiface"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -23,6 +21,8 @@ import (
 // [IAM Entities](http://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html)
 // in the IAM User Guide.
 type IAMRole struct {
+	// Inputs
+
 	// The trust relationship policy document that grants an entity permission to
 	// assume the role.
 	//
@@ -80,6 +80,12 @@ type IAMRole struct {
 	// the role.
 	PermissionsBoundary *string `input:"permission_boundary"`
 
+	// Region to use for IAM API calls.
+	//
+	// IAM is global so the calls are not regional but the Region will specify
+	// which region the API calls are sent to.
+	Region *string
+
 	// The name of the role to create.
 	//
 	// This parameter allows (per its
@@ -100,27 +106,25 @@ type IAMRole struct {
 
 	CreateDate time.Time `output:"create_date"`
 	RoleID     string    `output:"role_id"`
-
-	svc iamiface.IAMAPI
 }
 
 // Type returns the type name for an AWS IAM role.
-func (i *IAMRole) Type() string { return "aws_iam_role" }
+func (IAMRole) Type() string { return "aws_iam_role" }
 
 // Create creates a new IAM role.
-func (i *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := i.service(r.Auth)
+func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.CreateRoleRequest(&iam.CreateRoleInput{
-		AssumeRolePolicyDocument: aws.String(i.AssumeRolePolicyDocument),
-		Description:              i.Description,
-		MaxSessionDuration:       i.MaxSessionDuration,
-		Path:                     i.Path,
-		PermissionsBoundary:      i.PermissionsBoundary,
-		RoleName:                 aws.String(i.RoleName),
+		AssumeRolePolicyDocument: aws.String(p.AssumeRolePolicyDocument),
+		Description:              p.Description,
+		MaxSessionDuration:       p.MaxSessionDuration,
+		Path:                     p.Path,
+		PermissionsBoundary:      p.PermissionsBoundary,
+		RoleName:                 aws.String(p.RoleName),
 	})
 	req.SetContext(ctx)
 	res, err := req.Send()
@@ -128,22 +132,22 @@ func (i *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 		return errors.Wrap(err, "send request")
 	}
 
-	i.ARN = *res.Role.Arn
-	i.CreateDate = *res.Role.CreateDate
-	i.RoleID = *res.Role.RoleId
+	p.ARN = *res.Role.Arn
+	p.CreateDate = *res.Role.CreateDate
+	p.RoleID = *res.Role.RoleId
 
 	return nil
 }
 
 // Delete deletes the IAM role.
-func (i *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := i.service(r.Auth)
+func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
-		RoleName: aws.String(i.RoleName),
+		RoleName: aws.String(p.RoleName),
 	})
 	req.SetContext(ctx)
 	if _, err := req.Send(); err != nil {
@@ -154,16 +158,16 @@ func (i *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 }
 
 // Update updates the IAM role.
-func (i *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
-	svc, err := i.service(r.Auth)
+func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
+	svc, err := iamService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
 
 	req := svc.UpdateRoleRequest(&iam.UpdateRoleInput{
-		RoleName:           aws.String(i.RoleName),
-		Description:        i.Description,
-		MaxSessionDuration: i.MaxSessionDuration,
+		RoleName:           aws.String(p.RoleName),
+		Description:        p.Description,
+		MaxSessionDuration: p.MaxSessionDuration,
 	})
 	req.SetContext(ctx)
 	if _, err := req.Send(); err != nil {
@@ -171,15 +175,4 @@ func (i *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	}
 
 	return nil
-}
-
-func (i *IAMRole) service(auth resource.AuthProvider) (iamiface.IAMAPI, error) {
-	if i.svc == nil {
-		cfg, err := config.DefaultRegion(auth)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		i.svc = iam.New(cfg)
-	}
-	return i.svc, nil
 }

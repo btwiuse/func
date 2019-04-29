@@ -12,9 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway/apigatewayiface"
 	"github.com/cenkalti/backoff"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -47,6 +45,9 @@ type APIGatewayDeployment struct { // nolint: malign
 	// The description for the Deployment resource to create.
 	Description *string `input:"description"`
 
+	// The region the API Gateway is deployed to.
+	Region string `input:"region"`
+
 	// The string identifier of the associated RestApi.
 	RestAPIID string `input:"rest_api_id"`
 
@@ -66,8 +67,6 @@ type APIGatewayDeployment struct { // nolint: malign
 	// `[A-Za-z0-9-._~:/?#&=,]+`.
 	Variables *map[string]string `input:"variables"`
 
-	Region string `input:"region"`
-
 	// ChangeTrigger causes a new deployment to be executed when the value has
 	// changed, even if other inputs have not changed.
 	ChangeTrigger string `input:"change_trigger"`
@@ -83,8 +82,6 @@ type APIGatewayDeployment struct { // nolint: malign
 
 	// The identifier for the deployment resource.
 	ID string `output:"id"`
-
-	svc apigatewayiface.APIGatewayAPI
 }
 
 // APIGatewayDeploymentCanarySettings contains settings for canary deployment,
@@ -122,7 +119,7 @@ func (p *APIGatewayDeployment) Type() string { return "aws_apigateway_deployment
 
 // Create creates a new deployment.
 func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -189,7 +186,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 
 // Delete removes a deployment.
 func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -209,15 +206,4 @@ func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteReq
 func (p *APIGatewayDeployment) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	// Update is the same as create
 	return p.Create(ctx, r.CreateRequest())
-}
-
-func (p *APIGatewayDeployment) service(auth resource.AuthProvider) (apigatewayiface.APIGatewayAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.WithRegion(auth, p.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = apigateway.New(cfg)
-	}
-	return p.svc, nil
 }

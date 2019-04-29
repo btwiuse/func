@@ -8,9 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway/apigatewayiface"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
-	"github.com/func/func/provider/aws/internal/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 )
@@ -18,16 +16,19 @@ import (
 // APIGatewayResource provides a resource (GET /, POST /user etc) in a REST
 // API.
 type APIGatewayResource struct {
+	// Inputs
+
 	// The parent resource's identifier.
 	ParentID string `input:"parent_id"`
 
 	// The last path segment for this resource.
 	PathPart string `input:"path_part"`
 
+	// The region the API Gateway is deployed to.
+	Region string `input:"region"`
+
 	// The string identifier of the associated RestApi.
 	RestAPIID string `input:"rest_api_id"`
-
-	Region string `input:"region"`
 
 	// Outputs
 
@@ -36,8 +37,6 @@ type APIGatewayResource struct {
 
 	// The full path for this resource.
 	Path string `output:"path"`
-
-	svc apigatewayiface.APIGatewayAPI
 }
 
 // Type returns the resource type of a apigateway resource.
@@ -45,7 +44,7 @@ func (p *APIGatewayResource) Type() string { return "aws_apigateway_resource" }
 
 // Create creates a new resource.
 func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -77,7 +76,7 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 
 // Delete removes a resource.
 func (p *APIGatewayResource) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -112,7 +111,7 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 		return nil
 	}
 
-	svc, err := p.service(r.Auth)
+	svc, err := apigatewayService(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -130,15 +129,4 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 	}
 
 	return nil
-}
-
-func (p *APIGatewayResource) service(auth resource.AuthProvider) (apigatewayiface.APIGatewayAPI, error) {
-	if p.svc == nil {
-		cfg, err := config.WithRegion(auth, p.Region)
-		if err != nil {
-			return nil, errors.Wrap(err, "get aws config")
-		}
-		p.svc = apigateway.New(cfg)
-	}
-	return p.svc, nil
 }

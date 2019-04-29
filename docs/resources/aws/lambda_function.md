@@ -30,9 +30,9 @@ https://aws.amazon.com/lambda/
 | input | [`layers`](#layers) | `array` |  |
 | input | [`memory_size`](#memory_size) | `int64` |  |
 | input | [`publish`](#publish) | `bool` |  |
+| input | [`region`](#region) | `string` | required |
 | input | [`role`](#role) | `string` | required |
 | input | [`runtime`](#runtime) | `string` | required |
-| input | [`region`](#region) | `string` | required |
 | input | [`tags`](#tags) | `map` |  |
 | input | [`timeout`](#timeout) | `int64` |  |
 | input | [`tracing_config`](#tracing_config) | `struct` |  |
@@ -121,6 +121,12 @@ is 128 MB. The value must be a multiple of 64 MB.
 Set to true to publish the first version of the function during
 creation.
 
+### region
+
+`string`
+
+Region to run the Lambda function in.
+
 ### role
 
 `string`
@@ -153,12 +159,6 @@ Allowed values:
 
 
 > TODO: enum
-### region
-
-`string`
-
-The region the function should run in.
-
 ### tags
 
 `optional map`

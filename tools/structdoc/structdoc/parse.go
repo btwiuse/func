@@ -79,9 +79,12 @@ func Parse(r io.Reader, typename string) (*Struct, error) {
 }
 
 func parseFields(t *ast.StructType) ([]Field, error) {
-	fields := make([]Field, len(t.Fields.List))
+	var fields []Field // nolint: prealloc
 
-	for i, f := range t.Fields.List {
+	for _, f := range t.Fields.List {
+		if len(f.Names) == 0 {
+			continue
+		}
 		name := f.Names[0].Name
 		tags, err := parseTags(f)
 		if err != nil {
@@ -94,7 +97,7 @@ func parseFields(t *ast.StructType) ([]Field, error) {
 			Tags:    tags,
 		}
 		setType(f.Type, &out)
-		fields[i] = out
+		fields = append(fields, out)
 	}
 
 	return fields, nil

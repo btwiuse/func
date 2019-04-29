@@ -15,17 +15,19 @@
 | input | [`deployment_id`](#deployment_id) | `string` | required |
 | input | [`description`](#description) | `string` |  |
 | input | [`deployment_version`](#deployment_version) | `string` |  |
+| input | [`region`](#region) | `string` | required |
 | input | [`rest_api_id`](#rest_api_id) | `string` | required |
 | input | [`stage_name`](#stage_name) | `string` | required |
 | input | [`tags`](#tags) | `map` |  |
 | input | [`tracing_enabled`](#tracing_enabled) | `bool` |  |
 | input | [`variables`](#variables) | `map` |  |
-| input | [`region`](#region) | `string` | required |
 | output | [`access_log_settings`](#access_log_settings) | `AccessLogSettings` ||
 | output | [`cache_cluster_status`](#cache_cluster_status) | `string` ||
 | output | [`client_certificate_id`](#client_certificate_id) | `string` ||
 | output | [`created_date`](#created_date) | `time` ||
 | output | [`last_updated_date`](#last_updated_date) | `time` ||
+| output | [`method_settings`](#method_settings) | `map` ||
+| output | [`web_acl_arn`](#web_acl_arn) | `string` ||
 
 
 ## Inputs
@@ -78,6 +80,12 @@ The description of the Stage resource.
 
 The version of the associated API documentation.
 
+### region
+
+`string`
+
+The region the API Gateway is deployed to.
+
 ### rest_api_id
 
 `string`
@@ -112,12 +120,6 @@ A map that defines the stage variables for the new Stage resource. Variable
 names can have alphanumeric and underscore characters, and the values must
 match `[A-Za-z0-9-._~:/?#&=,]+`.
 
-### region
-
-`string`
-
-The region API Gateway is deployed to.
-
 ## Outputs
 
 ### access_log_settings
@@ -151,3 +153,16 @@ The timestamp when the stage was created.
 `time`
 
 The timestamp when the stage last updated.
+### method_settings
+
+`map`
+
+A map that defines the method settings for a Stage resource. Keys (designated
+as /{method_setting_key below) are method paths defined as {resource_path}/{http_method}
+for an individual method override, or /\*/\* for overriding all methods in
+the stage.
+### web_acl_arn
+
+`string`
+
+The ARN of the WebAcl associated with the Stage.
