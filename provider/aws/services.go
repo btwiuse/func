@@ -17,18 +17,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-// If a mock service is set, the corresponding mock api client is returned when
-// a client is requested.
-var (
-	mockAPIGatewayService apigatewayiface.APIGatewayAPI
-	mockIAMService        iamiface.IAMAPI
-	mockLambdaService     lambdaiface.LambdaAPI
-	mockSTSService        stsiface.STSAPI
-)
+type apigatewayService struct {
+	client apigatewayiface.APIGatewayAPI
+}
 
-func apigatewayService(auth resource.AuthProvider, region string) (apigatewayiface.APIGatewayAPI, error) {
-	if mockAPIGatewayService != nil {
-		return mockAPIGatewayService, nil
+// service returns an APIGateway API Client. If client was set, it is returned.
+func (p *apigatewayService) service(auth resource.AuthProvider, region string) (apigatewayiface.APIGatewayAPI, error) {
+	if p.client != nil {
+		return p.client, nil
 	}
 	cfg, err := awsConfig(auth, region)
 	if err != nil {
@@ -37,9 +33,14 @@ func apigatewayService(auth resource.AuthProvider, region string) (apigatewayifa
 	return apigateway.New(cfg), nil
 }
 
-func iamService(auth resource.AuthProvider, region *string) (iamiface.IAMAPI, error) {
-	if mockIAMService != nil {
-		return mockIAMService, nil
+type iamService struct {
+	client iamiface.IAMAPI
+}
+
+// service returns an IAM API Client. If client was set, it is returned.
+func (p *iamService) service(auth resource.AuthProvider, region *string) (iamiface.IAMAPI, error) {
+	if p.client != nil {
+		return p.client, nil
 	}
 	var reg string
 	if region != nil {
@@ -54,9 +55,14 @@ func iamService(auth resource.AuthProvider, region *string) (iamiface.IAMAPI, er
 	return iam.New(cfg), nil
 }
 
-func lambdaService(auth resource.AuthProvider, region string) (lambdaiface.LambdaAPI, error) {
-	if mockLambdaService != nil {
-		return mockLambdaService, nil
+type lambdaService struct {
+	client lambdaiface.LambdaAPI
+}
+
+// service returns a Lambda API Client. If client was set, it is returned.
+func (p *lambdaService) service(auth resource.AuthProvider, region string) (lambdaiface.LambdaAPI, error) {
+	if p.client != nil {
+		return p.client, nil
 	}
 	cfg, err := awsConfig(auth, region)
 	if err != nil {
@@ -65,9 +71,14 @@ func lambdaService(auth resource.AuthProvider, region string) (lambdaiface.Lambd
 	return lambda.New(cfg), nil
 }
 
-func stsService(auth resource.AuthProvider, region *string) (stsiface.STSAPI, error) {
-	if mockSTSService != nil {
-		return mockSTSService, nil
+type stsService struct {
+	client stsiface.STSAPI
+}
+
+// service returns an STS API Client. If client was set, it is returned.
+func (p *stsService) service(auth resource.AuthProvider, region *string) (stsiface.STSAPI, error) {
+	if p.client != nil {
+		return p.client, nil
 	}
 	var reg string
 	if region != nil {
@@ -90,7 +101,6 @@ func awsConfig(auth resource.AuthProvider, region string) (aws.Config, error) {
 	if err != nil {
 		return aws.Config{}, errors.Wrap(err, "get credentials")
 	}
-	cfg.Region = region
 	cfg.Credentials = creds
 	cfg.Region = region
 	return cfg, nil

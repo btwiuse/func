@@ -82,6 +82,8 @@ type APIGatewayDeployment struct {
 
 	// The identifier for the deployment resource.
 	ID string `output:"id"`
+
+	apigatewayService
 }
 
 // APIGatewayDeploymentCanarySettings contains settings for canary deployment,
@@ -119,7 +121,7 @@ func (p *APIGatewayDeployment) Type() string { return "aws_apigateway_deployment
 
 // Create creates a new deployment.
 func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -185,7 +187,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 
 // Delete removes a deployment.
 func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

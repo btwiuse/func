@@ -82,6 +82,8 @@ type APIGatewayRestAPI struct {
 
 	// The identifier for the API's root (/) resource.
 	RootResourceID string `output:"root_resource_id"`
+
+	apigatewayService
 }
 
 // Type returns the resource type of an apigateway rest api.
@@ -89,7 +91,7 @@ func (p *APIGatewayRestAPI) Type() string { return "aws_apigateway_rest_api" }
 
 // Create creates a new rest api.
 func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -147,7 +149,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 
 // Delete removes a rest api.
 func (p *APIGatewayRestAPI) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -227,7 +229,7 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 		return nil
 	}
 
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

@@ -96,6 +96,8 @@ type IAMPolicy struct {
 	// field contains the date and time when the most recent policy version was
 	// created.
 	UpdateDate time.Time `output:"update_date"`
+
+	iamService
 }
 
 // Type returns the type name for an AWS IAM policy resource.
@@ -103,7 +105,7 @@ func (p *IAMPolicy) Type() string { return "aws_iam_policy" }
 
 // Create creates a new IAM policy.
 func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -133,7 +135,7 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 
 // Delete deletes the IAM policy.
 func (p *IAMPolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

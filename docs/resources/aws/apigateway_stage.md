@@ -3,7 +3,7 @@
 
 # aws_apigateway_stage
 
-
+APIGatewayStage provides a stage for an APIGateway Deployment.
 
 ## Overview
 

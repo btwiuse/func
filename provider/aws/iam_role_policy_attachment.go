@@ -39,6 +39,8 @@ type IAMRolePolicyAttachment struct {
 	RoleName string `input:"role_name"`
 
 	// No outputs
+
+	iamService
 }
 
 // Type returns the type name for an AWS IAM policy attachment.
@@ -46,7 +48,7 @@ func (p *IAMRolePolicyAttachment) Type() string { return "aws_iam_role_policy_at
 
 // Create attaches a policy to a role.
 func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -66,7 +68,7 @@ func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.Create
 
 // Delete removes a policy attachment.
 func (p *IAMRolePolicyAttachment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

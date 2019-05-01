@@ -83,6 +83,8 @@ type LambdaInvokePermission struct {
 	// the same as a string using a backslash ("\") as an escape character in the
 	// JSON.
 	Statement string `output:"statement"`
+
+	lambdaService
 }
 
 // Type returns the type name for an AWS Lambda function.
@@ -90,7 +92,7 @@ func (p *LambdaInvokePermission) Type() string { return "aws_lambda_invoke_permi
 
 // Create creates an AWS lambda function.
 func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := lambdaService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -120,7 +122,7 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 
 // Delete deletes the lambda function.
 func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := lambdaService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

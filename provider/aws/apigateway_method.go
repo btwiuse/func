@@ -88,6 +88,8 @@ type APIGatewayMethod struct {
 	RestAPIID string `input:"rest_api_id"`
 
 	// No outputs
+
+	apigatewayService
 }
 
 // Type returns the resource type of a apigateway resource.
@@ -95,7 +97,7 @@ func (p *APIGatewayMethod) Type() string { return "aws_apigateway_method" }
 
 // Create creates a new resource.
 func (p *APIGatewayMethod) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -136,7 +138,7 @@ func (p *APIGatewayMethod) Create(ctx context.Context, r *resource.CreateRequest
 
 // Delete removes a resource.
 func (p *APIGatewayMethod) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -192,7 +194,7 @@ func (p *APIGatewayMethod) Update(ctx context.Context, r *resource.UpdateRequest
 		return nil
 	}
 
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

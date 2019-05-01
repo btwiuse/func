@@ -176,6 +176,8 @@ type APIGatewayIntegration struct {
 	//
 	// The key in the map is the HTTP status code.
 	IntegrationResponses map[string]APIGatewayIntegrationResponse `output:"integration_responses"`
+
+	apigatewayService
 }
 
 // APIGatewayIntegrationResponse is the output from an integration for a
@@ -235,7 +237,7 @@ func (p *APIGatewayIntegration) Type() string { return "aws_apigateway_integrati
 
 // Create creates a new resource.
 func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -299,7 +301,7 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 
 // Delete removes a resource.
 func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -379,7 +381,7 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		return nil
 	}
 
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

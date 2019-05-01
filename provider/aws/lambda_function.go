@@ -167,6 +167,8 @@ type LambdaFunction struct {
 
 	// The version of the Lambda function.
 	Version string `output:"version"`
+
+	lambdaService
 }
 
 // Type returns the type name for an AWS Lambda function.
@@ -181,7 +183,7 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 		return errors.New("only one source archive allowed")
 	}
 
-	svc, err := lambdaService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -255,7 +257,7 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 
 // Delete deletes the lambda function.
 func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := lambdaService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -269,7 +271,7 @@ func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) 
 
 // Update updates the lambda function.
 func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
-	svc, err := lambdaService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

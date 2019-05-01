@@ -32,6 +32,8 @@ type IAMRolePolicy struct {
 	RoleName string `input:"role_name"`
 
 	// No outputs
+
+	iamService
 }
 
 // Type returns the type name for an AWS IAM role policy resource.
@@ -39,7 +41,7 @@ func (IAMRolePolicy) Type() string { return "aws_iam_role_policy" }
 
 // Create attaches an inline role policy to and IAM role.
 func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -60,7 +62,7 @@ func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) e
 
 // Delete removes an inline role policy from an IAM role.
 func (p *IAMRolePolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

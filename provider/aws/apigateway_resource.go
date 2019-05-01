@@ -37,6 +37,8 @@ type APIGatewayResource struct {
 
 	// The full path for this resource.
 	Path string `output:"path"`
+
+	apigatewayService
 }
 
 // Type returns the resource type of a apigateway resource.
@@ -44,7 +46,7 @@ func (p *APIGatewayResource) Type() string { return "aws_apigateway_resource" }
 
 // Create creates a new resource.
 func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -75,7 +77,7 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 
 // Delete removes a resource.
 func (p *APIGatewayResource) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -109,7 +111,7 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 		return nil
 	}
 
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

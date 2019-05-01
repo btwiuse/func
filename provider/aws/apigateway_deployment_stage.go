@@ -103,6 +103,8 @@ type APIGatewayStage struct {
 
 	// The ARN of the WebAcl associated with the Stage.
 	WebACLARN *string `output:"web_acl_arn"`
+
+	apigatewayService
 }
 
 // APIGatewayCanarySettings contains settings for canary deployment.
@@ -194,7 +196,7 @@ func (p *APIGatewayStage) Type() string { return "aws_apigateway_stage" }
 
 // Create creates a new deployment.
 func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -255,7 +257,7 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 
 // Delete removes a deployment.
 func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -310,7 +312,7 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		return nil
 	}
 
-	svc, err := apigatewayService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

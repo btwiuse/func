@@ -106,6 +106,8 @@ type IAMRole struct {
 
 	CreateDate time.Time `output:"create_date"`
 	RoleID     string    `output:"role_id"`
+
+	iamService
 }
 
 // Type returns the type name for an AWS IAM role.
@@ -113,7 +115,7 @@ func (IAMRole) Type() string { return "aws_iam_role" }
 
 // Create creates a new IAM role.
 func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -140,7 +142,7 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 
 // Delete deletes the IAM role.
 func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
@@ -157,7 +159,7 @@ func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 
 // Update updates the IAM role.
 func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
-	svc, err := iamService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}

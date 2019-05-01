@@ -34,6 +34,8 @@ type STSCallerIdentity struct {
 	// [Principal table](http://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html#principaltable)
 	// found on the Policy Variables reference page in the IAM User Guide.
 	UserID string `output:"user_id"`
+
+	stsService
 }
 
 // Type returns the type name for an AWS IAM policy resource.
@@ -41,7 +43,7 @@ func (p *STSCallerIdentity) Type() string { return "aws_sts_caller_identity" }
 
 // Create reads the current caller identity
 func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateRequest) error {
-	svc, err := stsService(r.Auth, p.Region)
+	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
 		return errors.Wrap(err, "get client")
 	}
