@@ -4,7 +4,6 @@ require (
 	github.com/agext/levenshtein v1.2.1
 	github.com/aws/aws-sdk-go-v2 v0.8.0
 	github.com/cenkalti/backoff v2.1.1+incompatible
-	github.com/fatih/structtag v1.0.0
 	github.com/golang/protobuf v1.2.0
 	github.com/google/go-cmp v0.2.0
 	github.com/hashicorp/hcl2 v0.0.0-20190418145123-f7764c69544d
