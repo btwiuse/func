@@ -65,8 +65,12 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 		return &ApplyResponse{SourcesRequired: sr}, nil
 	}
 
-	if err := f.Reconciler.Reconcile(ctx, req.Namespace, *proj, g); err != nil {
-		return nil, errors.Wrap(err, "reconcile graph")
+	if f.Reconciler != nil {
+		if err := f.Reconciler.Reconcile(ctx, req.Namespace, *proj, g); err != nil {
+			return nil, errors.Wrap(err, "reconcile graph")
+		}
+	} else {
+		f.Logger.Info("TODO: queue reconciliation")
 	}
 
 	return &ApplyResponse{}, nil

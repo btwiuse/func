@@ -41,7 +41,6 @@ func (h *handler) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse,
 		Config:    &body,
 	})
 	if err != nil {
-
 		// If error was caused by diagnostics, return invalid argument error
 		// with diagnostics.
 		if diags, ok := errors.Cause(err).(hcl.Diagnostics); ok {
