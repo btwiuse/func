@@ -34,25 +34,28 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "StaticInput",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
+				resource "bar" {
+					type  = "simple"
 					input = "world"
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{Input: "world"}},
+					{Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Name: "bar", Def: &simpleDef{Input: "world"}},
 				},
 			},
 		},
 		{
 			name: "Source",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input  = "src"
 					source = "ff:abc:def"
 				}
@@ -60,7 +63,7 @@ func TestDecodeBody(t *testing.T) {
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "src"}},
+					{Name: "foo", Def: &simpleDef{Input: "src"}},
 				},
 				Sources: []config.SourceInfo{
 					{Key: "def", MD5: "abc", Len: 0xFF},
@@ -73,103 +76,114 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "DependencyToInput",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
-					input = simple.bar.input
+				resource "bar" {
+					type  = "simple"
+					input = foo.input
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved.
+					{Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Name: "bar", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved.
 				},
 			},
 		},
 		{
 			name: "DependencyToInputExtended",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
-					input = simple.bar.input
+				resource "bar" {
+					type  = "simple"
+					input = foo.input
 				}
-				resource "simple" "qux" {
-					input = simple.baz.input
+				resource "baz" {
+					type  = "simple"
+					input = bar.input
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
+					{Name: "foo", Def: &simpleDef{Input: "hello"}},
 					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{Input: "hello"}},
-					{Name: "qux", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved through baz.
+					{Name: "baz", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved through baz.
 				},
 			},
 		},
 		{
 			name: "DependencyToOutput",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
-					input = simple.bar.output
+				resource "bar" {
+					type  = "simple"
+					input = foo.output
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{}}, // Input is dynamic.
+					{Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Name: "bar", Def: &simpleDef{}}, // Input is dynamic.
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
-					"${simple.baz.input}": "${simple.bar.output}",
+					"${bar.input}": "${foo.output}",
 				},
 			},
 		},
 		{
 			name: "DependencyExpression",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
-					input = ":: ${simple.bar.input} - ${simple.bar.output} <<<"
+				resource "bar" {
+					type  = "simple"
+					input = ":: ${foo.input} - ${foo.output} <<<"
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{}},
+					{Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Name: "bar", Def: &simpleDef{}},
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
-					"${simple.baz.input}": ":: hello - ${simple.bar.output} <<<", // Partially resolved.
+					"${bar.input}": ":: hello - ${foo.output} <<<", // Partially resolved.
 				},
 			},
 		},
 		{
 			name: "ConvertType",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = 3.14
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "bar", Def: &simpleDef{Input: "3.14"}}, // Converted to string.
+					{Name: "foo", Def: &simpleDef{Input: "3.14"}}, // Converted to string.
 				},
 			},
 		},
 		{
 			name: "Map",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					map = {
 						foo = "bar"
 					}
@@ -187,7 +201,8 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "Slice",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type  = "complex"
 					slice = ["hello", "world"]
 				}
 			`),
@@ -203,7 +218,8 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "Struct",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 						sub {
 							value = "hello"
@@ -227,7 +243,8 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "MultipleBlocksAllowed",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					multi {
 						value = "hello"
 					}
@@ -251,7 +268,8 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "MultipleBlocksToPointers",
 			body: parseBody(t, `
-				resource "slice_ptr" "foo" {
+				resource "foo" {
+					type = "slice_ptr"
 					sub {
 						value = "hello"
 					}
@@ -275,7 +293,8 @@ func TestDecodeBody(t *testing.T) {
 		{
 			name: "ConvertStructArgument",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 						sub {
 							value = 3.14 # assigned to string
@@ -325,10 +344,30 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		diags     hcl.Diagnostics
 	}{
 		{
+			name: "MissingType",
+			body: parseBody(t, `
+				resource "foo" {
+					input = "hello"
+				}
+			`),
+			resources: []resource.Definition{&simpleDef{}},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Missing required argument",
+				Detail:   `The argument "type" is required, but no definition was found.`,
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 3, Column: 6},
+					End:      hcl.Pos{Line: 3, Column: 6},
+				},
+			}},
+		},
+		{
 			name: "UnsupportedArgument",
 			body: parseBody(t, `
-				resource "simple" "foo" {
-					input = "hello"
+				resource "foo" {
+					type         = "simple"
+					input        = "hello"
 					notsupported = 123
 				}
 			`),
@@ -338,15 +377,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Unsupported argument",
 				Detail:   `An argument named "notsupported" is not expected here.`,
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 3, Column: 6},
-					End:   hcl.Pos{Line: 3, Column: 18},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 6},
+					End:      hcl.Pos{Line: 4, Column: 18},
 				},
 			}},
 		},
 		{
 			name: "InvalidSource",
 			body: parseBody(t, `
-				resource "simple" "foo" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 
 					source = "xxx"
@@ -358,22 +399,26 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Could not decode source information",
 				Detail:   "Error: string must contain 3 parts separated by ':'. This is always a bug.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 1},
-					End:   hcl.Pos{Line: 1, Column: 24},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 1, Column: 1},
+					End:      hcl.Pos{Line: 1, Column: 15},
 				},
 			}},
 		},
 		{
 			name: "NonexistingDependencies",
 			body: parseBody(t, `
-				resource "simple" "bar" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "baz" {
-					input = sample.bar.output
+				resource "bar" {
+					type  = "simple"
+					input = zoo.output
 				}
-				resource "simple" "qux" {
-					input = simple.baz.input
+				resource "baz" {
+					type  = "simple"
+					input = bar.input
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
@@ -381,19 +426,47 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				{
 					Severity: hcl.DiagError,
 					Summary:  "Referenced value not found",
-					Detail:   "Field sample.bar.output does not exist",
+					Detail:   "An object with name \"zoo\" is not defined",
 					Subject: &hcl.Range{
-						Start: hcl.Pos{Line: 5, Column: 14},
-						End:   hcl.Pos{Line: 5, Column: 31},
+						Filename: "file.hcl",
+						Start:    hcl.Pos{Line: 7, Column: 14},
+						End:      hcl.Pos{Line: 7, Column: 24},
 					},
 				},
 				{
 					Severity: hcl.DiagError,
 					Summary:  "Referenced value not found",
-					Detail:   "Nested field sample.bar.output does not exist",
+					Detail:   "A nested object with name \"zoo\" is not defined",
 					Subject: &hcl.Range{
-						Start: hcl.Pos{Line: 8, Column: 14},
-						End:   hcl.Pos{Line: 8, Column: 30},
+						Filename: "file.hcl",
+						Start:    hcl.Pos{Line: 11, Column: 14},
+						End:      hcl.Pos{Line: 11, Column: 23},
+					},
+				},
+			},
+		},
+		{
+			name: "NonexistingDependencyField",
+			body: parseBody(t, `
+				resource "foo" {
+					type  = "simple"
+					input = "hello"
+				}
+				resource "bar" {
+					type  = "simple"
+					input = foo.nonexisting
+				}
+			`),
+			resources: []resource.Definition{&simpleDef{}},
+			diags: hcl.Diagnostics{
+				{
+					Severity: hcl.DiagError,
+					Summary:  "Referenced value not found",
+					Detail:   "Object foo does not have a field \"nonexisting\"",
+					Subject: &hcl.Range{
+						Filename: "file.hcl",
+						Start:    hcl.Pos{Line: 7, Column: 14},
+						End:      hcl.Pos{Line: 7, Column: 29},
 					},
 				},
 			},
@@ -401,14 +474,13 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		{
 			name: "InvalidReference",
 			body: parseBody(t, `
-				resource "simple" "foo" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "simple" "syntax" {
-					input = "${simple.foo.output.qux}"
-				}
-				resource "simple" "syntax" {
-					input = simple.foo.output.qux
+				resource "bar" {
+					type  = "simple"
+					input = foo.output.value # nested ref not supported
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
@@ -416,19 +488,11 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				{
 					Severity: hcl.DiagError,
 					Summary:  "Invalid reference",
-					Detail:   "A reference must have 3 fields: {type}.{name}.{field}.",
+					Detail:   "A reference must have 2 fields: {name}.{field}.",
 					Subject: &hcl.Range{
-						Start: hcl.Pos{Line: 5, Column: 17},
-						End:   hcl.Pos{Line: 5, Column: 38},
-					},
-				},
-				{
-					Severity: hcl.DiagError,
-					Summary:  "Invalid reference",
-					Detail:   "A reference must have 3 fields: {type}.{name}.{field}.",
-					Subject: &hcl.Range{
-						Start: hcl.Pos{Line: 8, Column: 14},
-						End:   hcl.Pos{Line: 8, Column: 35},
+						Filename: "file.hcl",
+						Start:    hcl.Pos{Line: 7, Column: 14},
+						End:      hcl.Pos{Line: 7, Column: 30},
 					},
 				},
 			},
@@ -436,10 +500,12 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		{
 			name: "StructWithDependency",
 			body: parseBody(t, `
-				resource "simple" "foo" {
+				resource "foo" {
+					type  = "simple"
 					input = "hello"
 				}
-				resource "complex" "foo" {
+				resource "bar" {
+					type = "complex"
 					nested {
 						sub {
 							value = "arn::${simple.foo.output}"
@@ -453,15 +519,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Variables not allowed",           // Would be nice to support variables
 				Detail:   "Variables may not be used here.", // but for now this is out of scope.
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 7, Column: 24},
-					End:   hcl.Pos{Line: 7, Column: 30},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 9, Column: 24},
+					End:      hcl.Pos{Line: 9, Column: 30},
 				},
 			}},
 		},
 		{
 			name: "StructMissingAttribute",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 						sub {
 							# missing required value
@@ -475,15 +543,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Missing required argument",
 				Detail:   `The argument "value" is required, but no definition was found.`,
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 5, Column: 8},
-					End:   hcl.Pos{Line: 5, Column: 8},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 6, Column: 8},
+					End:      hcl.Pos{Line: 6, Column: 8},
 				},
 			}},
 		},
 		{
 			name: "StructAssignInvalid",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 						sub {
 							value = ["hello", "world"]
@@ -497,15 +567,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Unsuitable value type",
 				Detail:   "Unsuitable value: string required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 4, Column: 16},
-					End:   hcl.Pos{Line: 4, Column: 17},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 5, Column: 16},
+					End:      hcl.Pos{Line: 5, Column: 17},
 				},
 			}},
 		},
 		{
 			name: "MultipleBlocksNotAllowed",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 						value = "hello"
 					}
@@ -518,17 +590,19 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Duplicate nested block",
-				Detail:   "Only one nested block is allowed. Another was defined on line 2",
+				Detail:   "Only one nested block is allowed. Another was defined on line 3",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 5, Column: 6},
-					End:   hcl.Pos{Line: 5, Column: 12},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 6, Column: 6},
+					End:      hcl.Pos{Line: 6, Column: 12},
 				},
 			}},
 		},
 		{
 			name: "MissingBlock",
 			body: parseBody(t, `
-				resource "required" "foo" {
+				resource "foo" {
+					type  = "required"
 					# required block not set
 				}
 			`),
@@ -538,15 +612,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Missing required block",
 				Detail:   "A required block is required.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 3, Column: 6},
-					End:   hcl.Pos{Line: 3, Column: 6},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 6},
+					End:      hcl.Pos{Line: 4, Column: 6},
 				},
 			}},
 		},
 		{
 			name: "MissingNestedBlock",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					nested {
 					}
 				}
@@ -557,8 +633,9 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Missing sub block",
 				Detail:   "A sub block is required.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 3, Column: 7},
-					End:   hcl.Pos{Line: 3, Column: 7},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 7},
+					End:      hcl.Pos{Line: 4, Column: 7},
 				},
 			}},
 		},
@@ -572,46 +649,29 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Project name not set",
 				Detail:   "A project name cannot be blank.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 9},
-					End:   hcl.Pos{Line: 1, Column: 11},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 1, Column: 9},
+					End:      hcl.Pos{Line: 1, Column: 11},
 				},
 				Context: &hcl.Range{
 					Start: hcl.Pos{Line: 1, Column: 1},
 					End:   hcl.Pos{Line: 1, Column: 11},
-				},
-			}},
-		},
-		{
-			name: "NoResourceType",
-			body: parseBody(t, `
-				resource "" "foo" {}
-			`),
-			diags: hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  "Resource type not set",
-				Detail:   "A resource type cannot be blank.",
-				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 12},
-				},
-				Context: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 1},
-					End:   hcl.Pos{Line: 1, Column: 18},
 				},
 			}},
 		},
 		{
 			name: "NoResourceName",
 			body: parseBody(t, `
-				resource "foo" "" {}
+				resource "" {}
 			`),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource name not set",
 				Detail:   "A resource name cannot be blank.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 16},
-					End:   hcl.Pos{Line: 1, Column: 18},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 1, Column: 10},
+					End:      hcl.Pos{Line: 1, Column: 12},
 				},
 				Context: &hcl.Range{
 					Start: hcl.Pos{Line: 1, Column: 1},
@@ -620,9 +680,38 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			}},
 		},
 		{
+			name: "DuplicateResource",
+			body: parseBody(t, `
+				resource "foo" {
+					type  = "simple"
+					input = "hello"
+				}
+				resource "foo" {        # dupliate
+					type  = "simple"
+					input = "world"
+				}
+			`),
+			resources: []resource.Definition{&simpleDef{}},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Duplicate resource",
+				Detail:   `Another resource "foo" was defined on in file.hcl on line 1`,
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 5, Column: 5},
+					End:      hcl.Pos{Line: 5, Column: 19},
+				},
+				Context: &hcl.Range{
+					Start: hcl.Pos{Line: 5, Column: 5},
+					End:   hcl.Pos{Line: 5, Column: 19},
+				},
+			}},
+		},
+		{
 			name: "InvalidType",
 			body: parseBody(t, `
-				resource "complex" "foo" {
+				resource "foo" {
+					type = "complex"
 					int = "this cannot be an int"
 				}
 			`),
@@ -632,34 +721,40 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Unsuitable value type",
 				Detail:   "Unsuitable value: a number is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 13},
-					End:   hcl.Pos{Line: 2, Column: 34},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 3, Column: 13},
+					End:      hcl.Pos{Line: 3, Column: 34},
 				},
 				Context: &hcl.Range{
-					Start: hcl.Pos{Line: 2, Column: 12},
-					End:   hcl.Pos{Line: 2, Column: 35},
+					Start: hcl.Pos{Line: 3, Column: 12},
+					End:   hcl.Pos{Line: 3, Column: 35},
 				},
 			}},
 		},
 		{
 			name: "ResourceNotFound",
 			body: parseBody(t, `
-				resource "notfound" "bar" {}
+				resource "bar" {
+					type = "notfound"
+				}
 			`),
 			resources: []resource.Definition{&simpleDef{}}, // resource "notfound" not registered
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 20},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 1, Column: 1},
+					End:      hcl.Pos{Line: 1, Column: 15},
 				},
 			}},
 		},
 		{
 			name: "SuggestResource",
 			body: parseBody(t, `
-				resource "sample" "bar" {}
+				resource "bar" {
+					type = "sample"
+				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			diags: hcl.Diagnostics{{
@@ -667,19 +762,22 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Resource not supported",
 				Detail:   "Did you mean \"simple\"?",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 1, Column: 10},
-					End:   hcl.Pos{Line: 1, Column: 18},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 1, Column: 1},
+					End:      hcl.Pos{Line: 1, Column: 15},
 				},
 			}},
 		},
 		{
 			name: "InvalidInputType",
 			body: parseBody(t, `
-				resource "simple" "a" {
+				resource "a" {
+					type  = "simple"
 					input = "hello"    # string
 				}
-				resource "complex" "b" {
-					int = simple.a.input # cannot assign string to int
+				resource "b" {
+					type = "complex"
+					int  = a.input # cannot assign string to int
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}, &complexDef{}},
@@ -688,15 +786,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Unsuitable value type",
 				Detail:   "Unsuitable value: a number is required",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 5, Column: 12},
-					End:   hcl.Pos{Line: 5, Column: 26},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 7, Column: 13},
+					End:      hcl.Pos{Line: 7, Column: 20},
 				},
 			}},
 		},
 		{
 			name: "MissingRequiredArg",
 			body: parseBody(t, `
-				resource "simple" "a" {
+				resource "a" {
+					type  = "simple"
 					# input not set
 				}
 			`),
@@ -706,8 +806,9 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Summary:  "Missing required argument",
 				Detail:   `The argument "input" is required, but no definition was found.`,
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 3, Column: 6},
-					End:   hcl.Pos{Line: 3, Column: 6},
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 6},
+					End:      hcl.Pos{Line: 4, Column: 6},
 				},
 			}},
 		},
@@ -751,7 +852,7 @@ func parseBody(t *testing.T, src string) hcl.Body {
 	// NOTE: we could use hclsyntax.ParseConfig but we'll use hclpack to ensure
 	// the special types there are handled correctly.
 	src = strings.TrimSpace(src)
-	body, diags := hclpack.PackNativeFile([]byte(src), "", hcl.Pos{Byte: 0, Line: 1, Column: 1})
+	body, diags := hclpack.PackNativeFile([]byte(src), "file.hcl", hcl.Pos{Byte: 0, Line: 1, Column: 1})
 	if diags.HasErrors() {
 		t.Errorf("Parse test body: %v", diags)
 	}

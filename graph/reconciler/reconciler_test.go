@@ -140,8 +140,8 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 			{Name: "a", Def: &concatDef{Add: "a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${concat.b.in}": "${concat.a.out}",
-			"${concat.c.in}": "${concat.b.out}",
+			"${b.in}": "${a.out}",
+			"${c.in}": "${b.out}",
 		},
 	})
 
@@ -229,7 +229,7 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 			{Name: "b", Def: &noopDef{}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${noop.b.in}": "${noop.a.outptr}", // *string -> string
+			"${b.in}": "${a.outptr}", // *string -> string
 		},
 	})
 
@@ -266,7 +266,7 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 			{Name: "b", Def: &noopDef{}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${noop.b.inptr}": "${noop.a.out}", // string -> *string
+			"${b.inptr}": "${a.out}", // string -> *string
 		},
 	})
 
@@ -501,7 +501,7 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 			{Name: "b", Def: &concatDef{Add: "x"}},           // Add changed to x
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${concat.b.in}": "${concat.a.out}",
+			"${b.in}": "${a.out}",
 		},
 	})
 
@@ -537,7 +537,7 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 			{Name: "b", Def: &concatDef{Add: "b"}}, // Did not change, but will receive new input from a
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${concat.b.in}": "${concat.a.out}",
+			"${b.in}": "${a.out}",
 		},
 	})
 
@@ -683,7 +683,7 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 			{Name: "x", Def: &noopDef{}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${noop.x.in}": "${noop.a.out}-${noop.b.out}-${noop.c.out}",
+			"${x.in}": "${a.out}-${b.out}-${c.out}",
 		},
 	})
 
@@ -723,9 +723,9 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 			{Name: "z", Def: &noopDef{}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${noop.x.in}": "${noop.a.out}",
-			"${noop.y.in}": "${noop.a.out}",
-			"${noop.z.in}": "${noop.a.out}",
+			"${x.in}": "${a.out}",
+			"${y.in}": "${a.out}",
+			"${z.in}": "${a.out}",
 		},
 	})
 
@@ -771,7 +771,7 @@ func TestReconciler_Reconcile_errParent(t *testing.T) {
 			{Name: "child", Def: &noopDef{}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${noop.child.in}": "${noop.parent.out}",
+			"${child.in}": "${parent.out}",
 		},
 	})
 

@@ -31,8 +31,8 @@ func TestSnapshot_roundtrip(t *testing.T) {
 			0: {0},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${mock.bar.in}": "${mock.foo.out}",
-			"${mock.baz.in}": "${mock.foo.out}-${mock.bar.out}",
+			"${bar.in}": "${foo.out}",
+			"${baz.in}": "${foo.out}-${mock.bar.out}",
 		},
 	}
 

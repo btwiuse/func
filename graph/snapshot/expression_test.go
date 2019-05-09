@@ -31,10 +31,10 @@ func TestExpr_Eval(t *testing.T) {
 		},
 		{
 			"WithData",
-			"> ${foo.bar.baz} ${bar.baz.qux}!",
+			"> ${foo.bar} ${bar.baz}!",
 			map[graph.Field]interface{}{
-				{Type: "foo", Name: "bar", Field: "baz"}: "hi",
-				{Type: "bar", Name: "baz", Field: "qux"}: "there",
+				{Name: "foo", Field: "bar"}: "hi",
+				{Name: "bar", Field: "baz"}: "there",
 			},
 			"> hi there!",
 			false,

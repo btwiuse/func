@@ -64,33 +64,59 @@ func TestLoader_Load(t *testing.T) {
 				ChildBlocks: []hclpack.Block{
 					{
 						Type:   "resource",
-						Labels: []string{"aws_lambda_function", "func"},
+						Labels: []string{"lambda"},
 						Body: hclpack.Body{
 							Attributes: map[string]hclpack.Attribute{
+								"type": {
+									Expr: hclpack.Expression{
+										Source:     []byte(`"aws:lambda_function"`),
+										SourceType: hclpack.ExprNative,
+										Range_: hcl.Range{
+											Filename: "testdata/project/func.hcl",
+											Start:    hcl.Pos{Line: 2, Column: 12, Byte: 31},
+											End:      hcl.Pos{Line: 2, Column: 33, Byte: 52},
+										},
+										StartRange_: hcl.Range{
+											Filename: "testdata/project/func.hcl",
+											Start:    hcl.Pos{Line: 2, Column: 13, Byte: 32},
+											End:      hcl.Pos{Line: 2, Column: 32, Byte: 51},
+										},
+									},
+									Range: hcl.Range{
+										Filename: "testdata/project/func.hcl",
+										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 22},
+										End:      hcl.Pos{Line: 2, Column: 33, Byte: 52},
+									},
+									NameRange: hcl.Range{
+										Filename: "testdata/project/func.hcl",
+										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 22},
+										End:      hcl.Pos{Line: 2, Column: 7, Byte: 26},
+									},
+								},
 								"source": {
 									Expr: hclpack.Expression{
 										Source:     []byte(`"` + sourceInfoStr(t, []byte("targz data")) + `"`),
 										SourceType: hclpack.ExprLiteralJSON,
 										Range_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 2, Column: 12, Byte: 51},
-											End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+											Start:    hcl.Pos{Line: 4, Column: 12, Byte: 65},
+											End:      hcl.Pos{Line: 4, Column: 19, Byte: 72},
 										},
 										StartRange_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 2, Column: 13, Byte: 52},
-											End:      hcl.Pos{Line: 2, Column: 18, Byte: 57},
+											Start:    hcl.Pos{Line: 4, Column: 13, Byte: 66},
+											End:      hcl.Pos{Line: 4, Column: 18, Byte: 71},
 										},
 									},
 									Range: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
-										End:      hcl.Pos{Line: 2, Column: 19, Byte: 58},
+										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 56},
+										End:      hcl.Pos{Line: 4, Column: 19, Byte: 72},
 									},
 									NameRange: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 42},
-										End:      hcl.Pos{Line: 2, Column: 9, Byte: 48},
+										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 56},
+										End:      hcl.Pos{Line: 4, Column: 9, Byte: 62},
 									},
 								},
 								"handler": {
@@ -99,24 +125,24 @@ func TestLoader_Load(t *testing.T) {
 										SourceType: hclpack.ExprNative,
 										Range_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 4, Column: 13, Byte: 72},
-											End:      hcl.Pos{Line: 4, Column: 28, Byte: 87},
+											Start:    hcl.Pos{Line: 6, Column: 13, Byte: 86},
+											End:      hcl.Pos{Line: 6, Column: 28, Byte: 101},
 										},
 										StartRange_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 4, Column: 14, Byte: 73},
-											End:      hcl.Pos{Line: 4, Column: 27, Byte: 86},
+											Start:    hcl.Pos{Line: 6, Column: 14, Byte: 87},
+											End:      hcl.Pos{Line: 6, Column: 27, Byte: 100},
 										},
 									},
 									Range: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 62},
-										End:      hcl.Pos{Line: 4, Column: 28, Byte: 87},
+										Start:    hcl.Pos{Line: 6, Column: 3, Byte: 76},
+										End:      hcl.Pos{Line: 6, Column: 28, Byte: 101},
 									},
 									NameRange: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 62},
-										End:      hcl.Pos{Line: 4, Column: 10, Byte: 69},
+										Start:    hcl.Pos{Line: 6, Column: 3, Byte: 76},
+										End:      hcl.Pos{Line: 6, Column: 10, Byte: 83},
 									},
 								},
 								"memory": {
@@ -125,37 +151,37 @@ func TestLoader_Load(t *testing.T) {
 										SourceType: hclpack.ExprNative,
 										Range_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 5, Column: 13, Byte: 100},
-											End:      hcl.Pos{Line: 5, Column: 16, Byte: 103},
+											Start:    hcl.Pos{Line: 7, Column: 13, Byte: 114},
+											End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 										},
 										StartRange_: hcl.Range{
 											Filename: "testdata/project/func.hcl",
-											Start:    hcl.Pos{Line: 5, Column: 13, Byte: 100},
-											End:      hcl.Pos{Line: 5, Column: 16, Byte: 103},
+											Start:    hcl.Pos{Line: 7, Column: 13, Byte: 114},
+											End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 										},
 									},
 									Range: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 5, Column: 3, Byte: 90},
-										End:      hcl.Pos{Line: 5, Column: 16, Byte: 103},
+										Start:    hcl.Pos{Line: 7, Column: 3, Byte: 104},
+										End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 									},
 									NameRange: hcl.Range{
 										Filename: "testdata/project/func.hcl",
-										Start:    hcl.Pos{Line: 5, Column: 3, Byte: 90},
-										End:      hcl.Pos{Line: 5, Column: 9, Byte: 96},
+										Start:    hcl.Pos{Line: 7, Column: 3, Byte: 104},
+										End:      hcl.Pos{Line: 7, Column: 9, Byte: 110},
 									},
 								},
 							},
 							MissingItemRange_: hcl.Range{
 								Filename: "testdata/project/func.hcl",
-								Start:    hcl.Pos{Line: 6, Column: 2, Byte: 105},
-								End:      hcl.Pos{Line: 6, Column: 2, Byte: 105},
+								Start:    hcl.Pos{Line: 8, Column: 2, Byte: 119},
+								End:      hcl.Pos{Line: 8, Column: 2, Byte: 119},
 							},
 						},
 						DefRange: hcl.Range{
 							Filename: "testdata/project/func.hcl",
 							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
+							End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
 						},
 						TypeRange: hcl.Range{
 							Filename: "testdata/project/func.hcl",
@@ -166,12 +192,7 @@ func TestLoader_Load(t *testing.T) {
 							{
 								Filename: "testdata/project/func.hcl",
 								Start:    hcl.Pos{Line: 1, Column: 10, Byte: 9},
-								End:      hcl.Pos{Line: 1, Column: 31, Byte: 30},
-							},
-							{
-								Filename: "testdata/project/func.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 32, Byte: 31},
-								End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
+								End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
 							},
 						},
 					},
@@ -203,148 +224,11 @@ func TestLoader_Load(t *testing.T) {
 							},
 						},
 					},
-					{
-						Type:   "resource",
-						Labels: []string{"aws_iam_role", "role"},
-						Body: hclpack.Body{
-							Attributes: map[string]hclpack.Attribute{
-								"role_name": {
-									Expr: hclpack.Expression{
-										Source:     []byte(`"tester"`),
-										SourceType: hclpack.ExprNative,
-										Range_: hcl.Range{
-											Filename: "testdata/project/proj.hcl",
-											Start:    hcl.Pos{Line: 4, Column: 15, Byte: 66},
-											End:      hcl.Pos{Line: 4, Column: 23, Byte: 74},
-										},
-										StartRange_: hcl.Range{
-											Filename: "testdata/project/proj.hcl",
-											Start:    hcl.Pos{Line: 4, Column: 16, Byte: 67},
-											End:      hcl.Pos{Line: 4, Column: 22, Byte: 73},
-										},
-									},
-									Range: hcl.Range{
-										Filename: "testdata/project/proj.hcl",
-										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 54},
-										End:      hcl.Pos{Line: 4, Column: 23, Byte: 74},
-									},
-									NameRange: hcl.Range{
-										Filename: "testdata/project/proj.hcl",
-										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 54},
-										End:      hcl.Pos{Line: 4, Column: 12, Byte: 63},
-									},
-								},
-							},
-							ChildBlocks: nil,
-							MissingItemRange_: hcl.Range{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 5, Column: 2, Byte: 76},
-								End:      hcl.Pos{Line: 5, Column: 2, Byte: 76},
-							},
-						},
-						DefRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 3, Column: 1, Byte: 19},
-							End:      hcl.Pos{Line: 3, Column: 31, Byte: 49},
-						},
-						TypeRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 3, Column: 1, Byte: 19},
-							End:      hcl.Pos{Line: 3, Column: 9, Byte: 27},
-						},
-						LabelRanges: []hcl.Range{
-							{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 3, Column: 10, Byte: 28},
-								End:      hcl.Pos{Line: 3, Column: 24, Byte: 42},
-							},
-							{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 3, Column: 25, Byte: 43},
-								End:      hcl.Pos{Line: 3, Column: 31, Byte: 49},
-							},
-						},
-					},
 				},
 				MissingItemRange_: hcl.Range{
 					Filename: "testdata/project/func.hcl",
-					Start:    hcl.Pos{Line: 8, Column: 1, Byte: 107},
-					End:      hcl.Pos{Line: 8, Column: 1, Byte: 107},
-				},
-			},
-		},
-		{
-			"NoCompressor",
-			"testdata/nocompress",
-			nil,
-			&hclpack.Body{
-				ChildBlocks: []hclpack.Block{
-					{
-						Type:   "resource",
-						Labels: []string{"aws_lambda_function", "func"},
-						Body: hclpack.Body{
-							Attributes: map[string]hclpack.Attribute{
-								"handler": {
-									Expr: hclpack.Expression{
-										Source:     []byte(`"index.handler"`),
-										SourceType: hclpack.ExprNative,
-										Range_: hcl.Range{
-											Filename: "testdata/nocompress/func.hcl",
-											Start:    hcl.Pos{Line: 3, Column: 13, Byte: 113},
-											End:      hcl.Pos{Line: 3, Column: 28, Byte: 128},
-										},
-										StartRange_: hcl.Range{
-											Filename: "testdata/nocompress/func.hcl",
-											Start:    hcl.Pos{Line: 3, Column: 14, Byte: 114},
-											End:      hcl.Pos{Line: 3, Column: 27, Byte: 127},
-										},
-									},
-									Range: hcl.Range{
-										Filename: "testdata/nocompress/func.hcl",
-										Start:    hcl.Pos{Line: 3, Column: 3, Byte: 103},
-										End:      hcl.Pos{Line: 3, Column: 28, Byte: 128},
-									},
-									NameRange: hcl.Range{
-										Filename: "testdata/nocompress/func.hcl",
-										Start:    hcl.Pos{Line: 3, Column: 3, Byte: 103},
-										End:      hcl.Pos{Line: 3, Column: 10, Byte: 110},
-									},
-								},
-							},
-							MissingItemRange_: hcl.Range{
-								Filename: "testdata/nocompress/func.hcl",
-								Start:    hcl.Pos{Line: 4, Column: 2, Byte: 130},
-								End:      hcl.Pos{Line: 4, Column: 2, Byte: 130},
-							},
-						},
-						DefRange: hcl.Range{
-							Filename: "testdata/nocompress/func.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
-						},
-						TypeRange: hcl.Range{
-							Filename: "testdata/nocompress/func.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 9, Byte: 8},
-						},
-						LabelRanges: []hcl.Range{
-							{
-								Filename: "testdata/nocompress/func.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 10, Byte: 9},
-								End:      hcl.Pos{Line: 1, Column: 31, Byte: 30},
-							},
-							{
-								Filename: "testdata/nocompress/func.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 32, Byte: 31},
-								End:      hcl.Pos{Line: 1, Column: 38, Byte: 37},
-							},
-						},
-					},
-				},
-				MissingItemRange_: hcl.Range{
-					Filename: "testdata/nocompress/func.hcl",
-					Start:    hcl.Pos{Line: 6, Column: 1, Byte: 132},
-					End:      hcl.Pos{Line: 6, Column: 1, Byte: 132},
+					Start:    hcl.Pos{Line: 9, Column: 1, Byte: 120},
+					End:      hcl.Pos{Line: 9, Column: 1, Byte: 120},
 				},
 			},
 		},
@@ -384,7 +268,9 @@ func TestLoader_Files(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{}
+			l := &config.Loader{
+				Compressor: &mockCompressor{},
+			}
 			_, diags := l.Load(tt.root)
 			if diags.HasErrors() {
 				t.Fatalf("Load() error = %v", diags)

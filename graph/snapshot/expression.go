@@ -14,7 +14,7 @@ import (
 type Expr string
 
 var ident = "[a-z0-9_]+"
-var exprRe = regexp.MustCompile(`\${(` + ident + `.` + ident + `.` + ident + `)}`)
+var exprRe = regexp.MustCompile(`\${(` + ident + `.` + ident + `)}`)
 
 // Fields returns the dynamic fields of an expression.
 func (e Expr) Fields() []graph.Field {
@@ -26,9 +26,8 @@ func (e Expr) Fields() []graph.Field {
 	for i, f := range fields {
 		parts := strings.Split(f[1], ".")
 		out[i] = graph.Field{
-			Type:  parts[0],
-			Name:  parts[1],
-			Field: parts[2],
+			Name:  parts[0],
+			Field: parts[1],
 		}
 	}
 	return out
@@ -56,5 +55,5 @@ func (e Expr) Eval(data map[graph.Field]interface{}, target interface{}) error {
 
 // ExprFrom creates an expression for a field.
 func ExprFrom(field graph.Field) Expr {
-	return Expr(fmt.Sprintf("${%s.%s.%s}", field.Type, field.Name, field.Field))
+	return Expr(fmt.Sprintf("${%s.%s}", field.Name, field.Field))
 }

@@ -43,9 +43,9 @@ func TestGraph_AddDependency(t *testing.T) {
 	g := graph.New()
 	res1 := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
 	res2 := g.AddResource(resource.Resource{Name: "bar", Def: &mockDef{}})
-	expr := noopExpr{Parents: []graph.Field{{Type: "mock", Name: "foo", Field: "output"}}}
+	expr := noopExpr{Parents: []graph.Field{{Name: "foo", Field: "output"}}}
 
-	target := graph.Field{Type: "mock", Name: "bar", Field: "input"}
+	target := graph.Field{Name: "bar", Field: "input"}
 	if err := g.AddDependency(target, expr); err != nil {
 		t.Fatalf("Add dependency: %v", err)
 	}

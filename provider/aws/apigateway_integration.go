@@ -142,7 +142,7 @@ type APIGatewayIntegration struct {
 	// integration with a `connection_type` of `VPC_LINK` is referred to as a
 	// private integration and uses a VpcLink to connect API Gateway to a
 	// network load balancer of a VPC.
-	IntegrationType string `input:"type"`
+	IntegrationType string `input:"integration_type"`
 
 	// Specifies Uniform Resource Identifier (URI) of the integration endpoint.
 	//

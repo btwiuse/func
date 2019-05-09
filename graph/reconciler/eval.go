@@ -17,7 +17,7 @@ func fieldValue(res *graph.Resource, field graph.Field, dir resource.FieldDirect
 			return v.Field(f.Index), nil
 		}
 	}
-	return reflect.Value{}, fmt.Errorf("%s does not have an %s field %q", field.Type, dir, field.Field)
+	return reflect.Value{}, fmt.Errorf("%s does not have an %s field %q", field.Name, dir, field.Field)
 }
 
 // containingField finds the field in the given resources that matches the
@@ -25,7 +25,7 @@ func fieldValue(res *graph.Resource, field graph.Field, dir resource.FieldDirect
 // Returns nil if no such field was found.
 func containingField(resources []*graph.Resource, field graph.Field) *graph.Resource {
 	for _, r := range resources {
-		if r.Config.Def.Type() == field.Type && r.Config.Name == field.Name {
+		if r.Config.Name == field.Name {
 			return r
 		}
 	}
@@ -43,7 +43,7 @@ func evalDependency(dep *graph.Dependency) error {
 	for _, f := range dep.Expr.Fields() {
 		parent := containingField(dep.Parents(), f)
 		if parent == nil {
-			return errors.Errorf("no such field resource: %s.%s", f.Type, f.Name)
+			return errors.Errorf("no such field resource: %s", f.Name)
 		}
 		srcVal, err := fieldValue(parent, f, resource.Output)
 		if err != nil {

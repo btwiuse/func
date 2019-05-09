@@ -24,11 +24,13 @@ type Project struct {
 
 // Resource is a user specified resource specification.
 type Resource struct {
-	// Type specifies what type of resource this is.
-	Type string `hcl:"type,label"`
-
 	// Name is a unique name (within the same kind) for the resource.
 	Name string `hcl:"name,label"`
+
+	// Type specifies what type of resource this is.
+	//
+	// The type defines how the Config is decoded.
+	Type string `hcl:"type"`
 
 	// Config is a configuration body for the resource.
 	//

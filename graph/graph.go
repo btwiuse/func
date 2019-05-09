@@ -49,13 +49,12 @@ func (g *Graph) AddSource(res *Resource, info config.SourceInfo) *Source { // no
 // A Field represents the address to a specific field in a resource with a
 // certain type and name.
 type Field struct {
-	Type  string // Resource type.
 	Name  string // Resource name.
 	Field string // Field name based on input/output name.
 }
 
 func (f Field) String() string {
-	return f.Type + "." + f.Name + "." + f.Field
+	return f.Name + "." + f.Field
 }
 
 // An Expression describes a dynamic or static value for a field.
@@ -84,17 +83,17 @@ func (g *Graph) AddDependency(target Field, expr Expression) error {
 	}
 	g.AddNode(node)
 
-	res := g.LookupResource(target.Type, target.Name)
+	res := g.LookupResource(target.Name)
 	if res == nil {
-		return errors.Errorf("target resource %s.%s does not exist", target.Type, target.Name)
+		return errors.Errorf("target resource %s does not exist", target.Name)
 	}
 	g.SetLine(g.NewLine(node, res))
 
 	fields := expr.Fields()
 	for _, f := range fields {
-		parent := g.LookupResource(f.Type, f.Name)
+		parent := g.LookupResource(f.Name)
 		if parent == nil {
-			return errors.Errorf("expression has a dependency on %s.%s, which does not exist", f.Type, f.Name)
+			return errors.Errorf("expression has a dependency on %s, which does not exist", f.Name)
 		}
 		g.SetLine(g.NewLine(parent, node))
 	}
@@ -104,14 +103,14 @@ func (g *Graph) AddDependency(target Field, expr Expression) error {
 
 // LookupResource finds a resource with a certain type and name. Returns nil if
 // no such resource exists in the graph.
-func (g *Graph) LookupResource(typeName, resourceName string) *Resource {
+func (g *Graph) LookupResource(resourceName string) *Resource {
 	it := g.Nodes()
 	for it.Next() {
 		res, ok := it.Node().(*Resource)
 		if !ok {
 			continue
 		}
-		if res.Config.Def.Type() == typeName && res.Config.Name == resourceName {
+		if res.Config.Name == resourceName {
 			return res
 		}
 	}

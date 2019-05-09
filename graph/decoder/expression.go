@@ -39,13 +39,10 @@ func (e *expression) Fields() []graph.Field {
 
 // Eval evaluates the expression with data into the target.
 func (e *expression) Eval(data map[graph.Field]interface{}, target interface{}) error {
-	m := make(map[string]map[string]map[string]cty.Value)
+	m := make(map[string]map[string]cty.Value)
 	for field, val := range data {
-		if m[field.Type] == nil {
-			m[field.Type] = make(map[string]map[string]cty.Value)
-		}
-		if m[field.Type][field.Name] == nil {
-			m[field.Type][field.Name] = make(map[string]cty.Value)
+		if m[field.Name] == nil {
+			m[field.Name] = make(map[string]cty.Value)
 		}
 		typ, err := gocty.ImpliedType(val)
 		if err != nil {
@@ -55,16 +52,12 @@ func (e *expression) Eval(data map[graph.Field]interface{}, target interface{}) 
 		if err != nil {
 			return errors.Wrap(err, "get cty value")
 		}
-		m[field.Type][field.Name][field.Field] = val
+		m[field.Name][field.Field] = val
 	}
 
 	vars := make(map[string]cty.Value)
-	for t, names := range m {
-		tmp := make(map[string]cty.Value)
-		for n, vals := range names {
-			tmp[n] = cty.MapVal(vals)
-		}
-		vars[t] = cty.MapVal(tmp)
+	for n, vv := range m {
+		vars[n] = cty.MapVal(vv)
 	}
 
 	ctx := &hcl.EvalContext{
@@ -80,12 +73,12 @@ func (e *expression) Eval(data map[graph.Field]interface{}, target interface{}) 
 }
 
 func traversalField(t hcl.Traversal) (graph.Field, hcl.Diagnostics) {
-	if len(t) != 3 {
+	if len(t) != 2 {
 		return graph.Field{}, hcl.Diagnostics{
 			&hcl.Diagnostic{
 				Severity: hcl.DiagError,
 				Summary:  "Invalid reference",
-				Detail:   "A reference must have 3 fields: {type}.{name}.{field}.",
+				Detail:   "A reference must have 2 fields: {name}.{field}.",
 				Subject:  t.SourceRange().Ptr(),
 			},
 		}
@@ -94,9 +87,8 @@ func traversalField(t hcl.Traversal) (graph.Field, hcl.Diagnostics) {
 	// Empty name or field will not get this far as decoding the expression will fail.
 
 	return graph.Field{
-		Type:  t.RootName(),
-		Name:  t[1].(hcl.TraverseAttr).Name,
-		Field: t[2].(hcl.TraverseAttr).Name,
+		Name:  t.RootName(),
+		Field: t[1].(hcl.TraverseAttr).Name,
 	}, nil
 }
 

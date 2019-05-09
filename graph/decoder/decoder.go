@@ -20,34 +20,44 @@ import (
 type decoder struct {
 	graph  *graph.Graph
 	fields map[graph.Field]field
+	names  map[string]*hcl.Range
 }
 
 func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnostics {
-	restype := block.Labels[0]
-	resname := block.Labels[1]
+	resname := block.Labels[0]
 
-	// Get resource definition based on resource type.
-	def, err := ctx.Resources.New(restype)
-	if err != nil {
-		diag := &hcl.Diagnostic{
+	if ex, ok := d.names[resname]; ok {
+		return []*hcl.Diagnostic{{
 			Severity: hcl.DiagError,
-			Summary:  "Resource not supported",
-			Subject:  block.LabelRanges[0].Ptr(),
-		}
-		type notsupported interface{ NotSupported() }
-		if _, ok := err.(notsupported); ok {
-			if s := ctx.Resources.SuggestType(restype); s != "" {
-				diag.Detail = fmt.Sprintf("Did you mean %q?", s)
-			}
-		}
-		return hcl.Diagnostics{diag}
+			Summary:  "Duplicate resource",
+			Detail:   fmt.Sprintf("Another resource %q was defined on in %s on line %d", resname, ex.Filename, ex.Start.Line),
+			Subject:  block.DefRange.Ptr(),
+		}}
 	}
+	d.names[resname] = block.DefRange.Ptr()
 
 	// Decode resource body. Will return errors for syntax errors.
 	var spec config.Resource
 	diags := gohcl.DecodeBody(block.Body, nil, &spec)
 	if diags.HasErrors() {
 		return diags
+	}
+
+	// Get resource definition based on resource type.
+	def, err := ctx.Resources.New(spec.Type)
+	if err != nil {
+		diag := &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Resource not supported",
+			Subject:  block.DefRange.Ptr(), // TODO: set range on type attribute
+		}
+		type notsupported interface{ NotSupported() }
+		if _, ok := err.(notsupported); ok {
+			if s := ctx.Resources.SuggestType(spec.Type); s != "" {
+				diag.Detail = fmt.Sprintf("Did you mean %q?", s)
+			}
+		}
+		return hcl.Diagnostics{diag}
 	}
 
 	// Create resource node.
@@ -102,7 +112,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 			}
 		}
 
-		target := graph.Field{Type: restype, Name: resname, Field: f.Name}
+		target := graph.Field{Name: resname, Field: f.Name}
 		d.fields[target] = field{def: def, info: f, expr: e}
 	}
 
@@ -444,12 +454,26 @@ func (d *decoder) fieldValue(f field) (cty.Value, graph.Expression, hcl.Diagnost
 		parent, ok := d.fields[r]
 		if !ok {
 			// Reference to a non-existing field.
-			// TODO(akupila): check for type, name, field separately and offer suggestion
+			// Attempt to find object with matching name to find which field was not set.
+			for par := range d.fields {
+				if par.Name == r.Name {
+					return cty.NilVal, nil, hcl.Diagnostics{
+						&hcl.Diagnostic{
+							Severity: hcl.DiagError,
+							Summary:  "Referenced value not found",
+							Detail:   fmt.Sprintf("Object %s does not have a field %q", r.Name, r.Field),
+							Subject:  f.expr.StartRange().Ptr(),
+							Context:  f.expr.Range().Ptr(),
+						},
+					}
+				}
+			}
+			// No object matched the name.
 			return cty.NilVal, nil, hcl.Diagnostics{
 				&hcl.Diagnostic{
 					Severity: hcl.DiagError,
 					Summary:  "Referenced value not found",
-					Detail:   fmt.Sprintf("Field %s does not exist", r),
+					Detail:   fmt.Sprintf("An object with name %q is not defined", r.Name),
 					Subject:  f.expr.StartRange().Ptr(),
 					Context:  f.expr.Range().Ptr(),
 				},
@@ -461,7 +485,7 @@ func (d *decoder) fieldValue(f field) (cty.Value, graph.Expression, hcl.Diagnost
 		if diags.HasErrors() {
 			// Change diagnostics context to point to expression, rather than referenced expression
 			for _, d := range diags {
-				d.Detail = fmt.Sprintf("Nested %s%s", strings.ToLower(string(d.Detail[0])), d.Detail[1:])
+				d.Detail = strings.Replace(d.Detail, "An object", "A nested object", 1)
 				d.Subject = f.expr.StartRange().Ptr()
 				d.Context = f.expr.Range().Ptr()
 			}

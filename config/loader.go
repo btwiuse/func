@@ -216,11 +216,6 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 		// Delete source attribute; no longer needed.
 		delete(block.Body.Attributes, "source")
 
-		if l.Compressor == nil {
-			// No compressor provided, do not compress source.
-			return block, nil
-		}
-
 		dir := filepath.Dir(filename)
 		dir = filepath.Join(dir, src)
 

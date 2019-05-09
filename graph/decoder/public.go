@@ -49,6 +49,7 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config
 	dec := &decoder{
 		graph:  target,
 		fields: make(map[graph.Field]field),
+		names:  make(map[string]*hcl.Range),
 	}
 
 	var project *config.Project
@@ -64,7 +65,7 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config
 			diags = append(diags, gohcl.DecodeBody(b.Body, nil, project)...)
 			project.Name = b.Labels[0]
 		case "resource":
-			if req := requireLabels(b, "resource type", "resource name"); req.HasErrors() {
+			if req := requireLabels(b, "resource name"); req.HasErrors() {
 				diags = append(diags, req...)
 				continue
 			}
