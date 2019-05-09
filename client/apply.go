@@ -31,7 +31,7 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 		resp, err := cli.API.Apply(ctx, req)
 		if err != nil {
 			if diags, ok := err.(hcl.Diagnostics); ok {
-				return cli.errDiagnostics(diags)
+				return backoff.Permanent(cli.errDiagnostics(diags))
 			}
 			return errors.Wrap(err, "apply")
 		}
