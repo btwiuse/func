@@ -61,7 +61,7 @@ func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 
 	for i, sr := range rpcResp.GetSourcesRequired() {
 		resp.SourcesRequired[i] = api.SourceRequest{
-			Digest:  sr.GetDigest(),
+			Key:     sr.GetKey(),
 			URL:     sr.GetUrl(),
 			Headers: sr.GetHeaders(),
 		}

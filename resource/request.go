@@ -17,7 +17,7 @@ type AuthProvider interface {
 // for the resource.
 type SourceCode interface {
 	// Digest returns a hash digest.
-	Digest() string
+	Key() string
 
 	// Size returns the size of the source tarball in bytes.
 	Size() int

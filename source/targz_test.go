@@ -12,22 +12,15 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-type Compressor interface {
-	Compress(w io.Writer, dir string) (string, error)
-}
-
 func TestCompress(t *testing.T) {
 	tests := []struct {
-		name       string
-		compressor Compressor
-		dir        string
-		check      func(t *testing.T, buf *bytes.Buffer)
-		wantExt    string
-		wantErr    bool
+		name    string
+		dir     string
+		check   func(t *testing.T, buf *bytes.Buffer)
+		wantErr bool
 	}{
 		{
 			"TarGZ",
-			source.TarGZ{},
 			"testdata/compress",
 			func(t *testing.T, buf *bytes.Buffer) {
 				want := map[string][]byte{
@@ -39,7 +32,6 @@ func TestCompress(t *testing.T) {
 					t.Errorf("Files do not match (-got, +want)\n%s", diff)
 				}
 			},
-			".tar.gz",
 			false,
 		},
 	}
@@ -47,12 +39,10 @@ func TestCompress(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			ext, err := tt.compressor.Compress(&buf, tt.dir)
+			tgz := &source.TarGZ{}
+			err := tgz.Compress(&buf, tt.dir)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("%T.Compress() error = %v, wantErr %v", tt.compressor, err, tt.wantErr)
-			}
-			if ext != tt.wantExt {
-				t.Errorf("Extension got = %q, want = %q", ext, tt.wantExt)
+				t.Fatalf("Compress() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			tt.check(t, &buf)
 		})

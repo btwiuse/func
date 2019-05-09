@@ -49,18 +49,18 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	}
 	if len(missing) > 0 {
 		// Request source code
-		logger.Debug("Source code required", zap.Strings("hashes", sources(missing).Hashes()))
+		logger.Debug("Source code required", zap.Strings("keys", sources(missing).Keys()))
 		sr := make([]SourceRequest, len(missing))
 		for i, src := range missing {
 			u, err := f.Source.NewUpload(source.UploadConfig{
-				Filename:      src.Config.SHA + src.Config.Ext,
+				Filename:      src.Config.Key,
 				ContentMD5:    src.Config.MD5,
 				ContentLength: src.Config.Len,
 			})
 			if err != nil {
 				return nil, errors.Wrap(err, "request upload")
 			}
-			sr[i] = SourceRequest{Digest: src.Config.SHA, URL: u.URL, Headers: u.Headers}
+			sr[i] = SourceRequest{Key: src.Config.Key, URL: u.URL, Headers: u.Headers}
 		}
 		return &ApplyResponse{SourcesRequired: sr}, nil
 	}
@@ -83,10 +83,9 @@ func (f *Func) missingSource(ctx context.Context, sources []*graph.Source) ([]*g
 	for _, src := range sources {
 		src := src
 		g.Go(func() error {
-			key := src.Config.SHA + src.Config.Ext
-			ok, err := f.Source.Has(ctx, key)
+			ok, err := f.Source.Has(ctx, src.Config.Key)
 			if err != nil {
-				return errors.Wrapf(err, "check %s", key)
+				return errors.Wrapf(err, "check %s", src.Config.Key)
 			}
 			if !ok {
 				mu.Lock()
@@ -104,10 +103,10 @@ func (f *Func) missingSource(ctx context.Context, sources []*graph.Source) ([]*g
 
 type sources []*graph.Source
 
-func (ss sources) Hashes() []string {
+func (ss sources) Keys() []string {
 	list := make([]string, len(ss))
 	for i, s := range ss {
-		list[i] = s.Config.SHA
+		list[i] = s.Config.Key
 	}
 	return list
 }

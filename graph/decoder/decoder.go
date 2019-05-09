@@ -54,9 +54,18 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 	// The resource definition is currently "empty"; the field values are not set.
 	node := d.graph.AddResource(resource.Resource{Name: resname, Def: def})
 
-	if spec.Source != nil {
+	if spec.Source != "" {
 		// Add source to resource.
-		d.graph.AddSource(node, *spec.Source)
+		src, err := config.DecodeSourceString(spec.Source)
+		if err != nil {
+			return []*hcl.Diagnostic{{
+				Severity: hcl.DiagError,
+				Summary:  "Could not decode source information",
+				Detail:   "Error: string must contain 3 parts separated by ':'. This is always a bug.",
+				Subject:  block.DefRange.Ptr(),
+			}}
+		}
+		d.graph.AddSource(node, src)
 	}
 
 	val := reflect.Indirect(reflect.ValueOf(def))

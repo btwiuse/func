@@ -27,7 +27,7 @@ func TestGraph_AddResource(t *testing.T) {
 func TestGraph_AddSource(t *testing.T) {
 	g := graph.New()
 	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
-	src := g.AddSource(res, config.SourceInfo{SHA: "123"})
+	src := g.AddSource(res, config.SourceInfo{Key: "123"})
 
 	got := g.Sources()
 	want := []*graph.Source{src}
@@ -88,7 +88,7 @@ func TestGraph_AddDependency(t *testing.T) {
 func TestGraph_reverse(t *testing.T) {
 	g := graph.New()
 	res := g.AddResource(resource.Resource{Name: "foo", Def: &mockDef{Input: "foo"}})
-	g.AddSource(res, config.SourceInfo{SHA: "abc"})
+	g.AddSource(res, config.SourceInfo{Key: "abc"})
 
 	// Traverse to source, then back to resource
 	resSources := res.Sources()

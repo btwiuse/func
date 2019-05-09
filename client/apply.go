@@ -41,7 +41,7 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 			for _, sr := range resp.SourcesRequired {
 				sr := sr
 				g.Go(func() error {
-					src := cli.Loader.Source(sr.Digest)
+					src := cli.Loader.Source(sr.Key)
 					err := source.Upload(
 						uctx,
 						http.DefaultClient,
@@ -50,7 +50,7 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 						src,
 					)
 					if err != nil {
-						return errors.Wrapf(err, "Upload %s", sr.Digest)
+						return errors.Wrapf(err, "Upload %s", sr.Key)
 					}
 					return nil
 				})

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -33,7 +32,7 @@ func (f *file) empty() bool {
 type SourceCompressor interface {
 	// Compress compresses the given directory into w. The returned extension
 	// is the extension for the file with leading dot (.tar.gz).
-	Compress(w io.Writer, dir string) (ext string, err error)
+	Compress(w io.Writer, dir string) error
 }
 
 // A Loader loads configuration files from .hcl files on disk.
@@ -231,8 +230,7 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 
 		w := io.MultiWriter(&buf, sha, md5)
 
-		ext, err := l.Compressor.Compress(w, dir)
-		if err != nil {
+		if err := l.Compressor.Compress(w, dir); err != nil {
 			return hclpack.Block{}, hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  fmt.Sprintf("Could not create source archive: %v", err),
@@ -241,45 +239,26 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 			}}
 		}
 
-		digest := hex.EncodeToString(sha.Sum(nil))
-		checksum := base64.StdEncoding.EncodeToString(md5.Sum(nil))
+		key := hex.EncodeToString(sha.Sum(nil))
 
 		if l.sources == nil {
 			l.sources = make(map[string]*bytes.Buffer)
 		}
-		l.sources[digest] = &buf
+		l.sources[key] = &buf
 
-		srcAttr := func(verb string, val interface{}) hclpack.Attribute {
-			return hclpack.Attribute{
-				Expr: hclpack.Expression{
-					Source:      []byte(fmt.Sprintf(verb, val)),
-					SourceType:  hclpack.ExprLiteralJSON,
-					Range_:      srcAttr.Expr.Range_,
-					StartRange_: srcAttr.Expr.StartRange_,
-				},
-				Range:     srcAttr.Range,
-				NameRange: srcAttr.NameRange,
-			}
+		srcInfo := SourceInfo{
+			Len: buf.Len(),
+			MD5: hex.EncodeToString(md5.Sum(nil)),
+			Key: key,
 		}
 
-		// Replace source attribute with source block.
-		// The range from the original source attribute is repurposed so it
-		// matches this resource and points to the source, in case there's an
-		// error.
-		sourceBlock := hclpack.Block{
-			Type:   "source",
-			Labels: []string{ext},
-			Body: hclpack.Body{
-				Attributes: map[string]hclpack.Attribute{
-					"sha": srcAttr("%q", digest),
-					"md5": srcAttr("%q", checksum),
-					"len": srcAttr("%d", buf.Len()),
-				},
-			},
-			LabelRanges: []hcl.Range{{}},
+		srcAttr.Expr = hclpack.Expression{
+			Source:      []byte(`"` + srcInfo.EncodeToString() + `"`),
+			SourceType:  hclpack.ExprLiteralJSON,
+			Range_:      srcAttr.Expr.Range_,
+			StartRange_: srcAttr.Expr.StartRange_,
 		}
-
-		block.Body.ChildBlocks = append(block.Body.ChildBlocks, sourceBlock)
+		block.Body.Attributes["source"] = srcAttr
 	}
 	return block, nil
 }

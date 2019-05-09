@@ -24,9 +24,9 @@ type ApplyResponse struct {
 //
 // Source requests are returned from Apply when source code is required.
 type SourceRequest struct {
-	// Digest is the digest to upload.
-	// The digest maps back to a resource in the ApplyRequest config.
-	Digest string
+	// Key is the key for the source code to upload.
+	// The key maps back to a resource in the ApplyRequest config.
+	Key string
 
 	// Url is the destination URL to upload to.
 	// The request should be done as a HTTP PUT.

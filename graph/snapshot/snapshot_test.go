@@ -23,7 +23,7 @@ func TestSnapshot_roundtrip(t *testing.T) {
 			{Name: "baz", Def: &mockDef{}},
 		},
 		Sources: []config.SourceInfo{
-			{SHA: "123456789"},
+			{Key: "123456789"},
 		},
 
 		// Edges
@@ -63,7 +63,7 @@ func TestFromSnapshot_errors(t *testing.T) {
 			"NoResource",
 			snapshot.Snap{
 				Resources: nil,
-				Sources:   []config.SourceInfo{{SHA: "123"}},
+				Sources:   []config.SourceInfo{{Key: "123"}},
 				ResourceSources: map[int][]int{
 					0: {0}, // No resource at index 0
 				},
@@ -73,7 +73,7 @@ func TestFromSnapshot_errors(t *testing.T) {
 			"NoSourceOwner",
 			snapshot.Snap{
 				Resources:       []resource.Resource{{Name: "foo", Def: &mockDef{Input: "foo"}}},
-				Sources:         []config.SourceInfo{{SHA: "123"}},
+				Sources:         []config.SourceInfo{{Key: "123"}},
 				ResourceSources: map[int][]int{}, // empty
 			},
 		},
@@ -163,7 +163,7 @@ func (ExampleExpression) Eval(data map[graph.Field]interface{}, target interface
 func ExampleSnap_Graph() {
 	// digraph {
 	//   proj   -> {foo, bar}
-	//   source -> foo        // sha: 123
+	//   source -> foo        // key: 123
 	//   foo    -> bar        // index {0} -> {1}
 	// }
 
@@ -174,7 +174,7 @@ func ExampleSnap_Graph() {
 			{Name: "bar", Def: &mockDef{Input: "bar"}},
 		},
 		Sources: []config.SourceInfo{
-			{SHA: "123"},
+			{Key: "123"},
 		},
 
 		// Edges

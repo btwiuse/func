@@ -32,9 +32,9 @@ message ApplyResponse {
 
 // An SourceRequest describes a single upload request.
 message SourceRequest {
-  // Digest is the digest to upload.
+  // Key is the key of the source code to upload.
   // The digest maps back to a resource in the ApplyRequest config.
-  string digest = 1;
+  string key = 1;
 
   // Url is the destination URL to upload to.
   // The request should be done as a HTTP PUT.

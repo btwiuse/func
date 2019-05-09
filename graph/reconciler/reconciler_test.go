@@ -184,14 +184,14 @@ func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
 				onCreate: func(ctx context.Context, r *resource.CreateRequest) error {
 					got = make([]string, len(r.Source))
 					for i, s := range r.Source {
-						got[i] = s.Digest()
+						got[i] = s.Key()
 					}
 					return nil
 				},
 			}},
 		},
 		Sources: []config.SourceInfo{
-			{SHA: "abc"},
+			{Key: "abc"},
 		},
 		ResourceSources: map[int][]int{
 			0: {0},
@@ -330,7 +330,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
 				},
 				Sources: []config.SourceInfo{
-					{SHA: "abc"}, // no change
+					{Key: "abc"}, // no change
 				},
 				ResourceSources: map[int][]int{0: {0}},
 			},
@@ -357,7 +357,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					{Name: "foo", Def: &noopDef{Input: "foo"}}, // no change
 				},
 				Sources: []config.SourceInfo{
-					{SHA: "xyz"}, // updated
+					{Key: "xyz"}, // updated
 				},
 				ResourceSources: map[int][]int{0: {0}},
 			},
@@ -384,7 +384,7 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 					{Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
 				},
 				Sources: []config.SourceInfo{
-					{SHA: "xyz"}, // updated
+					{Key: "xyz"}, // updated
 				},
 				ResourceSources: map[int][]int{0: {0}},
 			},

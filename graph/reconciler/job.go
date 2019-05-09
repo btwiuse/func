@@ -173,8 +173,8 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 			info:    src.Config,
 			storage: j.source,
 		}
-		res.Config.Sources = append(res.Config.Sources, src.Config.SHA)
-		logger.Debug("Set source code", zap.String("sha", src.Config.SHA))
+		res.Config.Sources = append(res.Config.Sources, src.Config.Key)
+		logger.Debug("Set source code", zap.String("sha", src.Config.Key))
 	}
 
 	ex := j.existing.Find(res.Config.Def.Type(), res.Config.Name)

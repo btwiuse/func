@@ -53,12 +53,8 @@ func TestDecodeBody(t *testing.T) {
 			name: "Source",
 			body: parseBody(t, `
 				resource "simple" "bar" {
-					input = "src"
-					source ".tar.gz" {
-						sha = "abc"
-						md5 = "def"
-						len = 123
-					}
+					input  = "src"
+					source = "ff:abc:def"
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
@@ -67,7 +63,7 @@ func TestDecodeBody(t *testing.T) {
 					{Name: "bar", Def: &simpleDef{Input: "src"}},
 				},
 				Sources: []config.SourceInfo{
-					{SHA: "abc", MD5: "def", Len: 123, Ext: ".tar.gz"},
+					{Key: "def", MD5: "abc", Len: 0xFF},
 				},
 				ResourceSources: map[int][]int{
 					0: {0},
@@ -348,26 +344,22 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			}},
 		},
 		{
-			name: "IncompleteSource",
+			name: "InvalidSource",
 			body: parseBody(t, `
 				resource "simple" "foo" {
 					input = "hello"
 
-					source ".tar.gz" {
-						len = 123
-						md5 = "abc"
-						# no sha
-					}
+					source = "xxx"
 				}
 			`),
 			resources: []resource.Definition{&simpleDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
-				Summary:  "Missing required argument",
-				Detail:   `The argument "sha" is required, but no definition was found.`,
+				Summary:  "Could not decode source information",
+				Detail:   "Error: string must contain 3 parts separated by ':'. This is always a bug.",
 				Subject: &hcl.Range{
-					Start: hcl.Pos{Line: 8, Column: 7},
-					End:   hcl.Pos{Line: 8, Column: 7},
+					Start: hcl.Pos{Line: 1, Column: 1},
+					End:   hcl.Pos{Line: 1, Column: 24},
 				},
 			}},
 		},

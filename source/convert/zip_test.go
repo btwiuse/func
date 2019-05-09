@@ -15,7 +15,7 @@ import (
 func TestZip(t *testing.T) {
 	targz := source.TarGZ{}
 	var tarBuf bytes.Buffer
-	if _, err := targz.Compress(&tarBuf, "testdata"); err != nil {
+	if err := targz.Compress(&tarBuf, "testdata"); err != nil {
 		t.Fatalf("Compress test tar.gz: %v", err)
 	}
 

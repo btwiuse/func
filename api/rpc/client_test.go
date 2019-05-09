@@ -59,7 +59,7 @@ func TestClientApply_Response(t *testing.T) {
 			rpcResp: &ApplyResponse{
 				SourcesRequired: []*SourceRequest{
 					{
-						Digest:  "abc",
+						Key:     "abc",
 						Url:     "https://abc.com",
 						Headers: map[string]string{"foo": "bar"},
 					},
@@ -68,7 +68,7 @@ func TestClientApply_Response(t *testing.T) {
 			wantResp: &api.ApplyResponse{
 				SourcesRequired: []api.SourceRequest{
 					{
-						Digest:  "abc",
+						Key:     "abc",
 						URL:     "https://abc.com",
 						Headers: map[string]string{"foo": "bar"},
 					},

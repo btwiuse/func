@@ -17,7 +17,7 @@ type TarGZ struct{}
 // Compress compresses the given files into a tarball that is written into w.
 //
 // The file paths will be relative to the given directory.
-func (TarGZ) Compress(w io.Writer, dir string) (string, error) {
+func (TarGZ) Compress(w io.Writer, dir string) error {
 	dir = filepath.Clean(dir)
 	gz := gzip.NewWriter(w)
 	tf := tar.NewWriter(gz)
@@ -53,14 +53,14 @@ func (TarGZ) Compress(w io.Writer, dir string) (string, error) {
 		}
 		return nil
 	}); err != nil {
-		return "", errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 
 	if err := tf.Close(); err != nil {
-		return "", errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	if err := gz.Close(); err != nil {
-		return "", errors.WithStack(err)
+		return errors.WithStack(err)
 	}
-	return ".tar.gz", nil
+	return nil
 }

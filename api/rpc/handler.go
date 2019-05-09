@@ -70,7 +70,7 @@ func (h *handler) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse,
 	// Convert source requests.
 	for i, sr := range resp.SourcesRequired {
 		rpcResp.SourcesRequired[i] = &SourceRequest{
-			Digest:  sr.Digest,
+			Key:     sr.Key,
 			Url:     sr.URL,
 			Headers: sr.Headers,
 		}

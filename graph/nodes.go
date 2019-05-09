@@ -124,7 +124,7 @@ func (n *Source) ID() int64 { return n.id }
 // graphviz dot format.
 func (n *Source) Attributes() []encoding.Attribute {
 	return []encoding.Attribute{
-		{Key: "label", Value: fmt.Sprintf("Source\n%s", n.Config.SHA[:7])},
+		{Key: "label", Value: fmt.Sprintf("Source\n%s", n.Config.Key[:7])},
 	}
 }
 

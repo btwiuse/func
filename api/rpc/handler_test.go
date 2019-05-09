@@ -70,7 +70,7 @@ func TestHandler_Apply_Response(t *testing.T) {
 			apiResp: &api.ApplyResponse{
 				SourcesRequired: []api.SourceRequest{
 					{
-						Digest:  "abc",
+						Key:     "abc",
 						URL:     "https://abc.com",
 						Headers: map[string]string{"foo": "bar"},
 					},
@@ -79,7 +79,7 @@ func TestHandler_Apply_Response(t *testing.T) {
 			wantResp: &ApplyResponse{
 				SourcesRequired: []*SourceRequest{
 					{
-						Digest:  "abc",
+						Key:     "abc",
 						Url:     "https://abc.com",
 						Headers: map[string]string{"foo": "bar"},
 					},
