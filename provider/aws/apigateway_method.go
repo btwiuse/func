@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct APIGatewayMethod --template ../../tools/structdoc/template.txt --data type=aws_apigateway_method --output ../../docs/resources/aws/apigateway_method.md
-
 package aws
 
 import (

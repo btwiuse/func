@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct IAMRolePolicyAttachment --template ../../tools/structdoc/template.txt --data type=aws_iam_role_policy_attachment --output ../../docs/resources/aws/iam_role_policy_attachment.md
-
 package aws
 
 import (

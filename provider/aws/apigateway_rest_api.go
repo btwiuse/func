@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct APIGatewayRestAPI --template ../../tools/structdoc/template.txt --data type=aws_apigateway_rest_api --output ../../docs/resources/aws/apigateway_rest_api.md
-
 package aws
 
 import (

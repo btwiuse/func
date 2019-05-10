@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct LambdaFunction --template ../../tools/structdoc/template.txt --data type=aws_lambda_function --output ../../docs/resources/aws/lambda_function.md
-
 package aws
 
 import (

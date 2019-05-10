@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct STSCallerIdentity --template ../../tools/structdoc/template.txt --data type=aws_sts_caller_identity --output ../../docs/resources/aws/sts_caller_identity.md
-
 package aws
 
 import (

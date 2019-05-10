@@ -1,6 +1,3 @@
-//nolint: lll
-//go:generate go run ../../tools/structdoc/main.go --file $GOFILE --struct LambdaInvokePermission --template ../../tools/structdoc/template.txt --data type=aws_lambda_permission --output ../../docs/resources/aws/lambda_permission.md
-
 package aws
 
 import (
