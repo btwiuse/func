@@ -8,6 +8,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/schema"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -88,79 +89,84 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 
 	// Collect extracted fields with resource information so inputs/outputs can
 	// be looked up later.
-	for f, expr := range fields {
+	for name, bf := range fields {
 		var e *expression
 
 		// Only inputs have expressions.
-		if f.Dir == resource.Input {
+		if bf.expr != nil {
 			// Convert hclpack expression as the internals rely on known hcl
 			// types for replacing values.
-			if packexpr, ok := expr.(*hclpack.Expression); ok {
+			if packexpr, ok := bf.expr.(*hclpack.Expression); ok {
 				// Parse into hcl.Expression
 				ex, morediags := packexpr.Parse()
 				if morediags.HasErrors() {
 					diags = append(diags, morediags...)
 					continue
 				}
-				expr = ex
+				bf.expr = ex
 			}
 
-			e = &expression{Expression: expr}
+			e = &expression{Expression: bf.expr}
 			if morediags := e.validate(); morediags.HasErrors() {
 				diags = append(diags, morediags...)
 				continue
 			}
 		}
 
-		target := graph.Field{Name: resname, Field: f.Name}
-		d.fields[target] = field{def: def, info: f, expr: e}
+		target := graph.Field{Name: resname, Field: name}
+		d.fields[target] = field{def: def, index: bf.index, expr: e}
 	}
 
 	return diags
 }
 
+type bodyField struct {
+	index int
+	expr  hcl.Expression
+}
+
 // decodeResBody extracts top-level inputs and outputs from the body.
 // Nested blocks are decoded directly into the target value.
-func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[resource.Field]hcl.Expression, hcl.Diagnostics) {
+func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[string]bodyField, hcl.Diagnostics) {
 	// Get schema from target inputs.
-	fields := resource.Fields(val.Type(), resource.Input)
-	schema := inputSchema(fields)
+	fields := schema.Inputs(val.Type())
+	bodySchema := inputSchema(fields)
 
 	// Decode body with given schema.
-	cont, diags := body.Content(schema)
+	cont, diags := body.Content(bodySchema)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	values := make(map[resource.Field]hcl.Expression)
+	values := make(map[string]bodyField)
 
 	// Attributes
-	for _, f := range fields {
-		if isBlock(f) {
+	for name, f := range fields {
+		if isBlock(f.Type) {
 			continue
 		}
-		attr, ok := cont.Attributes[f.Name]
+		attr, ok := cont.Attributes[name]
 		if !ok {
 			// Optional attribute was not set
 			continue
 		}
-		values[f] = attr.Expr
+		values[name] = bodyField{index: f.Index, expr: attr.Expr}
 	}
 
 	// Blocks
 	blocksByType := cont.Blocks.ByType()
-	for _, f := range fields {
-		if !isBlock(f) {
+	for name, f := range fields {
+		if !isBlock(f.Type) {
 			continue
 		}
-		blocks := blocksByType[f.Name]
+		blocks := blocksByType[name]
 		val := val.Field(f.Index)
-		diags = append(diags, decodeStaticBlocks(f.Name, body, blocks, val)...)
+		diags = append(diags, decodeStaticBlocks(name, body, blocks, val)...)
 	}
 
 	// Outputs
-	for _, out := range resource.Fields(val.Type(), resource.Output) {
-		values[out] = nil
+	for name, f := range schema.Outputs(val.Type()) {
+		values[name] = bodyField{index: f.Index}
 	}
 
 	return values, diags
@@ -244,7 +250,7 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 		// Missing required block
 		diags = append(diags, &hcl.Diagnostic{
 			Severity: hcl.DiagError,
-			Summary:  fmt.Sprintf("Missing %s block", name),
+			Summary:  "Missing required block",
 			Detail:   fmt.Sprintf("A %s block is required.", name),
 			Subject:  parent.MissingItemRange().Ptr(),
 		})
@@ -256,7 +262,7 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 	// We know there is exactly one block to decode.
 	block := blocks[0]
 
-	fields := resource.Fields(typ, resource.Input)
+	fields := schema.Inputs(typ)
 	schema := inputSchema(fields)
 	cont, diags := block.Body.Content(schema)
 	if diags.HasErrors() {
@@ -270,11 +276,11 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 	}
 
 	// Attributes
-	for _, f := range fields {
-		if isBlock(f) {
+	for name, f := range fields {
+		if isBlock(f.Type) {
 			continue
 		}
-		attr, ok := cont.Attributes[f.Name]
+		attr, ok := cont.Attributes[name]
 		if !ok {
 			// Optional attribute was not set
 			continue
@@ -332,37 +338,36 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 
 	// Blocks
 	blocksByType := cont.Blocks.ByType()
-	for _, f := range fields {
-		if !isBlock(f) {
+	for name, f := range fields {
+		if !isBlock(f.Type) {
 			continue
 		}
-		blocks := blocksByType[f.Name]
+		blocks := blocksByType[name]
 		val := reflect.Indirect(val).Field(f.Index)
-		diags = append(diags, decodeStaticBlocks(f.Name, block.Body, blocks, val)...)
+		diags = append(diags, decodeStaticBlocks(name, block.Body, blocks, val)...)
 	}
 
 	return diags
 }
 
-func inputSchema(ff []resource.Field) *hcl.BodySchema {
+func inputSchema(ff map[string]schema.InputField) *hcl.BodySchema {
 	schema := &hcl.BodySchema{}
-	for _, f := range ff {
-		if isBlock(f) {
+	for name, f := range ff {
+		if isBlock(f.Type) {
 			schema.Blocks = append(schema.Blocks, hcl.BlockHeaderSchema{
-				Type: f.Name,
+				Type: name,
 			})
 			continue
 		}
 		schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{
-			Name:     f.Name,
-			Required: f.Type.Kind() != reflect.Ptr,
+			Name:     name,
+			Required: f.Required,
 		})
 	}
 	return schema
 }
 
-func isBlock(f resource.Field) bool {
-	t := f.Type
+func isBlock(t reflect.Type) bool {
 	if t.Kind() == reflect.Ptr {
 		// Optional
 		t = t.Elem()
