@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
 	"github.com/func/func/resource"
@@ -16,24 +15,24 @@ type APIGatewayResource struct {
 	// Inputs
 
 	// The parent resource's identifier.
-	ParentID string `input:"parent_id"`
+	ParentID *string `func:"input,required"`
 
 	// The last path segment for this resource.
-	PathPart string `input:"path_part"`
+	PathPart *string `func:"input,required"`
 
 	// The region the API Gateway is deployed to.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
 	// The string identifier of the associated RestApi.
-	RestAPIID string `input:"rest_api_id"`
+	RestAPIID *string `func:"input,required" name:"rest_api_id"`
 
 	// Outputs
 
 	// The resource's identifier.
-	ID string `output:"id"`
+	ID *string `func:"output"`
 
 	// The full path for this resource.
-	Path string `output:"path"`
+	Path *string `func:"output"`
 
 	apigatewayService
 }
@@ -49,9 +48,9 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 	}
 
 	input := &apigateway.CreateResourceInput{
-		ParentId:  aws.String(p.ParentID),
-		PathPart:  aws.String(p.PathPart),
-		RestApiId: aws.String(p.RestAPIID),
+		ParentId:  p.ParentID,
+		PathPart:  p.PathPart,
+		RestApiId: p.RestAPIID,
 	}
 
 	req := svc.CreateResourceRequest(input)
@@ -60,8 +59,8 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 		return err
 	}
 
-	p.ID = *resp.Id
-	p.Path = *resp.Path
+	p.ID = resp.Id
+	p.Path = resp.Path
 
 	// The response contains ResourceMethods but they are never (can't be) set
 	// when the resource is created. These values are only relevant when the
@@ -80,8 +79,8 @@ func (p *APIGatewayResource) Delete(ctx context.Context, r *resource.DeleteReque
 	}
 
 	input := &apigateway.DeleteResourceInput{
-		ResourceId: aws.String(p.ID),
-		RestApiId:  aws.String(p.RestAPIID),
+		ResourceId: p.ID,
+		RestApiId:  p.RestAPIID,
 	}
 
 	req := svc.DeleteResourceRequest(input)
@@ -114,8 +113,8 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 	}
 
 	input := &apigateway.UpdateResourceInput{
-		RestApiId:       aws.String(p.RestAPIID),
-		ResourceId:      aws.String(p.ID),
+		RestApiId:       p.RestAPIID,
+		ResourceId:      p.ID,
 		PatchOperations: ops,
 	}
 

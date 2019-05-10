@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -17,11 +16,11 @@ type LambdaInvokePermission struct {
 	// is a string starting with lambda: followed by the API name . For example,
 	// lambda:CreateFunction. You can use wildcard (lambda:*) to grant permission
 	// for all AWS Lambda actions.
-	Action string `input:"action"`
+	Action *string `func:"input,required"`
 
 	// A unique token that must be supplied by the principal invoking the function.
 	// This is currently only used for Alexa Smart Home functions.
-	EventSourceToken *string `input:"event_source_token"`
+	EventSourceToken *string `func:"input"`
 
 	// The name of the Lambda function.
 	//
@@ -33,27 +32,27 @@ type LambdaInvokePermission struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName string `input:"function_name"`
+	FunctionName *string `func:"input,required"`
 
 	// The principal who is getting this permission. The principal can be an
 	// AWS service (e.g. `s3.amazonaws.com` or `sns.amazonaws.com`) for service
 	// triggers, or an account ID for cross-account access. If you specify a
 	// service as a principal, use the SourceArn parameter to limit who can
 	// invoke the function through that service.
-	Principal string `input:"principal"`
+	Principal *string `func:"input,required"`
 
 	// Region the Lambda function has been deployed to.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
 	// Specify a version or alias to add permissions to a published version of the
 	// function.
-	Qualifier *string `input:"qualifier"`
+	Qualifier *string `func:"input"`
 
 	// An optional value you can use to ensure you are updating the latest update
 	// of the function version or alias. If the RevisionID you pass doesn't match
 	// the latest RevisionID of the function or alias, it will fail with an error
 	// message.
-	RevisionID *string `input:"revision_id"`
+	RevisionID *string `func:"input"`
 
 	// This parameter is used for S3 and SES. The AWS account ID (without a hyphen)
 	// of the source owner. For example, if the SourceArn identifies a bucket, then
@@ -62,24 +61,24 @@ type LambdaInvokePermission struct {
 	// the bucket owner deleted the bucket and some other AWS account created the
 	// bucket). You can also use this condition to specify all sources (that is,
 	// you don't specify the SourceArn) owned by a specific account.
-	SourceAccount *string `input:"service_account"`
+	SourceAccount *string `func:"input"`
 
 	// The Amazon Resource Name of the invoker.
 	//
 	// If you add a permission to a service principal without providing the source
 	// ARN, any AWS account that creates a mapping to your function ARN can invoke
 	// your Lambda function.
-	SourceARN *string `input:"source_arn"`
+	SourceARN *string `func:"input" validate:"arn"`
 
 	// A unique statement identifier.
-	StatementID string `input:"statement_id"`
+	StatementID *string `func:"input,required"`
 
 	// Outputs
 
 	// The permission statement you specified in the request. The response returns
 	// the same as a string using a backslash ("\") as an escape character in the
 	// JSON.
-	Statement string `output:"statement"`
+	Statement *string `func:"output"`
 
 	lambdaService
 }
@@ -95,15 +94,15 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 	}
 
 	input := &lambda.AddPermissionInput{
-		Action:           aws.String(p.Action),
+		Action:           p.Action,
 		EventSourceToken: p.EventSourceToken,
-		FunctionName:     aws.String(p.FunctionName),
-		Principal:        aws.String(p.Principal),
+		FunctionName:     p.FunctionName,
+		Principal:        p.Principal,
 		Qualifier:        p.Qualifier,
 		RevisionId:       p.RevisionID,
 		SourceAccount:    p.SourceAccount,
 		SourceArn:        p.SourceARN,
-		StatementId:      aws.String(p.StatementID),
+		StatementId:      p.StatementID,
 	}
 
 	req := svc.AddPermissionRequest(input)
@@ -112,7 +111,7 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 		return err
 	}
 
-	p.Statement = *resp.Statement
+	p.Statement = resp.Statement
 
 	return nil
 }
@@ -125,10 +124,10 @@ func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteR
 	}
 
 	req := svc.RemovePermissionRequest(&lambda.RemovePermissionInput{
-		FunctionName: aws.String(p.FunctionName),
+		FunctionName: p.FunctionName,
 		Qualifier:    p.Qualifier,
 		RevisionId:   p.RevisionID,
-		StatementId:  aws.String(p.StatementID),
+		StatementId:  p.StatementID,
 	})
 	_, err = req.Send(ctx)
 	return err

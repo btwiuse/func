@@ -2,11 +2,7 @@ package aws
 
 import (
 	"context"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -19,21 +15,21 @@ import (
 // API.
 type APIGatewayIntegration struct {
 	// Specifies a put integration input's cache key parameters.
-	CacheKeyParameters *[]string `input:"cache_key_parameters"`
+	CacheKeyParameters []string `func:"input"`
 
 	// Specifies a put integration input's cache namespace.
-	CacheNamespace *string `input:"cache_namespace"`
+	CacheNamespace *string `func:"input"`
 
 	// The [id](https://docs.aws.amazon.com/apigateway/api-reference/resource/vpc-link/#id)
 	// of the VpcLink used for the integration when `connectionType=VPC_LINK` and
 	// undefined, otherwise.
-	ConnectionID *string `input:"connection_id"`
+	ConnectionID *string `func:"input"`
 
 	// The type of the network connection to the integration endpoint. The valid
 	// value is `INTERNET` for connections through the public routable internet or
 	// `VPC_LINK` for private connections between API Gateway and a network load balancer
 	// in a VPC. The default value is `INTERNET`.
-	ConnectionType *string `input:"connection_type"`
+	ConnectionType string `func:"input" validate:"oneof=INTERNET VPC_LINK"`
 
 	// Specifies how to handle request payload content type conversions. Supported
 	// values are `CONVERT_TO_BINARY` and `CONVERT_TO_TEXT`, with the following
@@ -47,7 +43,7 @@ type APIGatewayIntegration struct {
 	// If this property is not defined, the request payload will be passed through
 	// from the method request to integration request without modification, provided
 	// that the `passthrough_behaviors` is configured to support payload pass-through.
-	ContentHandling *string `input:"content_handling"`
+	ContentHandling string `func:"input" validate:"oneof=CONVERT_TO_BINARY CONVERT_TO_TEXT"`
 
 	// Specifies the credentials required for the integration, if any.
 	//
@@ -56,15 +52,15 @@ type APIGatewayIntegration struct {
 	// - To require that the caller's identity be passed through from the
 	//   request, specify the string `arn:aws:iam::*:user/*`
 	// - To use resource-based permissions on supported AWS services, leave this field blank.
-	Credentials *string `input:"credentials"`
+	Credentials *string `func:"input"`
 
 	// Specifies a put integration request's HTTP method.
-	HTTPMethod string `input:"http_method"`
+	HTTPMethod *string `func:"input,required"`
 
 	// Specifies a put integration HTTP method.
 	//
 	// When the integration type is `HTTP` or `AWS`, this field is required.
-	IntegrationHTTPMethod string `input:"integration_http_method"`
+	IntegrationHTTPMethod *string `func:"input"`
 
 	// Specifies the pass-through behavior for incoming requests based on the
 	// Content-Type header in the request, and the available mapping templates
@@ -80,10 +76,10 @@ type APIGatewayIntegration struct {
 	// - `WHEN_NO_TEMPLATES` allows pass-through when the integration has NO content
 	//   types mapped to templates. However if there is at least one content type
 	//   defined, unmapped content types will be rejected with the same 415 response.
-	PassthroughBehavior *string `input:"passthrough_behavior"`
+	PassthroughBehavior *string `func:"input" validate:"oneof=WHEN_NO_MATCH NEVER WHEN_NO_TEMPLATES"`
 
 	// The region the API Gateway is deployed to.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
 	// A key-value map specifying request parameters that are passed from the
 	// method request to the back end. The key is an integration request
@@ -93,24 +89,24 @@ type APIGatewayIntegration struct {
 	// value must match the pattern of `method.request.{location}.{name}`,
 	// where location is `querystring`, `path`, or `header` and name must be a
 	// valid and unique method request parameter name.
-	RequestParameters *map[string]string `input:"request_parameters"`
+	RequestParameters map[string]string `func:"input"`
 
 	// Represents a map of
 	// [Velocity](https://velocity.apache.org/engine/1.7/user-guide.html#velocity-template-language-vtl-an-introduction)
 	// templates that are applied on the request payload based on the value of
 	// the Content-Type header sent by the client. The content type value is
 	// the key in this map, and the template (as a String) is the value.
-	RequestTemplates *map[string]string `input:"request_templates"`
+	RequestTemplates map[string]string `func:"input"`
 
 	// Specifies a put integration request's resource ID.
-	ResourceID string `input:"resource_id"`
+	ResourceID *string `func:"input,required"`
 
-	// The string identifier of the associated RestApi.
-	RestAPIID string `input:"rest_api_id"`
+	// The string identifier of the associated Rest API.
+	RestAPIID *string `func:"input,required" name:"rest_api_id"`
 
 	// Custom timeout between 50 and 29,000 milliseconds. The default value is 29,000
 	// milliseconds or 29 seconds.
-	Timeout *time.Duration `input:"timeout"`
+	TimeoutInMillis *int64 `func:"input" validate:"gte=50,lte=29000"`
 
 	// Specifies a put integration input's type.
 	//
@@ -129,7 +125,7 @@ type APIGatewayIntegration struct {
 	// - `HTTP_PROXY`: for integrating the API method request with an HTTP
 	//   endpoint, including a private HTTP endpoint within a VPC, with the
 	//   client request passed through as-is. This is also referred to as the
-	// - `HTTP` proxy integration.
+	//   `HTTP` proxy integration.
 	// - `MOCK`: for integrating the API method request with API Gateway as a
 	//   "loop-back" endpoint without invoking any backend.
 	//
@@ -139,7 +135,7 @@ type APIGatewayIntegration struct {
 	// integration with a `connection_type` of `VPC_LINK` is referred to as a
 	// private integration and uses a VpcLink to connect API Gateway to a
 	// network load balancer of a VPC.
-	IntegrationType string `input:"integration_type"`
+	IntegrationType string `func:"input,required" validate:"oneof=AWS AWS_PROXY HTTP HTTP_PROXY MOCK"`
 
 	// Specifies Uniform Resource Identifier (URI) of the integration endpoint.
 	//
@@ -165,14 +161,14 @@ type APIGatewayIntegration struct {
 	//   the uri can be either
 	//   `arn:aws:apigateway:us-west-2:s3:action/GetObject&Bucket={bucket}&Key={key}`
 	//   or `arn:aws:apigateway:us-west-2:s3:path/{bucket}/{key}`
-	URI *string `input:"uri"`
+	URI *string `func:"input"`
 
 	// Outputs
 
 	// Specifies the integration's responses.
 	//
 	// The key in the map is the HTTP status code.
-	IntegrationResponses map[string]APIGatewayIntegrationResponse `output:"integration_responses"`
+	IntegrationResponses map[string]APIGatewayIntegrationResponse `func:"output"`
 
 	apigatewayService
 }
@@ -193,7 +189,7 @@ type APIGatewayIntegrationResponse struct {
 	// If this property is not defined, the response payload will be passed
 	// through from the integration response to the method response without
 	// modification.
-	ContentHandling string `output:"content_handling"`
+	ContentHandling string `func:"output"`
 
 	// A key-value map specifying response parameters that are passed to the
 	// method response from the back end. The key is a method response header
@@ -206,12 +202,12 @@ type APIGatewayIntegrationResponse struct {
 	// `integration.response.body.{JSON-expression}`, where name is a valid and
 	// unique response header name and JSON-expression is a valid JSON
 	// expression without the `$` prefix.
-	ResponseParameters map[string]string `output:"request_parameters"`
+	ResponseParameters map[string]string `func:"output"`
 
 	// Specifies the templates used to transform the integration response body.
 	// Response templates are represented as a key/value map, with a
 	// content-type as the key and a template as the value.
-	ResponseTemplates map[string]string `output:"response_templates"`
+	ResponseTemplates map[string]string `func:"output"`
 
 	// Specifies the regular expression pattern used to choose an integration
 	// response based on the response from the back end.
@@ -222,11 +218,11 @@ type APIGatewayIntegrationResponse struct {
 	// contain any newline (`\n`) character in such cases. If the back end is
 	// an AWS Lambda function, the AWS Lambda function error header is matched.
 	// For all other HTTP and AWS back ends, the HTTP status code is matched.
-	SelectionPattern string `output:"selection_pattern"`
+	SelectionPattern string `func:"output"`
 
 	// Specifies the status code that is used to map the integration response
 	// to an existing MethodResponse.
-	StatusCode string `output:"status_code"`
+	StatusCode string `func:"output"`
 }
 
 // Type returns the resource type of a apigateway resource.
@@ -241,34 +237,21 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 
 	input := &apigateway.PutIntegrationInput{
 		CacheNamespace:        p.CacheNamespace,
+		CacheKeyParameters:    p.CacheKeyParameters,
 		ConnectionId:          p.ConnectionID,
+		ConnectionType:        apigateway.ConnectionType(p.ConnectionType),
+		ContentHandling:       apigateway.ContentHandlingStrategy(p.ContentHandling),
 		Credentials:           p.Credentials,
-		HttpMethod:            aws.String(p.HTTPMethod),
-		IntegrationHttpMethod: aws.String(p.IntegrationHTTPMethod),
+		HttpMethod:            p.HTTPMethod,
+		IntegrationHttpMethod: p.IntegrationHTTPMethod,
 		PassthroughBehavior:   p.PassthroughBehavior,
-		ResourceId:            aws.String(p.ResourceID),
-		RestApiId:             aws.String(p.RestAPIID),
-		Type:                  apigateway.IntegrationType(strings.ToUpper(p.IntegrationType)),
+		ResourceId:            p.ResourceID,
+		RequestParameters:     p.RequestParameters,
+		RequestTemplates:      p.RequestTemplates,
+		RestApiId:             p.RestAPIID,
+		TimeoutInMillis:       p.TimeoutInMillis,
+		Type:                  apigateway.IntegrationType(p.IntegrationType),
 		Uri:                   p.URI,
-	}
-
-	if p.CacheKeyParameters != nil {
-		input.CacheKeyParameters = *p.CacheKeyParameters
-	}
-	if p.ConnectionType != nil {
-		input.ConnectionType = apigateway.ConnectionType(*p.ConnectionType)
-	}
-	if p.ContentHandling != nil {
-		input.ContentHandling = apigateway.ContentHandlingStrategy(*p.ContentHandling)
-	}
-	if p.RequestParameters != nil {
-		input.RequestParameters = *p.RequestParameters
-	}
-	if p.RequestTemplates != nil {
-		input.RequestTemplates = *p.RequestTemplates
-	}
-	if p.Timeout != nil {
-		input.TimeoutInMillis = aws.Int64(p.Timeout.Nanoseconds() * int64(time.Millisecond))
 	}
 
 	req := svc.PutIntegrationRequest(input)
@@ -304,9 +287,9 @@ func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRe
 	}
 
 	req := svc.DeleteIntegrationRequest(&apigateway.DeleteIntegrationInput{
-		HttpMethod: aws.String(p.HTTPMethod),
-		ResourceId: aws.String(p.ResourceID),
-		RestApiId:  aws.String(p.RestAPIID),
+		HttpMethod: p.HTTPMethod,
+		ResourceId: p.ResourceID,
+		RestApiId:  p.RestAPIID,
 	})
 	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -357,18 +340,7 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		apigatewaypatch.Field{Name: "RequestParameters", Path: "/requestParameters"},
 		apigatewaypatch.Field{Name: "Timeout", Path: "/timeoutInMillis"},
 		apigatewaypatch.Field{Name: "URI", Path: "/uri"},
-		apigatewaypatch.Field{
-			Name: "Timeout",
-			Path: "/timeoutInMillis",
-			Modifier: func(ops []apigateway.PatchOperation) []apigateway.PatchOperation {
-				ms := int(p.Timeout.Nanoseconds() * int64(time.Millisecond))
-				return []apigateway.PatchOperation{{
-					Op:    apigateway.OpReplace,
-					Path:  aws.String("/timeoutInMillis"),
-					Value: aws.String(strconv.Itoa(ms)),
-				}}
-			},
-		},
+		apigatewaypatch.Field{Name: "Timeout", Path: "/timeoutInMillis"},
 	)
 	if err != nil {
 		return err
@@ -384,9 +356,9 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 	}
 
 	req := svc.UpdateMethodRequest(&apigateway.UpdateMethodInput{
-		HttpMethod:      aws.String(p.HTTPMethod),
-		ResourceId:      aws.String(p.ResourceID),
-		RestApiId:       aws.String(p.RestAPIID),
+		HttpMethod:      p.HTTPMethod,
+		ResourceId:      p.ResourceID,
+		RestApiId:       p.RestAPIID,
 		PatchOperations: ops,
 	})
 	if _, err := req.Send(ctx); err != nil {

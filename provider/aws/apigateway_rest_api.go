@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -24,17 +23,17 @@ type APIGatewayRestAPI struct {
 	// - HEADER to read the API key from the X-API-Key header of a request.
 	// - AUTHORIZER to read the API key from the UsageIdentifierKey from a custom
 	//   authorizer.
-	APIKeySource *string `input:"api_key_source"`
+	APIKeySource *string `func:"input" validate:"HEADER AUTHORIZER"`
 
 	// The list of binary media types supported by the RestApi.
 	// By default, the RestApi supports only UTF-8-encoded text payloads.
-	BinaryMediaTypes *[]string `input:"binary_media_types"`
+	BinaryMediaTypes []string `func:"input"`
 
 	// The ID of the RestApi that you want to clone from.
-	CloneFrom *string `input:"clone_from"`
+	CloneFrom *string `func:"input"`
 
 	// The description of the RestApi.
-	Description *string `input:"description"`
+	Description *string `func:"input"`
 
 	// The endpoint configuration of this RestApi showing the endpoint types of
 	// the API.
@@ -45,40 +44,40 @@ type APIGatewayRestAPI struct {
 		//   `EDGE`.
 		// - For a regional API and its custom domain name, the endpoint type
 		//   is `REGIONAL`. For a private API, the endpoint type is `PRIVATE`.
-		Types []string `input:"types"`
-	} `input:"endpoint_configuration"`
+		Types []string `func:"input"`
+	} `func:"input"`
 
 	// A nullable integer that is used to enable compression (with non-negative
 	// between 0 and 10485760 (10M) bytes, inclusive) or disable compression (with
 	// a null value) on an API. When compression is enabled, compression or decompression
 	// is not applied on the payload if the payload size is smaller than this value.
 	// Setting it to zero allows compression for any payload size.
-	MinimumCompressionSize *int64 `input:"minimum_compression_size"`
+	MinimumCompressionSize *int64 `func:"input" validate:"gte=0,lte=10485760"`
 
 	// The name of the RestApi.
-	Name string `input:"name"`
+	Name *string `func:"input,required"`
 
 	// A stringified JSON policy document that applies to this RestApi regardless
 	// of the caller and Method
-	Policy *string `input:"policy"`
+	Policy *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
 	// A version identifier for the API.
-	Version *string `input:"version"`
+	Version *string `func:"input"`
 
 	// Outputs
 
 	// A timestamp for when the API was created.
-	CreatedDate time.Time `output:"created_date"`
+	CreatedDate *time.Time `func:"output"`
 
 	// The API's identifier. This identifier is unique across all of your APIs in
 	// API Gateway.
-	ID string `output:"id"`
+	ID *string `func:"output"`
 
 	// The identifier for the API's root (/) resource.
-	RootResourceID string `output:"root_resource_id"`
+	RootResourceID *string `func:"output"`
 
 	apigatewayService
 }
@@ -97,16 +96,14 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 		CloneFrom:              p.CloneFrom,
 		Description:            p.Description,
 		MinimumCompressionSize: p.MinimumCompressionSize,
-		Name:                   aws.String(p.Name),
+		Name:                   p.Name,
 		Policy:                 p.Policy,
 		Version:                p.Version,
+		BinaryMediaTypes:       p.BinaryMediaTypes,
 	}
 
 	if p.APIKeySource != nil {
 		input.ApiKeySource = apigateway.ApiKeySourceType(*p.APIKeySource)
-	}
-	if p.BinaryMediaTypes != nil {
-		input.BinaryMediaTypes = *p.BinaryMediaTypes
 	}
 	if p.EndpointConfiguration != nil {
 		types := make([]apigateway.EndpointType, len(p.EndpointConfiguration.Types))
@@ -124,8 +121,8 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 		return err
 	}
 
-	p.CreatedDate = *resp.CreatedDate
-	p.ID = *resp.Id
+	p.CreatedDate = resp.CreatedDate
+	p.ID = resp.Id
 
 	// Read root resource
 	rootReq := svc.GetResourcesRequest(&apigateway.GetResourcesInput{
@@ -137,7 +134,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 	}
 	for _, item := range rootRes.Items {
 		if *item.Path == "/" {
-			p.RootResourceID = *item.Id
+			p.RootResourceID = item.Id
 			return nil
 		}
 	}
@@ -152,7 +149,7 @@ func (p *APIGatewayRestAPI) Delete(ctx context.Context, r *resource.DeleteReques
 	}
 
 	input := &apigateway.DeleteRestApiInput{
-		RestApiId: aws.String(p.ID),
+		RestApiId: p.ID,
 	}
 
 	req := svc.DeleteRestApiRequest(input)
@@ -232,7 +229,7 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 	}
 
 	input := &apigateway.UpdateRestApiInput{
-		RestApiId:       aws.String(p.ID),
+		RestApiId:       p.ID,
 		PatchOperations: ops,
 	}
 

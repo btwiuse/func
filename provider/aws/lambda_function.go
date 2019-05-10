@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
 	"github.com/func/func/source/convert"
 	"github.com/pkg/errors"
@@ -39,16 +39,16 @@ type LambdaFunction struct {
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 	DeadLetterConfig *struct {
-		TargetArn *string `input:"target_arn"`
-	} `input:"dead_letter_config"`
+		TargetArn *string `func:"input" validate:"arn"`
+	} `func:"input"`
 
 	// A description of the function.
-	Description *string `input:"description"`
+	Description *string `func:"input"`
 
 	// Environment variables that are accessible from function code during execution.
 	Environment *struct {
-		Variables map[string]string `input:"variables"`
-	} `input:"environment"`
+		Variables map[string]string `func:"input"`
+	} `func:"input"`
 
 	// The name of the Lambda function.
 	//
@@ -60,67 +60,50 @@ type LambdaFunction struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName string `input:"function_name"`
+	FunctionName *string `func:"input,required"`
 
 	// The name of the method within your code that Lambda calls to execute
 	// your function. For more information, see
 	// [Programming Model](http://docs.aws.amazon.com/lambda/latest/dg/programming-model-v2.html).
-	Handler string `input:"handler"`
+	Handler *string `func:"input,required"`
 
 	// The ARN of the KMS key used to encrypt your function's environment
 	// variables. If not provided, AWS Lambda will use a default service key.
-	KMSKeyArn *string `input:"kms_key_arn"`
+	KMSKeyArn *string `func:"input"`
 
 	// A list of [function layers](http://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html)
 	// to add to the function's execution environment.
-	Layers *[]string `input:"layers"`
+	Layers []string `func:"input"`
 
 	// The amount of memory that your function has access to. Increasing the
 	// function's memory also increases it's CPU allocation. The default value
 	// is 128 MB. The value must be a multiple of 64 MB.
-	MemorySize *int64 `input:"memory_size"`
+	MemorySize *int64 `func:"input" validate:"gte=64,lte=3008,div=64"`
 
 	// Set to true to publish the first version of the function during
 	// creation.
-	Publish *bool `input:"publish"`
+	Publish *bool `func:"input"`
 
 	// Region to run the Lambda function in.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
-	Role string `input:"role"`
+	Role *string `func:"input,required" validate:"arn"`
 
 	// The runtime version for the function.
-	//
-	// Allowed values:
-	//   - nodejs
-	//   - nodejs4.3
-	//   - nodejs6.10
-	//   - nodejs8.10
-	//   - java8
-	//   - python2.7
-	//   - python3.6
-	//   - python3.7
-	//   - dotnetcore1.0
-	//   - dotnetcore2.0
-	//   - dotnetcore2.1
-	//   - nodejs4.3-edge
-	//   - go1.x
-	//   - ruby2.5
-	//   - provided
-	Runtime string `input:"runtime"` // TODO: enum
+	Runtime string `func:"input,required" validate:"oneof=nodejs8.10 python3.6 python3.7 python2.7 ruby2.5 java8 go1.x dotnetcore2.1 dotnetcore1.0"` // nolint: lll
 
 	// The list of tags (key-value pairs) assigned to the new function. For
 	// more information, see
 	// [Tagging Lambda Functions](http://docs.aws.amazon.com/lambda/latest/dg/tagging.html)
 	// in the AWS Lambda Developer Guide.
-	Tags *map[string]string `input:"tags"`
+	Tags map[string]string `func:"input"`
 
 	// The amount of time that Lambda allows a function to run before
 	// terminating it. The default is 3 seconds. The maximum allowed value is
 	// 900 seconds.
-	Timeout *int64 `input:"timeout"`
+	Timeout *int64 `func:"input" validate:"gte=1,lte=900"`
 
 	// Set Mode to Active to sample and trace a subset of incoming requests
 	// with AWS X-Ray.
@@ -128,42 +111,42 @@ type LambdaFunction struct {
 	// https://docs.aws.amazon.com/goto/WebAPI/lambda-2015-03-31/TracingConfig
 	TracingConfig *struct {
 		// The tracing mode.
-		Mode string `input:"mode"`
-	} `input:"tracing_config"`
+		Mode string `func:"input" validte:"oneof=Active Passive"`
+	} `func:"input"`
 
 	// If your Lambda function accesses resources in a VPC, you provide this parameter
 	// identifying the list of security group IDs and subnet IDs. These must belong
 	// to the same VPC. You must provide at least one security group and one subnet
 	// ID.
-	VpcConfig *struct {
+	VPCConfig *struct {
 		// A list of VPC security groups IDs.
-		SecurityGroupIDs []string `input:"security_group_ids"`
+		SecurityGroupIDs []string `func:"input"`
 		// A list of VPC subnet IDs.
-		SubnetIds []string `input:"subnet_ids"`
-	} `input:"vpc_config"`
+		SubnetIDs []string `func:"input"`
+	} `func:"input" name:"vpc_config"`
 
 	// Outputs
 
 	// The SHA256 hash of the function's deployment package.
-	CodeSha256 string `output:"code_sha_256"`
+	CodeSha256 *string `func:"output"`
 
 	// The size of the function's deployment package in bytes.
-	CodeSize int64 `output:"code_size"`
+	CodeSize *int64 `func:"output"`
 
 	// The function's Amazon Resource Name.
-	FunctionArn string `output:"function_arn"`
+	FunctionARN *string `func:"output"`
 
 	// The date and time that the function was last updated.
-	LastModified time.Time `output:"last_modified"`
+	LastModified time.Time `func:"output"`
 
 	// The ARN of the master function.
-	MasterArn *string `output:"master_arn"`
+	MasterARN *string `func:"output"`
 
 	// Represents the latest updated revision of the function or alias.
-	RevisionID string `output:"revision_id"`
+	RevisionID *string `func:"output"`
 
 	// The version of the Lambda function.
-	Version string `output:"version"`
+	Version *string `func:"output"`
 
 	lambdaService
 }
@@ -202,13 +185,15 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 			ZipFile: zip.Bytes(),
 		},
 		Description:  p.Description,
-		FunctionName: aws.String(p.FunctionName),
-		Handler:      aws.String(p.Handler),
+		FunctionName: p.FunctionName,
+		Handler:      p.Handler,
 		KMSKeyArn:    p.KMSKeyArn,
+		Layers:       p.Layers,
 		MemorySize:   p.MemorySize,
 		Publish:      p.Publish,
-		Role:         aws.String(p.Role),
+		Role:         p.Role,
 		Runtime:      lambda.Runtime(p.Runtime),
+		Tags:         p.Tags,
 		Timeout:      p.Timeout,
 	}
 	if p.DeadLetterConfig != nil {
@@ -221,22 +206,20 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 			Variables: p.Environment.Variables,
 		}
 	}
-	if p.Layers != nil {
-		input.Layers = *p.Layers
-	}
-	if p.Tags != nil {
-		input.Tags = *p.Tags
-	}
 	if p.TracingConfig != nil {
 		input.TracingConfig = &lambda.TracingConfig{
 			Mode: lambda.TracingMode(p.TracingConfig.Mode),
 		}
 	}
-	if p.VpcConfig != nil {
+	if p.VPCConfig != nil {
 		input.VpcConfig = &lambda.VpcConfig{
-			SecurityGroupIds: p.VpcConfig.SecurityGroupIDs,
-			SubnetIds:        p.VpcConfig.SubnetIds,
+			SecurityGroupIds: p.VPCConfig.SecurityGroupIDs,
+			SubnetIds:        p.VPCConfig.SubnetIDs,
 		}
+	}
+
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
 	req := svc.CreateFunctionRequest(input)
@@ -259,9 +242,13 @@ func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) 
 		return errors.Wrap(err, "get client")
 	}
 
-	req := svc.DeleteFunctionRequest(&lambda.DeleteFunctionInput{
-		FunctionName: aws.String(p.FunctionArn),
-	})
+	input := &lambda.DeleteFunctionInput{FunctionName: p.FunctionARN}
+
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	req := svc.DeleteFunctionRequest(input)
 	_, err = req.Send(ctx)
 	return err
 }
@@ -305,10 +292,16 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaA
 		return errors.Wrap(err, "close source code")
 	}
 
-	req := svc.UpdateFunctionCodeRequest(&lambda.UpdateFunctionCodeInput{
-		FunctionName: aws.String(p.FunctionName),
+	input := &lambda.UpdateFunctionCodeInput{
+		FunctionName: p.FunctionARN,
 		ZipFile:      zip.Bytes(),
-	})
+	}
+
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	req := svc.UpdateFunctionCodeRequest(input)
 	resp, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
@@ -322,11 +315,12 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaA
 func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.LambdaAPI) error {
 	input := &lambda.UpdateFunctionConfigurationInput{
 		Description:  p.Description,
-		FunctionName: aws.String(p.FunctionName),
-		Handler:      aws.String(p.Handler),
+		FunctionName: p.FunctionARN,
+		Handler:      p.Handler,
 		KMSKeyArn:    p.KMSKeyArn,
 		MemorySize:   p.MemorySize,
-		Role:         aws.String(p.Role),
+		Role:         p.Role,
+		Layers:       p.Layers,
 		Runtime:      lambda.Runtime(p.Runtime),
 		Timeout:      p.Timeout,
 	}
@@ -340,19 +334,20 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Lambd
 			Variables: p.Environment.Variables,
 		}
 	}
-	if p.Layers != nil {
-		input.Layers = *p.Layers
-	}
 	if p.TracingConfig != nil {
 		input.TracingConfig = &lambda.TracingConfig{
 			Mode: lambda.TracingMode(p.TracingConfig.Mode),
 		}
 	}
-	if p.VpcConfig != nil {
+	if p.VPCConfig != nil {
 		input.VpcConfig = &lambda.VpcConfig{
-			SecurityGroupIds: p.VpcConfig.SecurityGroupIDs,
-			SubnetIds:        p.VpcConfig.SubnetIds,
+			SecurityGroupIds: p.VPCConfig.SecurityGroupIDs,
+			SubnetIds:        p.VPCConfig.SubnetIDs,
 		}
+	}
+
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
 	req := svc.UpdateFunctionConfigurationRequest(input)
@@ -367,16 +362,16 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Lambd
 }
 
 func (p *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOutput) {
-	p.CodeSha256 = *resp.CodeSha256
-	p.CodeSize = *resp.CodeSize
-	p.FunctionArn = *resp.FunctionArn
+	p.CodeSha256 = resp.CodeSha256
+	p.CodeSize = resp.CodeSize
+	p.FunctionARN = resp.FunctionArn
 	t, err := time.Parse(iso8601, *resp.LastModified)
 	if err != nil {
 		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
 		t = time.Now()
 	}
 	p.LastModified = t
-	p.MasterArn = resp.MasterArn
-	p.RevisionID = *resp.RevisionId
-	p.Version = *resp.Version
+	p.MasterARN = resp.MasterArn
+	p.RevisionID = resp.RevisionId
+	p.Version = resp.Version
 }

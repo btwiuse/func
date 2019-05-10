@@ -15,48 +15,48 @@ const DefaultPolicyVersion = "2012-10-17"
 type IAMPolicyDocument struct {
 	// Specify the version of the policy language that you want to use.
 	// If not set, `2012-10-17` is used.
-	Version *string `input:"version"`
+	Version *string `func:"input"`
 
 	// Use this main policy element as a container for the following elements.
 	// You can include more than one statement in a policy.
-	Statements []IAMPolicyStatement `input:"statement"`
+	Statements []IAMPolicyStatement `func:"input" name:"statement"`
 
 	// Outputs
 
-	JSON string `output:"json"`
+	JSON string `func:"output"`
 }
 
 // IAMPolicyStatement is a single statement in an IAM Policy Document.
 type IAMPolicyStatement struct {
 	// Include an optional statement ID to differentiate between your statements.
-	ID *string `input:"sid"`
+	ID *string `func:"input"`
 
 	// Use `Allow` or `Deny` to indicate whether the policy allows or
 	// denies access.
-	Effect string `input:"effect"`
+	Effect string `func:"input,required" validate:"oneof=Allow Deny"`
 
 	// The account, user, role, or federated user to which you would like to
 	// allow or deny access.
 	//
 	// If you are creating a policy to attach to a user or role, you cannot
 	// include this element. The principal is implied as that user or role.
-	Principals *map[string][]string `input:"principal"`
+	Principals *map[string][]string `func:"input"`
 
 	// The account, user, role or federated user to which the statement does
 	// **not** apply to.
-	NotPrincipals *map[string][]string `input:"not_principals"`
+	NotPrincipals *map[string][]string `func:"input"`
 
 	// Include a list of actions that the policy allows or denies.
-	Actions *[]string `input:"actions"`
+	Actions *[]string `func:"input"`
 
 	// List of actions that the statement do **not** apply to.
-	NotActions *[]string `input:"not_actions"`
+	NotActions *[]string `func:"input"`
 
 	// List of resources to which the actions apply.
-	Resources *[]string `input:"resources"`
+	Resources *[]string `func:"input"`
 
 	// List of resources to which the actions do **not** apply.
-	NotResources *[]string `input:"not_resources"`
+	NotResources *[]string `func:"input"`
 
 	// Specify the circumstances under which the policy grants permission.
 	//
@@ -68,7 +68,7 @@ type IAMPolicyStatement struct {
 	//
 	// See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
 	// for supported operators.
-	Conditions *map[string]map[string]string `input:"condition"`
+	Conditions *map[string]map[string]string `func:"input"`
 }
 
 // Type returns the type name for an AWS IAM role.
