@@ -7,6 +7,7 @@ import (
 
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/hash"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
 	"github.com/google/go-cmp/cmp"
@@ -47,7 +48,7 @@ func TestKV(t *testing.T) {
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(graph.Resource{}),
 		cmpopts.SortSlices(func(a, b resource.Resource) bool {
-			return resource.Hash(a.Def) < resource.Hash(b.Def)
+			return hash.Compute(a.Def) < hash.Compute(b.Def)
 		}),
 		cmpopts.EquateEmpty(),
 	}
