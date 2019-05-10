@@ -457,7 +457,7 @@ func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 	existing := []mock.Resource{
 		{NS: "ns", Proj: "proj", Res: resource.Resource{
 			Name: "a",
-			Def:  &noopDef{Input: "foo", InputPtr: &ptr, Output: "FOO"}, // InputPtr and Output were set
+			Def:  &noopDef{Input: "foo", InputPtr: &ptr, Output: "existing-output"}, // InputPtr and Output were set
 		}},
 	}
 
@@ -479,8 +479,8 @@ func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 			Name: "a",
 			Def: &noopDef{
 				Input:    "bar",
-				InputPtr: nil,   // should be cleared
-				Output:   "FOO", // previous output is kept
+				InputPtr: nil,               // should be cleared
+				Output:   "existing-output", // previous output is kept
 			},
 		}},
 	})
@@ -788,11 +788,11 @@ func TestReconciler_Reconcile_errParent(t *testing.T) {
 
 // noopDef is a no-op definition that does nothing when executed.
 type noopDef struct {
-	Input  string `input:"in"`
-	Output string `output:"out"`
+	Input  string `func:"input" name:"in"`
+	Output string `func:"output" name:"out"`
 
-	InputPtr  *string `input:"inptr"`
-	OutputPtr *string `output:"outptr"`
+	InputPtr  *string `func:"input" name:"inptr"`
+	OutputPtr *string `func:"output" name:"outptr"`
 
 	Err error
 }
@@ -805,9 +805,9 @@ func (n *noopDef) Delete(context.Context, *resource.DeleteRequest) error { retur
 // concatDef concatenates a value to the input and sets it as the output.
 // Only supports Create().
 type concatDef struct {
-	In  string `input:"in"`
-	Add string `input:"add"` // Value to add to input
-	Out string `output:"out"`
+	In  string `func:"input"`
+	Add string `func:"input"` // Value to add to input
+	Out string `func:"output"`
 
 	resource.Definition
 }
@@ -818,7 +818,6 @@ func (c *concatDef) Create(context.Context, *resource.CreateRequest) error {
 	return nil
 }
 func (c *concatDef) Update(context.Context, *resource.UpdateRequest) error {
-	fmt.Printf("Update %#v\n", c)
 	c.Out = c.In + c.Add
 	return nil
 }
@@ -828,7 +827,7 @@ type mockDef struct {
 	onUpdate func(context.Context, *resource.UpdateRequest) error
 	onDelete func(context.Context, *resource.DeleteRequest) error
 
-	Value string `input:"value"`
+	Value string `func:"input"`
 }
 
 func (s *mockDef) Type() string { return "mock" }
