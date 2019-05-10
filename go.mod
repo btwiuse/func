@@ -4,10 +4,13 @@ require (
 	github.com/agext/levenshtein v1.2.1
 	github.com/aws/aws-sdk-go-v2 v0.8.0
 	github.com/cenkalti/backoff v2.1.1+incompatible
+	github.com/go-playground/locales v0.12.1 // indirect
+	github.com/go-playground/universal-translator v0.16.0 // indirect
 	github.com/golang/protobuf v1.2.0
 	github.com/google/go-cmp v0.2.0
 	github.com/hashicorp/hcl2 v0.0.0-20190418145123-f7764c69544d
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/cobra v0.0.3
@@ -23,4 +26,6 @@ require (
 	golang.org/x/sys v0.0.0-20190122071731-054c452bb702 // indirect
 	gonum.org/v1/gonum v0.0.0-20190122132503-0662aa10a9ad
 	gonum.org/v1/netlib v0.0.0-20190119082159-9be13e02fd56 // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
+	gopkg.in/go-playground/validator.v9 v9.28.0
 )
