@@ -1,4 +1,4 @@
-package resource
+package hash
 
 import (
 	"bytes"
@@ -9,30 +9,38 @@ import (
 	"io"
 	"reflect"
 	"sort"
+
+	"github.com/func/func/resource/schema"
 )
 
-// Hash computes a unique string based on the values set in the resource.
+// Compute computes a unique string based on the values set in the resource.
 //
 // The following values contribute to the hash:
-//   Resource type
-//   Input fields
+//   Type name
+//   Input fields based on schema
 //
-// Outputs are not included in the hash.
+// Field types are determined by the schema. Outputs are not included in the
+// hash.
 //
 // Panics in case there was an error but a panic always indicates a bug in
 // Hash(); except for nil, no user input should be able to cause a panic.
-func Hash(def Definition) string {
+func Compute(value interface{}) string {
 	h := fnv.New64()
 
-	if _, err := h.Write([]byte(def.Type())); err != nil {
-		panic(err)
-	}
-
-	v := reflect.Indirect(reflect.ValueOf(def))
+	v := reflect.Indirect(reflect.ValueOf(value))
 	t := v.Type()
+	h.Write([]byte(v.Type().Name())) // nolint: errcheck
 
-	fields := Fields(t, Input)
-	for _, f := range fields {
+	fields := schema.Inputs(t)
+
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		f := fields[name]
 		if err := visit(h, v.Field(f.Index)); err != nil {
 			panic(fmt.Sprintf("Field %v in %s: %v", f.Index, t, err))
 		}
