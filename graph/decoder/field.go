@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/schema"
 )
 
 // a field is a single parsed input or output field within a resource
@@ -11,7 +12,10 @@ import (
 type field struct {
 	def   resource.Definition
 	index int
-	expr  *expression // nil if field is for an output
+
+	// Only set for inputs
+	input schema.InputField
+	expr  *expression
 }
 
 // value returns the Value for the definition's struct field.

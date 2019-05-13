@@ -114,7 +114,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 		}
 
 		target := graph.Field{Name: resname, Field: name}
-		d.fields[target] = field{def: def, index: bf.index, expr: e}
+		d.fields[target] = field{def: def, input: bf.input, index: bf.index, expr: e}
 	}
 
 	return diags
@@ -122,6 +122,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 
 type bodyField struct {
 	index int
+	input schema.InputField
 	expr  hcl.Expression
 }
 
@@ -150,7 +151,7 @@ func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[string]bo
 			// Optional attribute was not set
 			continue
 		}
-		values[name] = bodyField{index: f.Index, expr: attr.Expr}
+		values[name] = bodyField{index: f.Index, input: f, expr: attr.Expr}
 	}
 
 	// Blocks
@@ -445,6 +446,17 @@ func (d *decoder) resolveValues() hcl.Diagnostics {
 			panic(fmt.Sprintf("Assign value: %v", err))
 		}
 
+		// Validate
+		if err := f.input.Validate(reflect.Indirect(f.value()).Interface()); err != nil {
+			diags = append(diags, &hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Validation error",
+				Detail:   fmt.Sprintf("Value for %s %v", target.Field, err),
+				Subject:  f.expr.StartRange().Ptr(),
+				Context:  f.expr.Range().Ptr(),
+			})
+			continue
+		}
 	}
 	return diags
 }

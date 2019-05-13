@@ -812,6 +812,27 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				},
 			}},
 		},
+		{
+			name: "ValidationError",
+			body: parseBody(t, `
+				resource "a" {
+					type  = "validation"
+
+					season = "tuesday"
+				}
+			`),
+			resources: []resource.Definition{&validationDef{}},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Validation error",
+				Detail:   "Value for season must be one of: [spring summer fall winter]",
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 16},
+					End:      hcl.Pos{Line: 4, Column: 23},
+				},
+			}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -901,3 +922,10 @@ type slicePtrDef struct {
 }
 
 func (*slicePtrDef) Type() string { return "slice_ptr" }
+
+type validationDef struct {
+	resource.Definition
+	Season string `func:"input" validate:"oneof=spring summer fall winter"`
+}
+
+func (*validationDef) Type() string { return "validation" }
