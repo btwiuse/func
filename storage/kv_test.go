@@ -3,11 +3,11 @@ package storage_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/hash"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
 	"github.com/google/go-cmp/cmp"
@@ -48,7 +48,7 @@ func TestKV(t *testing.T) {
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(graph.Resource{}),
 		cmpopts.SortSlices(func(a, b resource.Resource) bool {
-			return hash.Compute(a.Def) < hash.Compute(b.Def)
+			return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
 		}),
 		cmpopts.EquateEmpty(),
 	}
@@ -98,7 +98,7 @@ func (mockCodec) Unmarshal(data []byte) (resource.Definition, error) {
 
 type mockDef struct {
 	resource.Definition
-	Value string `input:"value"`
+	Value string
 }
 
 func (mockDef) Type() string { return "mock" }
