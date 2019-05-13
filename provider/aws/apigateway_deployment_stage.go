@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -18,88 +17,79 @@ type APIGatewayStage struct {
 	// Inputs
 
 	// Whether cache clustering is enabled for the stage.
-	CacheClusterEnabled *bool `input:"cache_cluster_enabled"`
+	CacheClusterEnabled *bool `func:"input"`
 
 	// Specifies the cache cluster size for the Stage resource specified in the
 	// input, if a cache cluster is enabled.
-	//
-	// Value must be one of:
-	// - "0.5"
-	// - "1.6"
-	// - "6.1"
-	// - "13.5"
-	// - "28.4"
-	// - "58.2"
-	// - "118"
-	// - "237"
-	CacheClusterSize *string `input:"cache_cluster_size"`
+	CacheClusterSize *string `func:"input" validate:"oneof=0.5 1.6 6.1 13.5 28.4 58.2 118 237"`
 
 	// The input configuration for the canary deployment when the deployment is
 	// a canary release deployment.
-	CanarySettings *APIGatewayCanarySettings `input:"canary_settings"`
+	CanarySettings *APIGatewayCanarySettings `func:"input"`
 
 	// The identifier of the Deployment resource for the Stage resource.
-	DeploymentID string `input:"deployment_id"`
+	DeploymentID *string `func:"input,required"`
 
 	// The description of the Stage resource.
-	Description *string `input:"description"`
+	Description *string `func:"input"`
 
 	// The version of the associated API documentation.
-	DocumentationVersion *string `input:"deployment_version"`
+	DocumentationVersion *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `input:"region"`
+	Region string `func:"input,required"`
 
-	// The string identifier of the associated RestApi.
-	RestAPIID string `input:"rest_api_id"`
+	// The string identifier of the associated Rest API.
+	RestAPIID *string `func:"input,required" name:"rest_api_id"`
 
 	// The name for the Stage resource.
-	StageName string `input:"stage_name"`
+	StageName *string `func:"input,required"`
 
 	// The key-value map of strings. The valid character set is `[a-zA-Z+-=._:/]`.
 	// The tag key can be up to 128 characters and must not start with aws:. The
 	// tag value can be up to 256 characters.
-	Tags *map[string]string `input:"tags"`
+	Tags map[string]string `func:"input"`
 
 	// Specifies whether active tracing with X-ray is enabled for the Stage.
-	TracingEnabled *bool `input:"tracing_enabled"`
+	TracingEnabled *bool `func:"input"`
 
 	// A map that defines the stage variables for the new Stage resource. Variable
 	// names can have alphanumeric and underscore characters, and the values must
 	// match `[A-Za-z0-9-._~:/?#&=,]+`.
-	Variables *map[string]string `input:"variables"`
+	Variables map[string]string `func:"input"`
 
 	// Outputs
 
 	// Settings for logging access in this stage.
-	AccessLogSettings *AccessLogSettings `output:"access_log_settings"`
+	AccessLogSettings *AccessLogSettings `func:"output"`
 
 	// The status of the cache cluster for the stage, if enabled.
+	//
 	// Value will be one of:
-	// - `CREATE_IN_PROGRESS`
-	// - `AVAILABLE`
-	// - `DELETE_IN_PROGRESS`
-	// - `NOT_AVAILABLE`
-	// - `FLUSH_IN_PROGRESS`
-	CacheClusterStatus string `output:"cache_cluster_status"`
+	//   - `CREATE_IN_PROGRESS`
+	//   - `AVAILABLE`
+	//   - `DELETE_IN_PROGRESS`
+	//   - `NOT_AVAILABLE`
+	//   - `FLUSH_IN_PROGRESS`
+	CacheClusterStatus string `func:"output"`
 
 	// The identifier of a client certificate for an API stage.
-	ClientCertificateID string `output:"client_certificate_id"`
+	ClientCertificateID string `func:"output"`
 
 	// The timestamp when the stage was created.
-	CreatedDate time.Time `output:"created_date"`
+	CreatedDate time.Time `func:"output"`
 
 	// The timestamp when the stage last updated.
-	LastUpdatedDate time.Time `output:"last_updated_date"`
+	LastUpdatedDate time.Time `func:"output"`
 
 	// A map that defines the method settings for a Stage resource. Keys (designated
 	// as /{method_setting_key below) are method paths defined as {resource_path}/{http_method}
 	// for an individual method override, or /\*/\* for overriding all methods in
 	// the stage.
-	MethodSettings map[string]MethodSetting `output:"method_settings"`
+	MethodSettings map[string]MethodSetting `func:"output"`
 
 	// The ARN of the WebAcl associated with the Stage.
-	WebACLARN *string `output:"web_acl_arn"`
+	WebACLARN *string `func:"output" name:"web_acl_arn"`
 
 	apigatewayService
 }
@@ -107,30 +97,30 @@ type APIGatewayStage struct {
 // APIGatewayCanarySettings contains settings for canary deployment.
 type APIGatewayCanarySettings struct {
 	// The ID of the canary deployment.
-	DeploymentID *string `input:"deployment_id"`
+	DeploymentID *string `func:"input"`
 
 	// The percent (0-100) of traffic diverted to a canary deployment.
-	PercentTraffic *float64 `input:"percent_traffic"`
+	PercentTraffic *float64 `func:"input" validate:"gte=0,lte=100"`
 
 	// Stage variables overridden for a canary release deployment, including new
 	// stage variables introduced in the canary. These stage variables are represented
 	// as a string-to-string map between stage variable names and their values.
-	StageVariableOverrides *map[string]string `input:"stage_variable_overrides"`
+	StageVariableOverrides *map[string]string `func:"input"`
 
 	// A Boolean flag to indicate whether the canary deployment uses the stage cache
 	// or not.
-	UseStageCache *bool `input:"use_stage_cache"`
+	UseStageCache *bool `func:"input"`
 }
 
 // AccessLogSettings contains settings for an APIGateway deployment stage.
 type AccessLogSettings struct {
 	// The ARN of the CloudWatch Logs log group to receive access logs.
-	DestinationArn *string `output:"destination_arn"`
+	DestinationARN *string `func:"output"`
 
 	// A single line format of the access logs of data, as specified by
 	// selected `$context` variables.
 	// The format must include at least `$context.requestId`.
-	Format *string `output:"format"`
+	Format *string `func:"output"`
 }
 
 // MethodSetting contains settings for a method in an APIGateway deployment stage.
@@ -138,54 +128,54 @@ type MethodSetting struct { // nolint: maligned
 	// Specifies whether the cached responses are encrypted. The PATCH path for
 	// this setting is /{method_setting_key}/caching/dataEncrypted, and the value
 	// is a Boolean.
-	CacheDataEncrypted bool `output:"cache_data_encrypted"`
+	CacheDataEncrypted bool `func:"output"`
 
 	// Specifies the time to live (TTL), in seconds, for cached responses. The higher
 	// the TTL, the longer the response will be cached. The PATCH path for this
 	// setting is /{method_setting_key}/caching/ttlInSeconds, and the value is an
 	// integer.
-	CacheTTLInSeconds int64 `output:"cache_ttl_seconds"`
+	CacheTTLInSeconds int64 `func:"output"`
 
 	// Specifies whether responses should be cached and returned for requests. A
 	// cache cluster must be enabled on the stage for responses to be cached. The
 	// PATCH path for this setting is /{method_setting_key}/caching/enabled, and
 	// the value is a Boolean.
-	CachingEnabled bool `output:"caching_enabled"`
+	CachingEnabled bool `func:"output"`
 
 	// Specifies whether data trace logging is enabled for this method, which affects
 	// the log entries pushed to Amazon CloudWatch Logs. The PATCH path for this
 	// setting is /{method_setting_key}/logging/dataTrace, and the value is a Boolean.
-	DataTraceEnabled bool `output:"data_trace_enabled"`
+	DataTraceEnabled bool `func:"output"`
 
 	// Specifies the logging level for this method, which affects the log entries
 	// pushed to Amazon CloudWatch Logs. The PATCH path for this setting is /{method_setting_key}/logging/loglevel,
 	// and the available levels are OFF, ERROR, and INFO.
-	LoggingLevel string `output:"logging_level"`
+	LoggingLevel string `func:"output"`
 
 	// Specifies whether Amazon CloudWatch metrics are enabled for this method.
 	// The PATCH path for this setting is /{method_setting_key}/metrics/enabled,
 	// and the value is a Boolean.
-	MetricsEnabled bool `output:"metrics_enabled"`
+	MetricsEnabled bool `func:"output"`
 
 	// Specifies whether authorization is required for a cache invalidation request.
 	// The PATCH path for this setting is /{method_setting_key}/caching/requireAuthorizationForCacheControl,
 	// and the value is a Boolean.
-	RequireAuthorizationForCacheControl bool `output:"require_authorization_for_cache_control"`
+	RequireAuthorizationForCacheControl bool `func:"output"`
 
 	// Specifies the throttling burst limit. The PATCH path for this setting is
 	// /{method_setting_key}/throttling/burstLimit, and the value is an integer.
-	ThrottlingBurstLimit int64 `output:"throttling_burst_limit"`
+	ThrottlingBurstLimit int64 `func:"output"`
 
 	// Specifies the throttling rate limit. The PATCH path for this setting is /{method_setting_key}/throttling/rateLimit,
 	// and the value is a double.
-	ThrottlingRateLimit float64 `output:"throttling_rate_limit"`
+	ThrottlingRateLimit float64 `func:"output"`
 
 	// Specifies how to handle unauthorized requests for cache invalidation.
 	// Available values are:
 	// - `FAIL_WITH_403`
 	// - `SUCCEED_WITH_RESPONSE_HEADER`
 	// - `SUCCEED_WITHOUT_RESPONSE_HEADER`
-	UnauthorizedCacheControlHeaderStrategy string `output:"unauthorized_cache_control_header_strategy"`
+	UnauthorizedCacheControlHeaderStrategy string `func:"output"`
 }
 
 // Type returns the resource type of an apigateway deployment.
@@ -199,12 +189,14 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 	}
 
 	input := &apigateway.CreateStageInput{
-		DeploymentId:         aws.String(p.DeploymentID),
+		DeploymentId:         p.DeploymentID,
 		Description:          p.Description,
 		DocumentationVersion: p.DocumentationVersion,
-		RestApiId:            aws.String(p.RestAPIID),
-		StageName:            aws.String(p.StageName),
+		RestApiId:            p.RestAPIID,
+		StageName:            p.StageName,
 		TracingEnabled:       p.TracingEnabled,
+		Tags:                 p.Tags,
+		Variables:            p.Variables,
 	}
 
 	if p.CacheClusterSize != nil {
@@ -221,18 +213,6 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 			for k, v := range *p.CanarySettings.StageVariableOverrides {
 				input.CanarySettings.StageVariableOverrides[k] = v
 			}
-		}
-	}
-	if p.Tags != nil {
-		input.Tags = make(map[string]string)
-		for k, v := range *p.Tags {
-			input.Tags[k] = v
-		}
-	}
-	if p.Variables != nil {
-		input.Variables = make(map[string]string)
-		for k, v := range *p.Variables {
-			input.Variables[k] = v
 		}
 	}
 
@@ -260,8 +240,8 @@ func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest)
 	}
 
 	req := svc.DeleteStageRequest(&apigateway.DeleteStageInput{
-		RestApiId: aws.String(p.RestAPIID),
-		StageName: aws.String(p.StageName),
+		RestApiId: p.RestAPIID,
+		StageName: p.StageName,
 	})
 	_, err = req.Send(ctx)
 	return err
@@ -316,8 +296,8 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 
 	req := svc.UpdateStageRequest(&apigateway.UpdateStageInput{
 		PatchOperations: ops,
-		RestApiId:       aws.String(p.RestAPIID),
-		StageName:       aws.String(p.StageName),
+		RestApiId:       p.RestAPIID,
+		StageName:       p.StageName,
 	})
 	resp, err := req.Send(ctx)
 	if err != nil {
@@ -337,7 +317,7 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 func (p *APIGatewayStage) setFromResp(resp *apigateway.UpdateStageOutput) {
 	if resp.AccessLogSettings != nil {
 		p.AccessLogSettings = &AccessLogSettings{
-			DestinationArn: resp.AccessLogSettings.DestinationArn,
+			DestinationARN: resp.AccessLogSettings.DestinationArn,
 			Format:         resp.AccessLogSettings.Format,
 		}
 	}

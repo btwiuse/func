@@ -1,38 +1,39 @@
-package resource_test
+package hash_test
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/hash"
 )
 
 // nolint: maligned
 type kitchensink struct {
 	resource.Definition
-	Bool       bool           `input:""`
-	Int        int            `input:""`
-	Int8       int8           `input:""`
-	Int16      int16          `input:""`
-	Int32      int32          `input:""`
-	Int64      int64          `input:""`
-	Uint       uint           `input:""`
-	Uint8      uint8          `input:""`
-	Uint16     uint16         `input:""`
-	Uint32     uint32         `input:""`
-	Uint64     uint64         `input:""`
-	Uintptr    uintptr        `input:""`
-	Float32    float32        `input:""`
-	Float64    float64        `input:""`
-	Complex64  complex64      `input:""`
-	Complex128 complex128     `input:""`
-	Array      [3]int         `input:""`
-	Map        map[string]int `input:""`
-	Ptr        *string        `input:""`
-	Slice      []string       `input:""`
-	String     string         `input:""`
-	Struct     nested         `input:""`
-	StructPtr  *nested        `input:""`
+	Bool       bool           `func:"input"`
+	Int        int            `func:"input"`
+	Int8       int8           `func:"input"`
+	Int16      int16          `func:"input"`
+	Int32      int32          `func:"input"`
+	Int64      int64          `func:"input"`
+	Uint       uint           `func:"input"`
+	Uint8      uint8          `func:"input"`
+	Uint16     uint16         `func:"input"`
+	Uint32     uint32         `func:"input"`
+	Uint64     uint64         `func:"input"`
+	Uintptr    uintptr        `func:"input"`
+	Float32    float32        `func:"input"`
+	Float64    float64        `func:"input"`
+	Complex64  complex64      `func:"input"`
+	Complex128 complex128     `func:"input"`
+	Array      [3]int         `func:"input"`
+	Map        map[string]int `func:"input"`
+	Ptr        *string        `func:"input"`
+	Slice      []string       `func:"input"`
+	String     string         `func:"input"`
+	Struct     nested         `func:"input"`
+	StructPtr  *nested        `func:"input"`
 }
 
 type nested struct {
@@ -82,7 +83,7 @@ func TestHash_identity(t *testing.T) {
 			results := make([]string, checks)
 			for i := range results {
 				// Hash the randomly generated resource.
-				got := resource.Hash(def)
+				got := hash.Compute(def)
 				results[i] = got
 			}
 
@@ -230,16 +231,16 @@ func TestHash(t *testing.T) {
 		},
 		{
 			"IgnoreNonIO",
-			&def2{NotIO: "foo", Output: "a"}, // Field 'NotIO' does not have
-			&def2{NotIO: "bar", Output: "a"}, // an input or output struct tag.
+			&def2{NotIO: "foo"}, // Field 'NotIO' does not have
+			&def2{NotIO: "bar"}, // an input or output struct tag.
 			true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := resource.Hash(tt.a)
-			b := resource.Hash(tt.b)
+			a := hash.Compute(tt.a)
+			b := hash.Compute(tt.b)
 
 			got := a == b
 			if got != tt.same {
@@ -251,19 +252,13 @@ func TestHash(t *testing.T) {
 
 type def1 struct {
 	resource.Definition
-	FunctionName string `input:"v"`
-	ARN          bool   `output:"o"`
+	FunctionName string `func:"input"`
 }
-
-func (def1) Type() string { return "def1" }
 
 type def2 struct {
 	resource.Definition
-	NotIO  string // no input or output tag
-	Output string `output:"v"`
+	NotIO string // no input or output tag
 }
-
-func (def2) Type() string { return "def2" }
 
 // realistic is a resource roughly resembling an aws lambda resource
 type realistic struct {
@@ -271,40 +266,38 @@ type realistic struct {
 
 	// Inputs
 	DeadLetterConfig *struct {
-		TargetArn *string `input:"target_arn"`
-	} `input:"dead_letter_config"`
-	Description   *string           `input:"description"`
-	Environment   *env              `input:"environment"`
-	FunctionName  string            `input:"function_name"`
-	Handler       string            `input:"handler"`
-	KMSKeyArn     *string           `input:"kms_key_arn"`
-	Layers        []string          `input:"layers"`
-	MemorySize    *int64            `input:"memory_size"`
-	Publish       *bool             `input:"publish"`
-	Role          string            `input:"role"`
-	Runtime       string            `input:"runtime"` // actually an enum
-	Targs         map[string]string `input:"tags"`
-	Timeout       *int64            `input:"timeout"`
+		TargetArn *string `func:"input"`
+	} `func:"input"`
+	Description   *string           `func:"input"`
+	Environment   *env              `func:"input"`
+	FunctionName  string            `func:"input"`
+	Handler       string            `func:"input"`
+	KMSKeyArn     *string           `func:"input"`
+	Layers        []string          `func:"input"`
+	MemorySize    *int64            `func:"input"`
+	Publish       *bool             `func:"input"`
+	Role          string            `func:"input"`
+	Runtime       string            `func:"input"`
+	Targs         map[string]string `func:"input"`
+	Timeout       *int64            `func:"input"`
 	TracingConfig *struct {
-		Mode string `input:"mode"`
-	} `input:"tracing_config"`
+		Mode string `func:"input"`
+	} `func:"input"`
 	VPCConfig *struct {
-		SecurityGroupIDs []string `input:"security_group_ids"`
-		SubnetIDs        []string `input:"subnet_ids"`
-	} `input:"vpc_config"`
+		SecurityGroupIDs []string `func:"input"`
+		SubnetIDs        []string `func:"input"`
+	} `func:"input"`
 
 	// Outputs
-	CodeSHA256   string `output:"code_sha_256"`
-	CodeSize     int64  `output:"code_size"`
-	FunctionARN  string `output:"function_arn"`
-	LastModified string `output:"last_modified"` // ISO8601
-	MasterARN    string `output:"master_arn"`
-	RevisionID   string `output:"revision_id"`
-	Version      string `output:"version"`
+	CodeSHA256   string `func:"output"`
+	CodeSize     int64  `func:"output"`
+	FunctionARN  string `func:"output"`
+	LastModified string `func:"output"`
+	MasterARN    string `func:"output"`
+	RevisionID   string `func:"output"`
+	Version      string `func:"output"`
 }
 
 type env struct {
-	Variables map[string]string `input:"variables"`
+	Variables map[string]string `func:"input"`
 }
-
-func (realistic) Type() string { return "realistic" }

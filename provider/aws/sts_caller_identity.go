@@ -10,27 +10,29 @@ import (
 
 // STSCallerIdentity returns info for the current user.
 type STSCallerIdentity struct {
-	// Outputs
-
-	// The AWS account ID number of the account that owns or contains the calling
-	// entity.
-	Account string `output:"account"`
-
-	// The AWS ARN associated with the calling entity.
-	ARN string `output:"arn"`
+	// Inputs
 
 	// Region to use for STS API calls.
 	//
 	// STS is global so the calls are not regional but the Region will specify
 	// which region the API calls are sent to.
-	Region *string
+	Region *string `func:"input"`
+
+	// Outputs
+
+	// The AWS account ID number of the account that owns or contains the calling
+	// entity.
+	Account *string `func:"output"`
+
+	// The AWS ARN associated with the calling entity.
+	ARN *string `func:"output"`
 
 	// The unique identifier of the calling entity. The exact value depends on
 	// the type of entity making the call. The values returned are those listed
 	// in the aws:userid column in the
 	// [Principal table](http://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html#principaltable)
 	// found on the Policy Variables reference page in the IAM User Guide.
-	UserID string `output:"user_id"`
+	UserID *string `func:"output"`
 
 	stsService
 }
@@ -51,9 +53,9 @@ func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateReques
 		return err
 	}
 
-	p.Account = *resp.Account
-	p.ARN = *resp.Arn
-	p.UserID = *resp.UserId
+	p.Account = resp.Account
+	p.ARN = resp.Arn
+	p.UserID = resp.UserId
 
 	return nil
 }

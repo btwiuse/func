@@ -610,7 +610,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required block",
-				Detail:   "A required block is required.",
+				Detail:   "A required_child block is required.",
 				Subject: &hcl.Range{
 					Filename: "file.hcl",
 					Start:    hcl.Pos{Line: 4, Column: 6},
@@ -630,7 +630,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			resources: []resource.Definition{&complexDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
-				Summary:  "Missing sub block",
+				Summary:  "Missing required block",
 				Detail:   "A sub block is required.",
 				Subject: &hcl.Range{
 					Filename: "file.hcl",
@@ -812,6 +812,27 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				},
 			}},
 		},
+		{
+			name: "ValidationError",
+			body: parseBody(t, `
+				resource "a" {
+					type  = "validation"
+
+					season = "tuesday"
+				}
+			`),
+			resources: []resource.Definition{&validationDef{}},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Validation error",
+				Detail:   "Value for season must be one of: [spring summer fall winter]",
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 4, Column: 16},
+					End:      hcl.Pos{Line: 4, Column: 23},
+				},
+			}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -861,8 +882,8 @@ func parseBody(t *testing.T, src string) hcl.Body {
 
 type simpleDef struct {
 	resource.Definition
-	Input  string `input:"input"`
-	Output string `output:"output"`
+	Input  string `func:"input,required"`
+	Output string `func:"output"`
 }
 
 func (d *simpleDef) Type() string { return "simple" }
@@ -870,34 +891,41 @@ func (d *simpleDef) Type() string { return "simple" }
 type complexDef struct {
 	resource.Definition
 
-	Map      *map[string]string `input:"map"`
-	Slice    *[]string          `input:"slice"`
-	Child    *Child             `input:"nested"`
-	Multiple *[]sub             `input:"multi"`
-	Int      *int               `input:"int"`
+	Map      *map[string]string `func:"input"`
+	Slice    *[]string          `func:"input"`
+	Child    *Child             `func:"input" name:"nested"`
+	Multiple *[]sub             `func:"input" name:"multi"`
+	Int      *int               `func:"input"`
 }
 
 type Child struct {
-	Sub sub `input:"sub"`
+	Sub sub `func:"input"`
 }
 
 type sub struct {
-	Val      string  `input:"value"`
-	Optional *string `input:"optional"`
+	Val      string  `func:"input,required" name:"value"`
+	Optional *string `func:"input"`
 }
 
 func (*complexDef) Type() string { return "complex" }
 
 type requiredBlockDef struct {
 	resource.Definition
-	Child Child `input:"required"`
+	RequiredChild Child `func:"input,required"`
 }
 
 func (*requiredBlockDef) Type() string { return "required" }
 
 type slicePtrDef struct {
 	resource.Definition
-	Subs []*sub `input:"sub"`
+	Subs []*sub `func:"input" name:"sub"`
 }
 
 func (*slicePtrDef) Type() string { return "slice_ptr" }
+
+type validationDef struct {
+	resource.Definition
+	Season string `func:"input" validate:"oneof=spring summer fall winter"`
+}
+
+func (*validationDef) Type() string { return "validation" }

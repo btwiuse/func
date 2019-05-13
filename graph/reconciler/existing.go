@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/hash"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -35,7 +36,7 @@ func newExisting(resources []resource.Resource) (*existingResources, error) {
 		node := &existing{
 			Node: ee.NewNode(),
 			res:  r,
-			hash: resource.Hash(r.Def),
+			hash: hash.Compute(r.Def),
 		}
 		ee.AddNode(node)
 

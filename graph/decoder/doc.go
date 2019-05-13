@@ -31,26 +31,22 @@
 //
 //   type MyResource struct {
 //       // Inputs
-//       Name    string   `input:"input"`
-//       Age     *int     `input:"age"`
-//       Address *Address `input:"address"`
+//       Name    string   `func:"input,required"`
+//       Age     *int     `func:"input"`
+//       Address *Address `func:"input"`
 //
 //       // Outputs
-//       Nickname string `output:"nick"`
+//       Nickname string `func:"output" name="nick"`
 //   }
 //
 //   type Address struct {
-//       StreetName string  `input:"street"`
-//       Country    *string `input:"country"`
+//       StreetName string  `func:"input"`
+//       Country    *string `func:"input"`
 //   }
 //
 // The value in the tag is matched to the attribute in hcl. This means `nick`
 // is the word to use in the example above. By convention, tag names should be
 // lower_snake_case.
-//
-// If an input is set on a pointer, the input is optional. In this example,
-// Address is a pointer and thus the entire block is optional. However, if the
-// block is provided, the address required a StreetName.
 //
 // References
 //

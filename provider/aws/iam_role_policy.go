@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -14,19 +13,19 @@ type IAMRolePolicy struct {
 	// Inputs
 
 	// The policy document.
-	PolicyDocument string `input:"policy_document"`
+	PolicyDocument *string `func:"input,required"`
 
 	// The name of the policy document.
-	PolicyName string `input:"policy_name"`
+	PolicyName *string `func:"input,required"`
 
 	// Region to use for IAM API calls.
 	//
 	// IAM is global so the calls are not regional but the Region will specify
 	// which region the API calls are sent to.
-	Region *string
+	Region *string `func:"input"`
 
 	// The name of the role to associate the policy with.
-	RoleName string `input:"role_name"`
+	RoleName *string `func:"input,required"`
 
 	// No outputs
 
@@ -44,9 +43,9 @@ func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) e
 	}
 
 	req := svc.PutRolePolicyRequest(&iam.PutRolePolicyInput{
-		PolicyDocument: aws.String(p.PolicyDocument),
-		PolicyName:     aws.String(p.PolicyName),
-		RoleName:       aws.String(p.RoleName),
+		PolicyDocument: p.PolicyDocument,
+		PolicyName:     p.PolicyName,
+		RoleName:       p.RoleName,
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
@@ -65,8 +64,8 @@ func (p *IAMRolePolicy) Delete(ctx context.Context, r *resource.DeleteRequest) e
 	}
 
 	req := svc.DeleteRolePolicyRequest(&iam.DeleteRolePolicyInput{
-		PolicyName: aws.String(p.PolicyName),
-		RoleName:   aws.String(p.RoleName),
+		PolicyName: p.PolicyName,
+		RoleName:   p.RoleName,
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")

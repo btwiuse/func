@@ -4,21 +4,25 @@ import (
 	"reflect"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/schema"
 )
 
 // a field is a single parsed input or output field within a resource
 // definition.
 type field struct {
-	def  resource.Definition
-	info resource.Field
-	expr *expression // nil if field is for an input
+	def   resource.Definition
+	index int
+
+	// Only set for inputs
+	input schema.InputField
+	expr  *expression
 }
 
 // value returns the Value for the definition's struct field.
 func (f field) value() reflect.Value {
-	return reflect.Indirect(reflect.ValueOf(f.def)).Field(f.info.Index)
+	return reflect.Indirect(reflect.ValueOf(f.def)).Field(f.index)
 }
 
 func (f field) output() bool {
-	return f.info.Dir == resource.Output
+	return f.expr == nil
 }

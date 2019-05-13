@@ -10,6 +10,8 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/hash"
+	"github.com/func/func/resource/schema"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
@@ -162,7 +164,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		close(errc)
 	}()
 
-	hash := resource.Hash(res.Config.Def)
+	hash := hash.Compute(res.Config.Def)
 
 	logger.With(zap.String("config_hash", hash)).Info("Processing")
 
@@ -187,7 +189,8 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		// Copy outputs from previous value
 		prevVal := reflect.Indirect(reflect.ValueOf(ex.res.Def))
 		nextVal := reflect.Indirect(reflect.ValueOf(res.Config.Def))
-		for _, output := range resource.Fields(prevVal.Type(), resource.Output) {
+		outputs := schema.Outputs(prevVal.Type())
+		for _, output := range outputs {
 			prev := prevVal.Field(output.Index)
 			next := nextVal.Field(output.Index)
 			next.Set(prev)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -34,10 +33,10 @@ type IAMRole struct {
 	//
 	// * The special characters tab (\u0009), line feed (\u000A), and carriage
 	//   return (\u000D)
-	AssumeRolePolicyDocument string `input:"assume_role_policy_document"`
+	AssumeRolePolicyDocument *string `func:"input,required"`
 
 	// A description of the role.
-	Description *string `input:"description"`
+	Description *string `func:"input"`
 
 	// The maximum session duration (in seconds) that you want to set for the
 	// specified role. If you do not specify a value for this setting, the
@@ -55,7 +54,7 @@ type IAMRole struct {
 	// operations to create a console URL. For more information, see
 	// [Using IAM Roles](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html)
 	// in the IAM User Guide.
-	MaxSessionDuration *int64 `input:"max_session_duration"`
+	MaxSessionDuration *int64 `func:"input" validate:"gte=3600,lte=43200"`
 
 	// The path to the role. For more information about paths, see
 	// [IAM Identifiers](http://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html)
@@ -71,17 +70,17 @@ type IAMRole struct {
 	// ASCII character from the ! (\u0021) through the DEL character (\u007F),
 	// including most punctuation characters, digits, and upper and lowercased
 	// letters.
-	Path *string `input:"path"`
+	Path *string `func:"input"`
 
 	// The ARN of the policy that is used to set the permissions boundary for
 	// the role.
-	PermissionsBoundary *string `input:"permission_boundary"`
+	PermissionsBoundary *string `func:"input"`
 
 	// Region to use for IAM API calls.
 	//
 	// IAM is global so the calls are not regional but the Region will specify
 	// which region the API calls are sent to.
-	Region *string
+	Region *string `func:"input"`
 
 	// The name of the role to create.
 	//
@@ -92,17 +91,16 @@ type IAMRole struct {
 	//
 	// Role names are not distinguished by case. For example, you cannot create
 	// roles named both "PRODROLE" and "prodrole".
-	RoleName string `input:"role_name"`
+	RoleName *string `func:"input,required"`
 
 	// The Amazon Resource Name (ARN) specifying the role.
-	//
-	// For more information about ARNs and how to use them in policies, see
-	// [IAM Identifiers](http://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html)
-	// in the IAM User Guide guide.
-	ARN string `output:"arn"`
+	ARN *string `func:"output"`
 
-	CreateDate time.Time `output:"create_date"`
-	RoleID     string    `output:"role_id"`
+	// The date and time when the role was created.
+	CreateDate *time.Time `func:"output"`
+
+	// The stable and unique string identifying the role.
+	RoleID *string `func:"output"`
 
 	iamService
 }
@@ -118,21 +116,21 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	}
 
 	req := svc.CreateRoleRequest(&iam.CreateRoleInput{
-		AssumeRolePolicyDocument: aws.String(p.AssumeRolePolicyDocument),
+		AssumeRolePolicyDocument: p.AssumeRolePolicyDocument,
 		Description:              p.Description,
 		MaxSessionDuration:       p.MaxSessionDuration,
 		Path:                     p.Path,
 		PermissionsBoundary:      p.PermissionsBoundary,
-		RoleName:                 aws.String(p.RoleName),
+		RoleName:                 p.RoleName,
 	})
 	res, err := req.Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "send request")
 	}
 
-	p.ARN = *res.Role.Arn
-	p.CreateDate = *res.Role.CreateDate
-	p.RoleID = *res.Role.RoleId
+	p.ARN = res.Role.Arn
+	p.CreateDate = res.Role.CreateDate
+	p.RoleID = res.Role.RoleId
 
 	return nil
 }
@@ -145,7 +143,7 @@ func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	}
 
 	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
-		RoleName: aws.String(p.RoleName),
+		RoleName: p.RoleName,
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
@@ -162,7 +160,7 @@ func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	}
 
 	req := svc.UpdateRoleRequest(&iam.UpdateRoleInput{
-		RoleName:           aws.String(p.RoleName),
+		RoleName:           p.RoleName,
 		Description:        p.Description,
 		MaxSessionDuration: p.MaxSessionDuration,
 	})

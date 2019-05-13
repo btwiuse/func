@@ -3,6 +3,7 @@ package storage_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/func/func/graph"
@@ -47,7 +48,7 @@ func TestKV(t *testing.T) {
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(graph.Resource{}),
 		cmpopts.SortSlices(func(a, b resource.Resource) bool {
-			return resource.Hash(a.Def) < resource.Hash(b.Def)
+			return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
 		}),
 		cmpopts.EquateEmpty(),
 	}
@@ -97,7 +98,7 @@ func (mockCodec) Unmarshal(data []byte) (resource.Definition, error) {
 
 type mockDef struct {
 	resource.Definition
-	Value string `input:"value"`
+	Value string
 }
 
 func (mockDef) Type() string { return "mock" }

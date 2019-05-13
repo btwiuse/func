@@ -5,20 +5,9 @@ import (
 	"reflect"
 
 	"github.com/func/func/graph"
-	"github.com/func/func/resource"
+	"github.com/func/func/resource/schema"
 	"github.com/pkg/errors"
 )
-
-// fieldValue returns returns the value of a certain field.
-func fieldValue(res *graph.Resource, field graph.Field, dir resource.FieldDirection) (reflect.Value, error) {
-	v := reflect.Indirect(reflect.ValueOf(res.Config.Def))
-	for _, f := range resource.Fields(v.Type(), dir) {
-		if f.Name == field.Field {
-			return v.Field(f.Index), nil
-		}
-	}
-	return reflect.Value{}, fmt.Errorf("%s does not have an %s field %q", field.Name, dir, field.Field)
-}
 
 // containingField finds the field in the given resources that matches the
 // desired field.
@@ -45,18 +34,24 @@ func evalDependency(dep *graph.Dependency) error {
 		if parent == nil {
 			return errors.Errorf("no such field resource: %s", f.Name)
 		}
-		srcVal, err := fieldValue(parent, f, resource.Output)
-		if err != nil {
-			return errors.Wrapf(err, "resolve parent field")
+		v := reflect.Indirect(reflect.ValueOf(parent.Config.Def))
+		outputs := schema.Outputs(v.Type())
+		field, ok := outputs[f.Field]
+		if !ok {
+			return fmt.Errorf("%s does not have an output field %q", parent.Config.Name, f.Field)
 		}
+		srcVal := v.Field(field.Index)
 		data[f] = reflect.Indirect(srcVal).Interface()
 	}
 
 	// Get target field.
-	dstVal, err := fieldValue(dep.Child(), dep.Target, resource.Input)
-	if err != nil {
-		return errors.Wrap(err, "resolve target field")
+	v := reflect.Indirect(reflect.ValueOf(dep.Child().Config.Def))
+	inputs := schema.Inputs(v.Type())
+	field, ok := inputs[dep.Target.Field]
+	if !ok {
+		return fmt.Errorf("%s does not have an input field %q", dep.Child().Config.Name, dep.Target.Field)
 	}
+	dstVal := v.Field(field.Index)
 
 	// Convert to/from pointer to match target value.
 	var val reflect.Value
