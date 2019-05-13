@@ -200,8 +200,8 @@ func ExampleSnap_Graph() {
 }
 
 type mockDef struct {
-	Input  string `input:"in"`
-	Output string `output:"out"`
+	Input  string
+	Output string
 }
 
 func (mockDef) Type() string                                          { return "mock" }
