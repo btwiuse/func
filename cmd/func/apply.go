@@ -59,15 +59,13 @@ var applyCommand = &cobra.Command{
 				}
 			}()
 
-			l, _ := zap.NewDevelopment()
 			reco := &reconciler.Reconciler{
 				State:  &storage.KV{Backend: bolt, Registry: reg},
 				Source: src,
-				Logger: l.Named("reconciler"),
 			}
 
 			funcAPI = &api.Func{
-				Logger:     l.Named("api"),
+				Logger:     zap.NewNop(),
 				Source:     src,
 				Resources:  reg,
 				Reconciler: reco,
