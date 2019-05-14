@@ -63,7 +63,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 
 	// Create resource node.
 	// The resource definition is currently "empty"; the field values are not set.
-	node := d.graph.AddResource(resource.Resource{Name: resname, Def: def})
+	node := d.graph.AddResource(resource.Resource{Type: spec.Type, Name: resname, Def: def})
 
 	if spec.Source != "" {
 		// Add source to resource.

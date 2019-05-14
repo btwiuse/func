@@ -39,9 +39,6 @@ type IAMRolePolicyAttachment struct {
 	iamService
 }
 
-// Type returns the type name for an AWS IAM policy attachment.
-func (p *IAMRolePolicyAttachment) Type() string { return "aws_iam_role_policy_attachment" }
-
 // Create attaches a policy to a role.
 func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

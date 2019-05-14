@@ -1,12 +1,10 @@
 package resource
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/agext/levenshtein"
-	"github.com/pkg/errors"
 )
 
 // NotSupportedError is returned when attempting to instantiate an unsupported
@@ -29,10 +27,10 @@ type Registry struct {
 
 // RegistryFromResources creates a new registry from a predefined list of
 // resources. It should primarily used in tests to set up a registry.
-func RegistryFromResources(defs ...Definition) *Registry {
+func RegistryFromResources(defs map[string]Definition) *Registry {
 	r := &Registry{}
-	for _, def := range defs {
-		r.Register(def)
+	for n, def := range defs {
+		r.Register(n, def)
 	}
 	return r
 }
@@ -44,7 +42,7 @@ func RegistryFromResources(defs ...Definition) *Registry {
 // registered, it is overwritten.
 //
 // Not safe for concurrent access.
-func (r *Registry) Register(def Definition) {
+func (r *Registry) Register(typename string, def Definition) {
 	t := reflect.TypeOf(def)
 	if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("Resource must be implemented on a pointer receiver on a struct, not %s", t))
@@ -54,7 +52,6 @@ func (r *Registry) Register(def Definition) {
 		r.resources = make(map[string]reflect.Type)
 	}
 
-	typename := def.Type()
 	r.resources[typename] = t.Elem()
 }
 
@@ -92,52 +89,4 @@ func (r *Registry) SuggestType(typename string) string {
 	}
 
 	return str
-}
-
-type envelope struct {
-	Type string          `json:"t"`
-	Data json.RawMessage `json:"d"`
-}
-
-// Marshal marshals the given resource to a byte slice. The byte slice can be
-// unmarshalled back to a Resource using Registry.Unmarshal.
-//
-// The resource is marshalled using json encoding, meaning `json` struct tags
-// on the resource will be used. By convention, struct tags should not be set.
-// However, if the struct tags are set, they cannot be changed to ensure
-// backwards compatibility.
-func (r *Registry) Marshal(def Definition) ([]byte, error) {
-	j, err := json.Marshal(def)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal config")
-	}
-	e := envelope{
-		Type: def.Type(),
-		Data: j,
-	}
-	j, err = json.Marshal(e)
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal envelope")
-	}
-	return j, nil
-}
-
-// Unmarshal unmarshals resource data into to an instance of a resource
-// definition.
-//
-// The resource can only be unmarshalled if the corresponding resource has been
-// registered.
-func (r *Registry) Unmarshal(b []byte) (Definition, error) {
-	var e envelope
-	if err := json.Unmarshal(b, &e); err != nil {
-		return nil, errors.Wrap(err, "unmarshal envelope")
-	}
-	res, err := r.New(e.Type)
-	if err != nil {
-		return nil, errors.Wrap(err, "create resource")
-	}
-	if err := json.Unmarshal(e.Data, &res); err != nil {
-		return nil, errors.Wrap(err, "unmarshal config")
-	}
-	return res, nil
 }

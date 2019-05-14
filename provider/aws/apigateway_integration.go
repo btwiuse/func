@@ -225,9 +225,6 @@ type APIGatewayIntegrationResponse struct {
 	StatusCode string `func:"output"`
 }
 
-// Type returns the resource type of a apigateway resource.
-func (p *APIGatewayIntegration) Type() string { return "aws_apigateway_integration" }
-
 // Create creates a new resource.
 func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

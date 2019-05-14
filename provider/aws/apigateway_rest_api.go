@@ -82,9 +82,6 @@ type APIGatewayRestAPI struct {
 	apigatewayService
 }
 
-// Type returns the resource type of an apigateway rest api.
-func (p *APIGatewayRestAPI) Type() string { return "aws_apigateway_rest_api" }
-
 // Create creates a new rest api.
 func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

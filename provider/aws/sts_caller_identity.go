@@ -37,9 +37,6 @@ type STSCallerIdentity struct {
 	stsService
 }
 
-// Type returns the type name for an AWS IAM policy resource.
-func (p *STSCallerIdentity) Type() string { return "aws_sts_caller_identity" }
-
 // Create reads the current caller identity
 func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

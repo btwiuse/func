@@ -5,23 +5,23 @@ import (
 )
 
 type registry interface {
-	Register(resource.Definition)
+	Register(typename string, def resource.Definition)
 }
 
 // Register adds all supported AWS resources to the registry.
 func Register(reg registry) {
-	reg.Register(&APIGatewayDeployment{})
-	reg.Register(&APIGatewayIntegration{})
-	reg.Register(&APIGatewayMethod{})
-	reg.Register(&APIGatewayResource{})
-	reg.Register(&APIGatewayRestAPI{})
-	reg.Register(&APIGatewayStage{})
-	reg.Register(&IAMPolicyDocument{})
-	reg.Register(&IAMPolicy{})
-	reg.Register(&IAMRolePolicyAttachment{})
-	reg.Register(&IAMRolePolicy{})
-	reg.Register(&IAMRole{})
-	reg.Register(&LambdaFunction{})
-	reg.Register(&LambdaInvokePermission{})
-	reg.Register(&STSCallerIdentity{})
+	reg.Register("aws_apigateway_deployment", &APIGatewayDeployment{})
+	reg.Register("aws_apigateway_integration", &APIGatewayIntegration{})
+	reg.Register("aws_apigateway_method", &APIGatewayMethod{})
+	reg.Register("aws_apigateway_resource", &APIGatewayResource{})
+	reg.Register("aws_apigateway_rest_api", &APIGatewayRestAPI{})
+	reg.Register("aws_apigateway_stage", &APIGatewayStage{})
+	reg.Register("aws_iam_policy_document", &IAMPolicyDocument{})
+	reg.Register("aws_iam_policy", &IAMPolicy{})
+	reg.Register("aws_iam_role_policy_attachment", &IAMRolePolicyAttachment{})
+	reg.Register("aws_iam_role_policy", &IAMRolePolicy{})
+	reg.Register("aws_iam_role", &IAMRole{})
+	reg.Register("aws_lambda_function", &LambdaFunction{})
+	reg.Register("aws_lambda_invoke_permission", &LambdaInvokePermission{})
+	reg.Register("aws_sts_caller_identity", &STSCallerIdentity{})
 }

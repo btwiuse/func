@@ -32,9 +32,6 @@ type IAMRolePolicy struct {
 	iamService
 }
 
-// Type returns the type name for an AWS IAM role policy resource.
-func (IAMRolePolicy) Type() string { return "aws_iam_role_policy" }
-
 // Create attaches an inline role policy to and IAM role.
 func (p *IAMRolePolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

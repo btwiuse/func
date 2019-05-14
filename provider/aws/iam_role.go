@@ -105,9 +105,6 @@ type IAMRole struct {
 	iamService
 }
 
-// Type returns the type name for an AWS IAM role.
-func (IAMRole) Type() string { return "aws_iam_role" }
-
 // Create creates a new IAM role.
 func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

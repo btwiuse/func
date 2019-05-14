@@ -102,9 +102,6 @@ type APIGatewayMethodSnapshot struct {
 	AuthorizationType string `func:"output"`
 }
 
-// Type returns the resource type of an apigateway deployment.
-func (p *APIGatewayDeployment) Type() string { return "aws_apigateway_deployment" }
-
 // Create creates a new deployment.
 func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

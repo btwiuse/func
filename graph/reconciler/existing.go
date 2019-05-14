@@ -31,7 +31,7 @@ func newExisting(resources []resource.Resource) (*existingResources, error) {
 		keep:          make(map[int64]bool),
 	}
 
-	lookup := make(map[resource.Dependency]graph.Node)
+	lookup := make(map[string]graph.Node)
 	for _, r := range resources {
 		node := &existing{
 			Node: ee.NewNode(),
@@ -40,15 +40,13 @@ func newExisting(resources []resource.Resource) (*existingResources, error) {
 		}
 		ee.AddNode(node)
 
-		child := resource.Dependency{Type: r.Def.Type(), Name: r.Name}
-		lookup[child] = node
+		lookup[r.Name] = node
 	}
 
 	for _, r := range resources {
-		childDep := resource.Dependency{Type: r.Def.Type(), Name: r.Name}
-		child, ok := lookup[childDep]
+		child, ok := lookup[r.Name]
 		if !ok {
-			return nil, errors.Errorf("No resource found for child %s", childDep)
+			return nil, errors.Errorf("No resource found for child %s", r.Name)
 		}
 
 		for _, dep := range r.Deps {
@@ -68,7 +66,7 @@ func (ee *existingResources) Find(typename, name string) *existing {
 	it := ee.Nodes()
 	for it.Next() {
 		e := it.Node().(*existing)
-		if e.res.Def.Type() == typename && e.res.Name == name {
+		if e.res.Type == typename && e.res.Name == name {
 			return e
 		}
 	}

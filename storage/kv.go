@@ -25,43 +25,42 @@ type KVBackend interface {
 	Scan(ctx context.Context, prefix string) (map[string][]byte, error)
 }
 
-// A ResourceCodec encodes and decodes resource definitions to/from binary
-// representations.
-type ResourceCodec interface {
-	Marshal(def resource.Definition) ([]byte, error)
-	Unmarshal(data []byte) (resource.Definition, error)
+// A ResourceRegistry can create new resource definitions with a given type.
+type ResourceRegistry interface {
+	New(typename string) (resource.Definition, error)
 }
 
 // KV is a Key-Value store.
 type KV struct {
-	Backend       KVBackend     // Backend to use for persisting data.
-	ResourceCodec ResourceCodec // Used for resource encoding/decoding.
+	Backend  KVBackend        // Backend to use for persisting data.
+	Registry ResourceRegistry // Used for instantiating new definition from the stored data.
 }
 
-// an envelope wraps the data and is used when marshalling to json.
-type envelope struct {
+type resEnvelope struct {
 	Name    string          `json:"name"`
-	Def     json.RawMessage `json:"def"`
-	Deps    [][2]string     `json:"deps,omitempty"`
+	Type    string          `json:"type"`
+	Data    json.RawMessage `json:"data"`
+	Deps    []string        `json:"deps,omitempty"`
 	Sources []string        `json:"srcs,omitempty"`
 }
 
 // Put stores a resource for a namespace-project.
 func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource) error {
-	def, err := kv.ResourceCodec.Marshal(res.Def)
+	if res.Type == "" {
+		return errors.New("resource type not set")
+	}
+	if res.Name == "" {
+		return errors.New("resource name not set")
+	}
+	data, err := json.Marshal(res.Def)
 	if err != nil {
-		return errors.Wrap(err, "marshal definition")
+		return errors.Wrap(err, "marshal resource definition")
 	}
-
-	deps := make([][2]string, len(res.Deps))
-	for i, d := range res.Deps {
-		deps[i] = [2]string{d.Type, d.Name}
-	}
-
-	env := envelope{
+	env := resEnvelope{
 		Name:    res.Name,
-		Def:     def,
-		Deps:    deps,
+		Type:    res.Type,
+		Data:    data,
+		Deps:    res.Deps,
 		Sources: res.Sources,
 	}
 	j, err := json.Marshal(env)
@@ -69,7 +68,7 @@ func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource
 		return errors.Wrap(err, "marshal envelope")
 	}
 
-	k := fmt.Sprintf("%s/%s/%s:%s", ns, project, res.Def.Type(), res.Name)
+	k := fmt.Sprintf("%s/%s/%s-%s", ns, project, res.Type, res.Name)
 
 	if err := kv.Backend.Put(ctx, k, j); err != nil {
 		return errors.Wrap(err, "store")
@@ -80,7 +79,7 @@ func (kv *KV) Put(ctx context.Context, ns, project string, res resource.Resource
 
 // Delete deletes a single resource.
 func (kv *KV) Delete(ctx context.Context, ns, project, typename, name string) error {
-	k := fmt.Sprintf("%s/%s/%s:%s", ns, project, typename, name)
+	k := fmt.Sprintf("%s/%s/%s-%s", ns, project, typename, name)
 	if err := kv.Backend.Delete(ctx, k); err != nil {
 		return errors.Wrap(err, "delete")
 	}
@@ -97,19 +96,24 @@ func (kv *KV) List(ctx context.Context, ns, project string) ([]resource.Resource
 
 	ret := make([]resource.Resource, 0, len(values))
 	for _, v := range values {
-		var env envelope
+		var env resEnvelope
 		if err := json.Unmarshal(v, &env); err != nil {
 			return nil, errors.Wrap(err, "unmarshal stored resource")
 		}
-		def, err := kv.ResourceCodec.Unmarshal(env.Def)
+		def, err := kv.Registry.New(env.Type)
 		if err != nil {
+			return nil, errors.Wrap(err, "create resource definition")
+		}
+		if err := json.Unmarshal(env.Data, def); err != nil {
 			return nil, errors.Wrap(err, "unmarshal resource definition")
 		}
-		deps := make([]resource.Dependency, len(env.Deps))
-		for i, d := range env.Deps {
-			deps[i] = resource.Dependency{Type: d[0], Name: d[1]}
+		res := resource.Resource{
+			Name:    env.Name,
+			Type:    env.Type,
+			Def:     def,
+			Deps:    env.Deps,
+			Sources: env.Sources,
 		}
-		res := resource.Resource{Name: env.Name, Def: def, Deps: deps, Sources: env.Sources}
 		ret = append(ret, res)
 	}
 	return ret, nil

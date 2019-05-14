@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/func/func/resource"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestRegistry_New(t *testing.T) {
@@ -19,7 +18,7 @@ func TestRegistry_New(t *testing.T) {
 		t.Errorf("Not supported error does not contain name of requested type\nGot %v", err)
 	}
 
-	r.Register(&mockDef{Typename: "test"})
+	r.Register("test", &mockDef{})
 
 	_, err = r.New("test")
 	if err != nil {
@@ -35,24 +34,24 @@ func TestRegistry_Register_notStrPtr(t *testing.T) {
 	}()
 
 	r := &resource.Registry{}
-	r.Register(notptr{})
+	r.Register("notptr", mockDef{})
 }
 
 func TestRegistry_SuggestType(t *testing.T) {
 	r := &resource.Registry{}
-	r.Register(&mockDef{Typename: "aws_lambda_function"})
-	r.Register(&mockDef{Typename: "aws_iam_role"})
-	r.Register(&mockDef{Typename: "aws_iam_policy"})
+	r.Register("aws:lambda_function", &mockDef{})
+	r.Register("aws:iam_role", &mockDef{})
+	r.Register("aws:iam_policy", &mockDef{})
 
 	tests := []struct {
 		name  string
 		input string
 		want  string
 	}{
-		{"Exact", "aws_lambda_function", "aws_lambda_function"},
-		{"Close", "aws:lambda:function", "aws_lambda_function"},
-		{"Ambiguous", "aws_iam", "aws_iam_role"}, // Return closer match
-		{"NoMatch", "aws_api_gateway", ""},
+		{"Exact", "aws:lambda_function", "aws:lambda_function"},
+		{"Close", "aws_lambda:function", "aws:lambda_function"},
+		{"Ambiguous", "aws:iam", "aws:iam_role"}, // Return closer match
+		{"NoMatch", "aws:api_gateway", ""},       // No match
 	}
 
 	for _, tt := range tests {
@@ -65,38 +64,6 @@ func TestRegistry_SuggestType(t *testing.T) {
 	}
 }
 
-func TestRegistry_Marshal(t *testing.T) {
-	r := &resource.Registry{}
-	foo := &mockDef{Typename: "foo"}
-	r.Register(foo)
-
-	b, err := r.Marshal(foo)
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-
-	t.Log(b)
-	t.Log(string(b))
-
-	got, err := r.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
-	}
-
-	if diff := cmp.Diff(foo, got); diff != "" {
-		t.Errorf("Roundtrip (-before, +after)\n%s", diff)
-	}
-}
-
 type mockDef struct {
 	resource.Definition
-	Typename string
 }
-
-func (r *mockDef) Type() string { return r.Typename }
-
-type notptr struct {
-	resource.Definition
-}
-
-func (r notptr) Type() string { return "" }

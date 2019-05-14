@@ -83,9 +83,6 @@ type LambdaInvokePermission struct {
 	lambdaService
 }
 
-// Type returns the type name for an AWS Lambda function.
-func (p *LambdaInvokePermission) Type() string { return "aws_lambda_invoke_permission" }
-
 // Create creates an AWS lambda function.
 func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)

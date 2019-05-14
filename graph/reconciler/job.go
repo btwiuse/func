@@ -106,7 +106,7 @@ func (j *job) waitForDep(ctx context.Context, dep *graph.Dependency, logger *zap
 	for _, p := range dep.Parents() {
 		p := p
 		log := logger.With(
-			zap.String("type", p.Config.Def.Type()),
+			zap.String("type", p.Config.Type),
 			zap.String("name", p.Config.Name),
 		)
 		g.Go(func() error {
@@ -129,7 +129,7 @@ func (j *job) waitForDep(ctx context.Context, dep *graph.Dependency, logger *zap
 }
 func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan error {
 	logger := j.logger.With(
-		zap.String("type", res.Config.Def.Type()),
+		zap.String("type", res.Config.Type),
 		zap.String("name", res.Config.Name),
 	)
 
@@ -179,7 +179,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		logger.Debug("Set source code", zap.String("sha", src.Config.Key))
 	}
 
-	ex := j.existing.Find(res.Config.Def.Type(), res.Config.Name)
+	ex := j.existing.Find(res.Config.Type, res.Config.Name)
 	updateConfig := false
 	updateSource := false
 	if ex != nil {
@@ -267,10 +267,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 	// Collect dependencies that were used.
 	for _, d := range res.Dependencies() {
 		for _, p := range d.Parents() {
-			res.Config.Deps = append(res.Config.Deps, resource.Dependency{
-				Type: p.Config.Def.Type(),
-				Name: p.Config.Name,
-			})
+			res.Config.Deps = append(res.Config.Deps, p.Config.Name)
 		}
 	}
 	// Use new context so a cancelled context still stores the result.
@@ -291,7 +288,7 @@ func (j *job) Prune(ctx context.Context) error {
 	j.logger.Info("Removing previous resources", zap.Int("count", len(rem)))
 	for _, e := range rem {
 		logger := j.logger.With(
-			zap.String("type", e.res.Def.Type()),
+			zap.String("type", e.res.Type),
 			zap.String("name", e.res.Name),
 		)
 
@@ -315,7 +312,7 @@ func (j *job) Prune(ctx context.Context) error {
 		defer cancel()
 
 		logger.Debug("Removing deleted resource from store")
-		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Def.Type(), e.res.Name); err != nil {
+		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Type, e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}
 	}

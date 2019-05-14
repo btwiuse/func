@@ -151,9 +151,6 @@ type LambdaFunction struct {
 	lambdaService
 }
 
-// Type returns the type name for an AWS Lambda function.
-func (p *LambdaFunction) Type() string { return "aws_lambda_function" }
-
 // Create creates an AWS lambda function.
 func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
 	if len(r.Source) == 0 {

@@ -2,11 +2,9 @@ package storage_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/func/func/graph"
 	"github.com/func/func/resource"
 	"github.com/func/func/storage"
 	"github.com/func/func/storage/kvbackend"
@@ -16,8 +14,10 @@ import (
 
 func TestKV(t *testing.T) {
 	s := &storage.KV{
-		Backend:       &kvbackend.Memory{},
-		ResourceCodec: mockCodec{},
+		Backend: &kvbackend.Memory{},
+		Registry: resource.RegistryFromResources(map[string]resource.Definition{
+			"mock": &mockDef{},
+		}),
 	}
 
 	ctx := context.Background()
@@ -33,20 +33,17 @@ func TestKV(t *testing.T) {
 		t.Errorf("List returned %d items, want zero\n%v", len(got), got)
 	}
 
-	res1 := resource.Resource{Name: "a", Def: &mockDef{Value: "foo"}, Sources: []string{"abc"}}
+	res1 := resource.Resource{Type: "mock", Name: "a", Def: &mockDef{Value: "foo"}, Sources: []string{"abc"}}
 	if err := s.Put(ctx, ns, proj, res1); err != nil {
 		t.Fatalf("Put() res1 error = %v", err)
 	}
 
-	res2 := resource.Resource{Name: "b", Def: &mockDef{Value: "bar"}, Deps: []resource.Dependency{
-		{Type: "mockDef", Name: "a"},
-	}}
+	res2 := resource.Resource{Type: "mock", Name: "b", Def: &mockDef{Value: "bar"}, Deps: []string{"a"}}
 	if err := s.Put(ctx, ns, proj, res2); err != nil {
 		t.Fatalf("Put() res2 error = %v", err)
 	}
 
 	opts := []cmp.Option{
-		cmpopts.IgnoreUnexported(graph.Resource{}),
 		cmpopts.SortSlices(func(a, b resource.Resource) bool {
 			return fmt.Sprintf("%v", a) < fmt.Sprintf("%v", b)
 		}),
@@ -82,23 +79,7 @@ func TestKV(t *testing.T) {
 	}
 }
 
-type mockCodec struct{}
-
-func (mockCodec) Marshal(def resource.Definition) ([]byte, error) {
-	return json.Marshal(def)
-}
-
-func (mockCodec) Unmarshal(data []byte) (resource.Definition, error) {
-	var m mockDef
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
-}
-
 type mockDef struct {
 	resource.Definition
 	Value string
 }
-
-func (mockDef) Type() string { return "mock" }

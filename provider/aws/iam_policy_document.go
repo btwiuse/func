@@ -71,9 +71,6 @@ type IAMPolicyStatement struct {
 	Conditions *map[string]map[string]string `func:"input"`
 }
 
-// Type returns the type name for an AWS IAM role.
-func (p *IAMPolicyDocument) Type() string { return "aws_iam_policy_document" }
-
 // Create creates a new IAM role.
 func (p *IAMPolicyDocument) Create(ctx context.Context, r *resource.CreateRequest) error {
 	return p.generate()

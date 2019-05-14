@@ -22,7 +22,7 @@ func (n *Resource) ID() int64 { return n.id }
 // graphviz dot format.
 func (n *Resource) Attributes() []encoding.Attribute {
 	return []encoding.Attribute{
-		{Key: "label", Value: fmt.Sprintf("Resource\n%s.%s", n.Config.Def.Type(), n.Config.Name)},
+		{Key: "label", Value: fmt.Sprintf("Resource\n%s.%s", n.Config.Type, n.Config.Name)},
 	}
 }
 

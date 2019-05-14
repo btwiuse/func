@@ -20,7 +20,7 @@ func TestDecodeBody(t *testing.T) {
 	tests := []struct {
 		name      string
 		body      hcl.Body
-		resources []resource.Definition
+		resources map[string]resource.Definition
 		wantSnap  snapshot.Snap
 		wantProj  *config.Project
 	}{
@@ -35,19 +35,19 @@ func TestDecodeBody(t *testing.T) {
 			name: "StaticInput",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = "world"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Name: "bar", Def: &simpleDef{Input: "world"}},
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "bar", Def: &simpleDef{Input: "world"}},
 				},
 			},
 		},
@@ -55,15 +55,15 @@ func TestDecodeBody(t *testing.T) {
 			name: "Source",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type   = "a"
 					input  = "src"
 					source = "ff:abc:def"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "src"}},
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "src"}},
 				},
 				Sources: []config.SourceInfo{
 					{Key: "def", MD5: "abc", Len: 0xFF},
@@ -77,19 +77,19 @@ func TestDecodeBody(t *testing.T) {
 			name: "DependencyToInput",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = foo.input
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Name: "bar", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved.
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved.
 				},
 			},
 		},
@@ -97,24 +97,24 @@ func TestDecodeBody(t *testing.T) {
 			name: "DependencyToInputExtended",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = foo.input
 				}
 				resource "baz" {
-					type  = "simple"
+					type  = "a"
 					input = bar.input
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Name: "baz", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved through baz.
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "baz", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved through baz.
 				},
 			},
 		},
@@ -122,19 +122,19 @@ func TestDecodeBody(t *testing.T) {
 			name: "DependencyToOutput",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = foo.output
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Name: "bar", Def: &simpleDef{}}, // Input is dynamic.
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "bar", Def: &simpleDef{}}, // Input is dynamic.
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
 					"${bar.input}": "${foo.output}",
@@ -145,19 +145,19 @@ func TestDecodeBody(t *testing.T) {
 			name: "DependencyExpression",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = ":: ${foo.input} - ${foo.output} <<<"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Name: "bar", Def: &simpleDef{}},
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
+					{Type: "a", Name: "bar", Def: &simpleDef{}},
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
 					"${bar.input}": ":: hello - ${foo.output} <<<", // Partially resolved.
@@ -168,14 +168,14 @@ func TestDecodeBody(t *testing.T) {
 			name: "ConvertType",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = 3.14
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &simpleDef{Input: "3.14"}}, // Converted to string.
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "3.14"}}, // Converted to string.
 				},
 			},
 		},
@@ -183,16 +183,16 @@ func TestDecodeBody(t *testing.T) {
 			name: "Map",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					map = {
 						foo = "bar"
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &complexDef{
+					{Type: "a", Name: "foo", Def: &complexDef{
 						Map: &map[string]string{"foo": "bar"},
 					}},
 				},
@@ -202,14 +202,14 @@ func TestDecodeBody(t *testing.T) {
 			name: "Slice",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "complex"
+					type  = "a"
 					slice = ["hello", "world"]
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &complexDef{
+					{Type: "a", Name: "foo", Def: &complexDef{
 						Slice: &[]string{"hello", "world"},
 					}},
 				},
@@ -219,7 +219,7 @@ func TestDecodeBody(t *testing.T) {
 			name: "Struct",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 						sub {
 							value = "hello"
@@ -227,10 +227,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &complexDef{
+					{Type: "a", Name: "foo", Def: &complexDef{
 						Child: &Child{
 							Sub: sub{
 								Val: "hello",
@@ -244,7 +244,7 @@ func TestDecodeBody(t *testing.T) {
 			name: "MultipleBlocksAllowed",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					multi {
 						value = "hello"
 					}
@@ -253,10 +253,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &complexDef{
+					{Type: "a", Name: "foo", Def: &complexDef{
 						Multiple: &[]sub{
 							{Val: "hello"},
 							{Val: "world"},
@@ -269,7 +269,7 @@ func TestDecodeBody(t *testing.T) {
 			name: "MultipleBlocksToPointers",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "slice_ptr"
+					type = "a"
 					sub {
 						value = "hello"
 					}
@@ -278,10 +278,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&slicePtrDef{}},
+			resources: map[string]resource.Definition{"a": &slicePtrDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &slicePtrDef{
+					{Type: "a", Name: "foo", Def: &slicePtrDef{
 						Subs: []*sub{
 							{Val: "hello"},
 							{Val: "world"},
@@ -294,7 +294,7 @@ func TestDecodeBody(t *testing.T) {
 			name: "ConvertStructArgument",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 						sub {
 							value = 3.14 # assigned to string
@@ -302,10 +302,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Name: "foo", Def: &complexDef{
+					{Type: "a", Name: "foo", Def: &complexDef{
 						Child: &Child{
 							Sub: sub{
 								Val: "3.14",
@@ -320,7 +320,7 @@ func TestDecodeBody(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer checkPanic(t)
 			g := graph.New()
-			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources...)}
+			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
 			proj, diags := decoder.DecodeBody(tt.body, ctx, g)
 			if diags.HasErrors() {
 				t.Fatalf("DecodeBody() Diagnostics\n%s", diags)
@@ -340,17 +340,17 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 	tests := []struct {
 		name      string
 		body      hcl.Body
-		resources []resource.Definition
+		resources map[string]resource.Definition
 		diags     hcl.Diagnostics
 	}{
 		{
 			name: "MissingType",
 			body: parseBody(t, `
 				resource "foo" {
-					input = "hello"
+					input = "a"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -366,12 +366,12 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "UnsupportedArgument",
 			body: parseBody(t, `
 				resource "foo" {
-					type         = "simple"
+					type         = "a"
 					input        = "hello"
 					notsupported = 123
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsupported argument",
@@ -387,13 +387,13 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "InvalidSource",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 
 					source = "xxx"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Could not decode source information",
@@ -409,19 +409,19 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "NonexistingDependencies",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = zoo.output
 				}
 				resource "baz" {
-					type  = "simple"
+					type  = "a"
 					input = bar.input
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -449,15 +449,15 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "NonexistingDependencyField",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = foo.nonexisting
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -475,15 +475,15 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "InvalidReference",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type  = "simple"
+					type  = "a"
 					input = foo.output.value # nested ref not supported
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -501,11 +501,11 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "StructWithDependency",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
 				resource "bar" {
-					type = "complex"
+					type = "b"
 					nested {
 						sub {
 							value = "arn::${simple.foo.output}"
@@ -513,7 +513,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}, &complexDef{}},
+			resources: map[string]resource.Definition{
+				"a": &simpleDef{},
+				"b": &complexDef{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Variables not allowed",           // Would be nice to support variables
@@ -529,7 +532,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "StructMissingAttribute",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 						sub {
 							# missing required value
@@ -537,7 +540,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -553,7 +556,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "StructAssignInvalid",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 						sub {
 							value = ["hello", "world"]
@@ -561,7 +564,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -577,7 +580,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "MultipleBlocksNotAllowed",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 						value = "hello"
 					}
@@ -586,7 +589,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Duplicate nested block",
@@ -602,11 +605,16 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "MissingBlock",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "required"
+					type  = "a"
 					# required block not set
 				}
 			`),
-			resources: []resource.Definition{&requiredBlockDef{}},
+			resources: map[string]resource.Definition{
+				"a": &struct { // nolint: maligned
+					resource.Definition
+					RequiredChild struct{} `func:"input,required"`
+				}{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required block",
@@ -622,12 +630,12 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "MissingNestedBlock",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					nested {
 					}
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{"a": &complexDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required block",
@@ -683,15 +691,15 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "DuplicateResource",
 			body: parseBody(t, `
 				resource "foo" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"
 				}
-				resource "foo" {        # dupliate
-					type  = "simple"
+				resource "foo" {        # duplicate
+					type  = "a"
 					input = "world"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Duplicate resource",
@@ -711,11 +719,16 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "InvalidType",
 			body: parseBody(t, `
 				resource "foo" {
-					type = "complex"
+					type = "a"
 					int = "this cannot be an int"
 				}
 			`),
-			resources: []resource.Definition{&complexDef{}},
+			resources: map[string]resource.Definition{
+				"a": &struct {
+					resource.Definition
+					Int int `func:"input"`
+				}{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -738,7 +751,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = "notfound"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}}, // resource "notfound" not registered
+			resources: map[string]resource.Definition{}, // resource "notfound" not registered
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -756,7 +769,9 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = "sample"
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{
+				"simple": &simpleDef{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -772,15 +787,18 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "InvalidInputType",
 			body: parseBody(t, `
 				resource "a" {
-					type  = "simple"
+					type  = "a"
 					input = "hello"    # string
 				}
 				resource "b" {
-					type = "complex"
+					type = "b"
 					int  = a.input # cannot assign string to int
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}, &complexDef{}},
+			resources: map[string]resource.Definition{
+				"a": &simpleDef{},
+				"b": &complexDef{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -796,11 +814,16 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			name: "MissingRequiredArg",
 			body: parseBody(t, `
 				resource "a" {
-					type  = "simple"
+					type  = "a"
 					# input not set
 				}
 			`),
-			resources: []resource.Definition{&simpleDef{}},
+			resources: map[string]resource.Definition{
+				"a": &struct {
+					resource.Definition
+					Input string `func:"input,required"`
+				}{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -815,13 +838,18 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		{
 			name: "ValidationError",
 			body: parseBody(t, `
-				resource "a" {
-					type  = "validation"
+				resource "foo" {
+					type  = "a"
 
 					season = "tuesday"
 				}
 			`),
-			resources: []resource.Definition{&validationDef{}},
+			resources: map[string]resource.Definition{
+				"a": &struct {
+					resource.Definition
+					Season string `func:"input" validate:"oneof=spring summer fall winter"`
+				}{},
+			},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Validation error",
@@ -839,7 +867,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer checkPanic(t)
 			g := graph.New()
-			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources...)}
+			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
 			_, diags := decoder.DecodeBody(tt.body, ctx, g)
 			if diff := diffDiagnostics(diags, tt.diags); diff != "" {
 				t.Errorf("DecodeBody() diagnostics (-got, +want)\n%s", diff)
@@ -886,8 +914,6 @@ type simpleDef struct {
 	Output string `func:"output"`
 }
 
-func (d *simpleDef) Type() string { return "simple" }
-
 type complexDef struct {
 	resource.Definition
 
@@ -907,25 +933,7 @@ type sub struct {
 	Optional *string `func:"input"`
 }
 
-func (*complexDef) Type() string { return "complex" }
-
-type requiredBlockDef struct {
-	resource.Definition
-	RequiredChild Child `func:"input,required"`
-}
-
-func (*requiredBlockDef) Type() string { return "required" }
-
 type slicePtrDef struct {
 	resource.Definition
 	Subs []*sub `func:"input" name:"sub"`
 }
-
-func (*slicePtrDef) Type() string { return "slice_ptr" }
-
-type validationDef struct {
-	resource.Definition
-	Season string `func:"input" validate:"oneof=spring summer fall winter"`
-}
-
-func (*validationDef) Type() string { return "validation" }

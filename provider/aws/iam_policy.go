@@ -96,9 +96,6 @@ type IAMPolicy struct {
 	iamService
 }
 
-// Type returns the type name for an AWS IAM policy resource.
-func (p *IAMPolicy) Type() string { return "aws_iam_policy" }
-
 // Create creates a new IAM policy.
 func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
