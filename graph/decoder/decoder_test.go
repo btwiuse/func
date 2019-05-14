@@ -89,7 +89,8 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved.
+					// Input can be statically resolved.
+					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}, Deps: []string{"foo"}},
 				},
 			},
 		},
@@ -113,8 +114,9 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}},
-					{Type: "a", Name: "baz", Def: &simpleDef{Input: "hello"}}, // Input can be statically resolved through baz.
+					{Type: "a", Name: "bar", Def: &simpleDef{Input: "hello"}, Deps: []string{"foo"}},
+					// Input can be statically resolved through bar.
+					{Type: "a", Name: "baz", Def: &simpleDef{Input: "hello"}, Deps: []string{"bar"}},
 				},
 			},
 		},
@@ -134,7 +136,7 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Type: "a", Name: "bar", Def: &simpleDef{}}, // Input is dynamic.
+					{Type: "a", Name: "bar", Def: &simpleDef{}, Deps: []string{"foo"}}, // Input is dynamic.
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
 					"${bar.input}": "${foo.output}",
@@ -157,7 +159,7 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &simpleDef{Input: "hello"}},
-					{Type: "a", Name: "bar", Def: &simpleDef{}},
+					{Type: "a", Name: "bar", Def: &simpleDef{}, Deps: []string{"foo"}},
 				},
 				Dependencies: map[snapshot.Expr]snapshot.Expr{
 					"${bar.input}": ":: hello - ${foo.output} <<<", // Partially resolved.

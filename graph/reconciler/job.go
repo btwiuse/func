@@ -264,12 +264,6 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		return errc
 	}
 
-	// Collect dependencies that were used.
-	for _, d := range res.Dependencies() {
-		for _, p := range d.Parents() {
-			res.Config.Deps = append(res.Config.Deps, p.Config.Name)
-		}
-	}
 	// Use new context so a cancelled context still stores the result.
 	pctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

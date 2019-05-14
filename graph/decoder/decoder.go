@@ -63,21 +63,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 
 	// Create resource node.
 	// The resource definition is currently "empty"; the field values are not set.
-	node := d.graph.AddResource(resource.Resource{Type: spec.Type, Name: resname, Def: def})
-
-	if spec.Source != "" {
-		// Add source to resource.
-		src, err := config.DecodeSourceString(spec.Source)
-		if err != nil {
-			return []*hcl.Diagnostic{{
-				Severity: hcl.DiagError,
-				Summary:  "Could not decode source information",
-				Detail:   "Error: string must contain 3 parts separated by ':'. This is always a bug.",
-				Subject:  block.DefRange.Ptr(),
-			}}
-		}
-		d.graph.AddSource(node, src)
-	}
+	res := resource.Resource{Type: spec.Type, Name: resname, Def: def}
 
 	val := reflect.Indirect(reflect.ValueOf(def))
 	fields, diags := d.decodeResBody(spec.Config, val)
@@ -111,10 +97,46 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 				diags = append(diags, morediags...)
 				continue
 			}
+
+			for _, d := range e.Fields() {
+				name := d.Name
+				match := false
+				for _, x := range res.Deps {
+					if x == name {
+						match = true
+						break
+					}
+				}
+				if match {
+					// Do not add duplicate dependency.
+					// Adding one wouldn't have any side-effects, but it is
+					// unnecessary to create two parent-child relationships
+					// (used for delete), even if two fields have a
+					// reference to same parent.
+					continue
+				}
+				res.Deps = append(res.Deps, name)
+			}
 		}
 
 		target := graph.Field{Name: resname, Field: name}
 		d.fields[target] = field{def: def, input: bf.input, index: bf.index, expr: e}
+	}
+
+	node := d.graph.AddResource(res)
+
+	if spec.Source != "" {
+		// Add source to resource.
+		src, err := config.DecodeSourceString(spec.Source)
+		if err != nil {
+			return []*hcl.Diagnostic{{
+				Severity: hcl.DiagError,
+				Summary:  "Could not decode source information",
+				Detail:   "Error: string must contain 3 parts separated by ':'. This is always a bug.",
+				Subject:  block.DefRange.Ptr(),
+			}}
+		}
+		d.graph.AddSource(node, src)
 	}
 
 	return diags

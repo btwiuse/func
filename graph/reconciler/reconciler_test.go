@@ -147,8 +147,8 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			// Deliberately out of order to ensure dependency order is followed.
-			{Type: "concat", Name: "b", Def: &concatDef{Add: "b"}},
-			{Type: "concat", Name: "c", Def: &concatDef{Add: "c"}},
+			{Type: "concat", Name: "b", Def: &concatDef{Add: "b"}, Deps: []string{"a"}},
+			{Type: "concat", Name: "c", Def: &concatDef{Add: "c"}, Deps: []string{"b"}},
 			{Type: "concat", Name: "a", Def: &concatDef{Add: "a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
@@ -238,7 +238,7 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Type: "noop", Name: "a", Def: &noopDef{OutputPtr: strptr}},
-			{Type: "noop", Name: "b", Def: &noopDef{}},
+			{Type: "noop", Name: "b", Def: &noopDef{}, Deps: []string{"a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${b.in}": "${a.outptr}", // *string -> string
@@ -275,7 +275,7 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Type: "noop", Name: "a", Def: &noopDef{Output: strval}},
-			{Type: "noop", Name: "b", Def: &noopDef{}},
+			{Type: "noop", Name: "b", Def: &noopDef{}, Deps: []string{"a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${b.inptr}": "${a.out}", // string -> *string
@@ -526,8 +526,8 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
-			{Type: "concat", Name: "a", Def: &concatDef{Add: "a", Out: "a"}}, // Out is resolved to same value
-			{Type: "concat", Name: "b", Def: &concatDef{Add: "x"}},           // Add changed to x
+			{Type: "concat", Name: "a", Def: &concatDef{Add: "a", Out: "a"}},            // Out is resolved to same value
+			{Type: "concat", Name: "b", Def: &concatDef{Add: "x"}, Deps: []string{"a"}}, // Add changed to x
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${b.in}": "${a.out}",
@@ -563,6 +563,7 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 			Type: "concat",
 			Name: "b",
 			Def:  &concatDef{In: "a", Add: "b", Out: "ab"},
+			Deps: []string{"a"},
 		}},
 	}
 
@@ -571,8 +572,10 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
-			{Type: "concat", Name: "a", Def: &concatDef{Add: "x"}}, // Add changed to x
-			{Type: "concat", Name: "b", Def: &concatDef{Add: "b"}}, // Did not change, but will receive new input from a
+			// Add changed to x
+			{Type: "concat", Name: "a", Def: &concatDef{Add: "x"}},
+			// Did not change, but will receive new input from a
+			{Type: "concat", Name: "b", Def: &concatDef{Add: "b"}, Deps: []string{"a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${b.in}": "${a.out}",
@@ -718,7 +721,7 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 			{Type: "noop", Name: "a", Def: &noopDef{Output: "A"}},
 			{Type: "noop", Name: "b", Def: &noopDef{Output: "B"}},
 			{Type: "noop", Name: "c", Def: &noopDef{Output: "C"}},
-			{Type: "noop", Name: "x", Def: &noopDef{}},
+			{Type: "noop", Name: "x", Def: &noopDef{}, Deps: []string{"a", "b", "c"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${x.in}": "${a.out}-${b.out}-${c.out}",
@@ -753,9 +756,9 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
 			{Type: "noop", Name: "a", Def: &noopDef{Output: "hello"}},
-			{Type: "noop", Name: "x", Def: &noopDef{}},
-			{Type: "noop", Name: "y", Def: &noopDef{}},
-			{Type: "noop", Name: "z", Def: &noopDef{}},
+			{Type: "noop", Name: "x", Def: &noopDef{}, Deps: []string{"a"}},
+			{Type: "noop", Name: "y", Def: &noopDef{}, Deps: []string{"a"}},
+			{Type: "noop", Name: "z", Def: &noopDef{}, Deps: []string{"a"}},
 		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${x.in}": "${a.out}",
