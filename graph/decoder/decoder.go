@@ -19,9 +19,10 @@ import (
 
 // a decoder maintains the state of a single decode job.
 type decoder struct {
-	graph  *graph.Graph
-	fields map[graph.Field]field
-	names  map[string]*hcl.Range
+	graph   *graph.Graph
+	fields  map[graph.Field]field
+	names   map[string]*hcl.Range
+	sources []*config.SourceInfo
 }
 
 func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnostics {
@@ -123,8 +124,6 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 		d.fields[target] = field{def: def, input: bf.input, index: bf.index, expr: e}
 	}
 
-	node := d.graph.AddResource(res)
-
 	if spec.Source != "" {
 		// Add source to resource.
 		src, err := config.DecodeSourceString(spec.Source)
@@ -136,8 +135,11 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 				Subject:  block.DefRange.Ptr(),
 			}}
 		}
-		d.graph.AddSource(node, src)
+		res.Sources = append(res.Sources, src.Key)
+		d.sources = append(d.sources, &src)
 	}
+
+	d.graph.AddResource(res)
 
 	return diags
 }

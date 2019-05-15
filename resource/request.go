@@ -19,9 +19,6 @@ type SourceCode interface {
 	// Digest returns a hash digest.
 	Key() string
 
-	// Size returns the size of the source tarball in bytes.
-	Size() int
-
 	// Reader returns a reader to the source tarball.
 	Reader(ctx context.Context) (targz io.ReadCloser, err error)
 }

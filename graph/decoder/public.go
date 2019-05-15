@@ -40,10 +40,13 @@ type DecodeContext struct {
 // literals and references as an input to a string field. This allows
 // concatenating strings that will dynamically be resolved on runtime, based on
 // outputs from parent resources.
-func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config.Project, hcl.Diagnostics) {
+//
+// Resources that have source code attached will receive the source key and the
+// entire source object is returned in case uploads are needed.
+func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config.Project, []*config.SourceInfo, hcl.Diagnostics) { // nolint: lll
 	cont, diags := body.Content(rootSchema)
 	if diags.HasErrors() {
-		return nil, diags
+		return nil, nil, diags
 	}
 
 	dec := &decoder{
@@ -75,7 +78,7 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config
 
 	diags = append(diags, dec.resolveValues()...)
 
-	return project, diags
+	return project, dec.sources, diags
 }
 
 func requireLabels(block *hcl.Block, names ...string) hcl.Diagnostics {

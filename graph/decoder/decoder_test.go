@@ -18,11 +18,12 @@ import (
 
 func TestDecodeBody(t *testing.T) {
 	tests := []struct {
-		name      string
-		body      hcl.Body
-		resources map[string]resource.Definition
-		wantSnap  snapshot.Snap
-		wantProj  *config.Project
+		name        string
+		body        hcl.Body
+		resources   map[string]resource.Definition
+		wantSnap    snapshot.Snap
+		wantSources []*config.SourceInfo
+		wantProj    *config.Project
 	}{
 		{
 			name: "Project",
@@ -63,14 +64,11 @@ func TestDecodeBody(t *testing.T) {
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
-					{Type: "a", Name: "foo", Def: &simpleDef{Input: "src"}},
+					{Type: "a", Name: "foo", Def: &simpleDef{Input: "src"}, Sources: []string{"def"}},
 				},
-				Sources: []config.SourceInfo{
-					{Key: "def", MD5: "abc", Len: 0xFF},
-				},
-				ResourceSources: map[int][]int{
-					0: {0},
-				},
+			},
+			wantSources: []*config.SourceInfo{
+				{Key: "def", MD5: "abc", Len: 0xFF},
 			},
 		},
 		{
@@ -323,13 +321,16 @@ func TestDecodeBody(t *testing.T) {
 			defer checkPanic(t)
 			g := graph.New()
 			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
-			proj, diags := decoder.DecodeBody(tt.body, ctx, g)
+			proj, srcs, diags := decoder.DecodeBody(tt.body, ctx, g)
 			if diags.HasErrors() {
 				t.Fatalf("DecodeBody() Diagnostics\n%s", diags)
 			}
 			snap := snapshot.Take(g)
 			if diff := cmp.Diff(snap, tt.wantSnap, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("Snapshot does not match (-got, +want)\n%s", diff)
+			}
+			if diff := cmp.Diff(srcs, tt.wantSources, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("Sources do not match (-got, +want)\n%s", diff)
 			}
 			if diff := cmp.Diff(proj, tt.wantProj); diff != "" {
 				t.Errorf("Project does not match (-got, +want)\n%s", diff)
@@ -870,7 +871,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			defer checkPanic(t)
 			g := graph.New()
 			ctx := &decoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
-			_, diags := decoder.DecodeBody(tt.body, ctx, g)
+			_, _, diags := decoder.DecodeBody(tt.body, ctx, g)
 			if diff := diffDiagnostics(diags, tt.diags); diff != "" {
 				t.Errorf("DecodeBody() diagnostics (-got, +want)\n%s", diff)
 			}

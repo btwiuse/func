@@ -2,11 +2,8 @@ package snapshot_test
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"testing"
 
-	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
@@ -20,16 +17,10 @@ func TestSnapshot_roundtrip(t *testing.T) {
 		Resources: []resource.Resource{
 			{Name: "foo", Def: &mockDef{Input: "foo"}},
 			{Name: "bar", Def: &mockDef{}},
-			{Name: "baz", Def: &mockDef{}},
-		},
-		Sources: []config.SourceInfo{
-			{Key: "123456789"},
+			{Name: "baz", Def: &mockDef{}, Sources: []string{"123456789"}},
 		},
 
 		// Edges
-		ResourceSources: map[int][]int{
-			0: {0},
-		},
 		Dependencies: map[snapshot.Expr]snapshot.Expr{
 			"${bar.in}": "${foo.out}",
 			"${baz.in}": "${foo.out}-${mock.bar.out}",
@@ -59,24 +50,6 @@ func TestFromSnapshot_errors(t *testing.T) {
 		name string
 		snap snapshot.Snap
 	}{
-		{
-			"NoResource",
-			snapshot.Snap{
-				Resources: nil,
-				Sources:   []config.SourceInfo{{Key: "123"}},
-				ResourceSources: map[int][]int{
-					0: {0}, // No resource at index 0
-				},
-			},
-		},
-		{
-			"NoSourceOwner",
-			snapshot.Snap{
-				Resources:       []resource.Resource{{Name: "foo", Def: &mockDef{Input: "foo"}}},
-				Sources:         []config.SourceInfo{{Key: "123"}},
-				ResourceSources: map[int][]int{}, // empty
-			},
-		},
 		{
 			"NoDependencyParentType",
 			snapshot.Snap{
@@ -157,47 +130,6 @@ func TestFromSnapshot_errors(t *testing.T) {
 type ExampleExpression struct{}
 
 func (ExampleExpression) Eval(data map[graph.Field]interface{}, target interface{}) error { return nil }
-
-// Output not asserted as the dot marshalling will quickly change and it's not
-// too relevant for this example.
-func ExampleSnap_Graph() {
-	// digraph {
-	//   proj   -> {foo, bar}
-	//   source -> foo        // key: 123
-	//   foo    -> bar        // index {0} -> {1}
-	// }
-
-	snap := snapshot.Snap{
-		// Nodes
-		Resources: []resource.Resource{
-			{Name: "foo", Def: &mockDef{Input: "foo"}},
-			{Name: "bar", Def: &mockDef{Input: "bar"}},
-		},
-		Sources: []config.SourceInfo{
-			{Key: "123"},
-		},
-
-		// Edges
-		ResourceSources: map[int][]int{
-			0: {0}, // 123 -> foo
-		},
-		Dependencies: map[snapshot.Expr]snapshot.Expr{
-			"${mock.bar.in}": "${mock.foo.out",
-		},
-	}
-
-	g, err := snap.Graph()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	d, err := dot.MarshalMulti(g, "", "", "")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println(string(d))
-}
 
 type mockDef struct {
 	Input  string

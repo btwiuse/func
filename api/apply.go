@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/decoder"
 	"github.com/func/func/source"
@@ -24,7 +25,7 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	// Resolve graph and validate resource input
 	g := graph.New()
 	decCtx := &decoder.DecodeContext{Resources: f.Resources}
-	proj, diags := decoder.DecodeBody(req.Config, decCtx, g)
+	proj, srcs, diags := decoder.DecodeBody(req.Config, decCtx, g)
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -43,7 +44,7 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
 
 	// Check missing source files
-	missing, err := f.missingSource(ctx, g.Sources())
+	missing, err := f.missingSource(ctx, srcs)
 	if err != nil {
 		return nil, errors.Wrap(err, "check for source code")
 	}
@@ -53,14 +54,14 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 		sr := make([]SourceRequest, len(missing))
 		for i, src := range missing {
 			u, err := f.Source.NewUpload(source.UploadConfig{
-				Filename:      src.Config.Key,
-				ContentMD5:    src.Config.MD5,
-				ContentLength: src.Config.Len,
+				Filename:      src.Key,
+				ContentMD5:    src.MD5,
+				ContentLength: src.Len,
 			})
 			if err != nil {
 				return nil, errors.Wrap(err, "request upload")
 			}
-			sr[i] = SourceRequest{Key: src.Config.Key, URL: u.URL, Headers: u.Headers}
+			sr[i] = SourceRequest{Key: src.Key, URL: u.URL, Headers: u.Headers}
 		}
 		return &ApplyResponse{SourcesRequired: sr}, nil
 	}
@@ -76,16 +77,16 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	return &ApplyResponse{}, nil
 }
 
-func (f *Func) missingSource(ctx context.Context, sources []*graph.Source) ([]*graph.Source, error) {
+func (f *Func) missingSource(ctx context.Context, sources []*config.SourceInfo) ([]*config.SourceInfo, error) {
 	var mu sync.Mutex
-	var missing []*graph.Source
+	var missing []*config.SourceInfo
 	g, ctx := errgroup.WithContext(ctx)
 	for _, src := range sources {
 		src := src
 		g.Go(func() error {
-			ok, err := f.Source.Has(ctx, src.Config.Key)
+			ok, err := f.Source.Has(ctx, src.Key)
 			if err != nil {
-				return errors.Wrapf(err, "check %s", src.Config.Key)
+				return errors.Wrapf(err, "check %s", src.Key)
 			}
 			if !ok {
 				mu.Lock()
@@ -101,12 +102,12 @@ func (f *Func) missingSource(ctx context.Context, sources []*graph.Source) ([]*g
 	return missing, nil
 }
 
-type sources []*graph.Source
+type sources []*config.SourceInfo
 
 func (ss sources) Keys() []string {
 	list := make([]string, len(ss))
 	for i, s := range ss {
-		list[i] = s.Config.Key
+		list[i] = s.Key
 	}
 	return list
 }

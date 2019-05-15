@@ -191,21 +191,20 @@ func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
 
 	desired := fromSnapshot(t, snapshot.Snap{
 		Resources: []resource.Resource{
-			{Type: "mock", Name: "src", Def: &mockDef{
-				onCreate: func(ctx context.Context, r *resource.CreateRequest) error {
-					got = make([]string, len(r.Source))
-					for i, s := range r.Source {
-						got[i] = s.Key()
-					}
-					return nil
+			{
+				Type: "mock",
+				Name: "src",
+				Def: &mockDef{
+					onCreate: func(ctx context.Context, r *resource.CreateRequest) error {
+						got = make([]string, len(r.Source))
+						for i, s := range r.Source {
+							got[i] = s.Key()
+						}
+						return nil
+					},
 				},
-			}},
-		},
-		Sources: []config.SourceInfo{
-			{Key: "abc"},
-		},
-		ResourceSources: map[int][]int{
-			0: {0},
+				Sources: []string{"abc"},
+			},
 		},
 	})
 
@@ -340,19 +339,18 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 				}},
 			},
 			snapshot.Snap{
-				Resources: []resource.Resource{
-					{Type: "noop", Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
-				},
-				Sources: []config.SourceInfo{
-					{Key: "abc"}, // no change
-				},
-				ResourceSources: map[int][]int{0: {0}},
+				Resources: []resource.Resource{{
+					Type:    "noop",
+					Name:    "foo",
+					Def:     &noopDef{Input: "bar"}, // updated
+					Sources: []string{"abc"},        // no change
+				}},
 			},
 			[]mock.Event{
 				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
 					Type:    "noop",
 					Name:    "foo",
-					Def:     &noopDef{Input: "bar"},
+					Def:     &noopDef{Input: "bar"}, // updated
 					Sources: []string{"abc"},
 				}},
 			},
@@ -369,20 +367,19 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 				}},
 			},
 			snapshot.Snap{
-				Resources: []resource.Resource{
-					{Type: "noop", Name: "foo", Def: &noopDef{Input: "foo"}}, // no change
-				},
-				Sources: []config.SourceInfo{
-					{Key: "xyz"}, // updated
-				},
-				ResourceSources: map[int][]int{0: {0}},
+				Resources: []resource.Resource{{
+					Type:    "noop",
+					Name:    "foo",
+					Def:     &noopDef{Input: "foo"}, // no change
+					Sources: []string{"xyz"},        // updated
+				}},
 			},
 			[]mock.Event{
 				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
 					Type:    "noop",
 					Name:    "foo",
-					Def:     &noopDef{Input: "foo"},
-					Sources: []string{"xyz"},
+					Def:     &noopDef{Input: "foo"}, // no change
+					Sources: []string{"xyz"},        // updated
 				}},
 			},
 		},
@@ -398,20 +395,19 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 				}},
 			},
 			snapshot.Snap{
-				Resources: []resource.Resource{
-					{Type: "noop", Name: "foo", Def: &noopDef{Input: "bar"}}, // updated
-				},
-				Sources: []config.SourceInfo{
-					{Key: "xyz"}, // updated
-				},
-				ResourceSources: map[int][]int{0: {0}},
+				Resources: []resource.Resource{{
+					Type:    "noop",
+					Name:    "foo",
+					Def:     &noopDef{Input: "bar"}, // updated
+					Sources: []string{"xyz"},        // updated
+				}},
 			},
 			[]mock.Event{
 				{Op: "update", NS: "ns", Proj: "proj", Res: resource.Resource{
 					Type:    "noop",
 					Name:    "foo",
-					Def:     &noopDef{Input: "bar"},
-					Sources: []string{"xyz"},
+					Def:     &noopDef{Input: "bar"}, // updated
+					Sources: []string{"xyz"},        // updated
 				}},
 			},
 		},

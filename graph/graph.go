@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"github.com/func/func/config"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
@@ -30,19 +29,6 @@ func (g *Graph) AddResource(res resource.Resource) *Resource {
 		Config: res,
 	}
 	g.AddNode(node)
-	return node
-}
-
-// AddSource adds a source input to a given resource. The resource must be
-// added to the graph before adding source.
-func (g *Graph) AddSource(res *Resource, info config.SourceInfo) *Source { // nolint: interfacer
-	node := &Source{
-		id:     g.NewNode().ID(),
-		graph:  g,
-		Config: info,
-	}
-	g.AddNode(node)
-	g.SetLine(g.NewLine(node, res))
 	return node
 }
 
@@ -126,20 +112,6 @@ func (g *Graph) Resources() []*Resource {
 	for it.Next() {
 		if x, ok := it.Node().(*Resource); ok {
 			list = append(list, x)
-		}
-	}
-	return list
-}
-
-// Sources returns all sources in the graph.
-//
-// The order of the results is not deterministic.
-func (g *Graph) Sources() []*Source {
-	var list []*Source
-	it := g.Nodes()
-	for it.Next() {
-		if src, ok := it.Node().(*Source); ok {
-			list = append(list, src)
 		}
 	}
 	return list

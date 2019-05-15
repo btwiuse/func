@@ -168,15 +168,13 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 
 	logger.With(zap.String("config_hash", hash)).Info("Processing")
 
-	srcs := res.Sources()
-	sourceList := make([]resource.SourceCode, len(srcs))
-	for i, src := range res.Sources() {
+	sourceList := make([]resource.SourceCode, len(res.Config.Sources))
+	for i, src := range res.Config.Sources {
 		sourceList[i] = &source{
-			info:    src.Config,
+			key:     src,
 			storage: j.source,
 		}
-		res.Config.Sources = append(res.Config.Sources, src.Config.Key)
-		logger.Debug("Set source code", zap.String("sha", src.Config.Key))
+		logger.Debug("Set source code", zap.String("key", src))
 	}
 
 	ex := j.existing.Find(res.Config.Type, res.Config.Name)
