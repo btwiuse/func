@@ -24,7 +24,7 @@ type Reconciler interface {
 // implementations.
 type ResourceRegistry interface {
 	New(typename string) (resource.Definition, error)
-	SuggestType(typename string) string
+	Types() []string
 }
 
 // Func implements the core business logic.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/func/func/resource"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestRegistry_New(t *testing.T) {
@@ -37,30 +38,21 @@ func TestRegistry_Register_notStrPtr(t *testing.T) {
 	r.Register("notptr", mockDef{})
 }
 
-func TestRegistry_SuggestType(t *testing.T) {
+func TestRegistry_Types(t *testing.T) {
 	r := &resource.Registry{}
 	r.Register("aws:lambda_function", &mockDef{})
 	r.Register("aws:iam_role", &mockDef{})
 	r.Register("aws:iam_policy", &mockDef{})
 
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{"Exact", "aws:lambda_function", "aws:lambda_function"},
-		{"Close", "aws_lambda:function", "aws:lambda_function"},
-		{"Ambiguous", "aws:iam", "aws:iam_role"}, // Return closer match
-		{"NoMatch", "aws:api_gateway", ""},       // No match
+	got := r.Types()
+	want := []string{
+		"aws:iam_policy",
+		"aws:iam_role",
+		"aws:lambda_function",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := r.SuggestType(tt.input)
-			if got != tt.want {
-				t.Errorf("SuggestType() got = %q, want = %q", got, tt.want)
-			}
-		})
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("Types() (-got +want)\n%s", diff)
 	}
 }
 

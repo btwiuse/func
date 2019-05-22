@@ -9,6 +9,7 @@ import (
 	"github.com/func/func/graph"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/schema"
+	"github.com/func/func/suggest"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -55,7 +56,8 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 		}
 		type notsupported interface{ NotSupported() }
 		if _, ok := err.(notsupported); ok {
-			if s := ctx.Resources.SuggestType(spec.Type); s != "" {
+			tt := ctx.Resources.Types()
+			if s := suggest.String(spec.Type, tt); s != "" {
 				diag.Detail = fmt.Sprintf("Did you mean %q?", s)
 			}
 		}

@@ -3,8 +3,7 @@ package resource
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/agext/levenshtein"
+	"sort"
 )
 
 // NotSupportedError is returned when attempting to instantiate an unsupported
@@ -66,27 +65,13 @@ func (r *Registry) New(typename string) (Definition, error) {
 	return reflect.New(t).Interface().(Definition), nil
 }
 
-// SuggestType suggest the type of a provisioner that closely matches the
-// requested name. Returns an empty string if no close match was found.
-func (r *Registry) SuggestType(typename string) string {
-	// Maximum characters that can differ
-	maxDist := 5
-
-	var str string
-	dist := maxDist + 1
-
-	for name := range r.resources {
-		d := levenshtein.Distance(typename, name, nil)
-		if d < dist {
-			str = name
-			dist = d
-		}
+// Types returns the type names that have been registered. The results are
+// lexicographically sorted.
+func (r *Registry) Types() []string {
+	tt := make([]string, 0, len(r.resources))
+	for k := range r.resources {
+		tt = append(tt, k)
 	}
-
-	if dist > maxDist {
-		// Suggestion is very different, don't give it at all
-		return ""
-	}
-
-	return str
+	sort.Strings(tt)
+	return tt
 }

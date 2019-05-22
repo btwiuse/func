@@ -17,7 +17,7 @@ var rootSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 // implementations.
 type ResourceRegistry interface {
 	New(typename string) (resource.Definition, error)
-	SuggestType(typename string) string
+	Types() []string
 }
 
 // DecodeContext is the context to use when decoding.
