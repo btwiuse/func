@@ -2,11 +2,11 @@ package decoder
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
-	"github.com/func/func/resource"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
 )
@@ -16,7 +16,7 @@ var rootSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (resource.Definition, error)
+	Type(typename string) reflect.Type
 	Types() []string
 }
 

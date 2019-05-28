@@ -57,6 +57,9 @@ func (enc *Encoder) UnmarshalResource(b []byte) (resource.Resource, error) {
 		return resource.Resource{}, fmt.Errorf("type not registered: %q", res.Type)
 	}
 
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
 	v := reflect.New(t)
 	if err := json.Unmarshal(res.Def, v.Interface()); err != nil {
 		return resource.Resource{}, errors.Wrap(err, "unmarshal")
