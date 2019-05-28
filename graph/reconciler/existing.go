@@ -25,14 +25,14 @@ type existing struct {
 	hash string
 }
 
-func newExisting(resources []resource.Resource) (*existingResources, error) {
+func newExisting(resources map[string]resource.Resource) (*existingResources, error) {
 	ee := &existingResources{
 		DirectedGraph: simple.NewDirectedGraph(),
 		keep:          make(map[int64]bool),
 	}
 
 	lookup := make(map[string]graph.Node)
-	for _, r := range resources {
+	for name, r := range resources {
 		node := &existing{
 			Node: ee.NewNode(),
 			res:  r,
@@ -40,7 +40,7 @@ func newExisting(resources []resource.Resource) (*existingResources, error) {
 		}
 		ee.AddNode(node)
 
-		lookup[r.Name] = node
+		lookup[name] = node
 	}
 
 	for _, r := range resources {

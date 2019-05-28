@@ -15,10 +15,10 @@ import (
 	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/encoding/json"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
-	"github.com/func/func/storage"
-	"github.com/func/func/storage/kvbackend"
+	"github.com/func/func/storage/bolt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -49,7 +49,14 @@ var applyCommand = &cobra.Command{
 			reg := &resource.Registry{}
 			aws.Register(reg)
 
-			bolt, err := kvbackend.NewBolt()
+			boltfile, err := bolt.DefaultFile()
+			if err != nil {
+				log.Fatalf("Get bolt file: %v", err)
+			}
+			jsonCodec := &json.Encoder{
+				Registry: reg,
+			}
+			bolt, err := bolt.New(boltfile, jsonCodec)
 			if err != nil {
 				log.Fatalf("Open BoltDB: %v", err)
 			}
@@ -60,7 +67,7 @@ var applyCommand = &cobra.Command{
 			}()
 
 			reco := &reconciler.Reconciler{
-				State:  &storage.KV{Backend: bolt, Registry: reg},
+				State:  bolt,
 				Source: src,
 			}
 

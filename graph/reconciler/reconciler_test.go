@@ -12,16 +12,16 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
 	"github.com/func/func/graph/reconciler"
-	"github.com/func/func/graph/reconciler/mock"
 	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
+	"github.com/func/func/storage/mock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
 )
 
 func TestReconciler_Reconcile_empty(t *testing.T) {
-	r := &reconciler.Reconciler{State: &mock.Store{}}
+	r := &reconciler.Reconciler{State: &mock.Storage{}}
 
 	err := r.Reconcile(context.Background(), "ns", config.Project{Name: "empty"}, graph.New())
 	if err != nil {
@@ -30,11 +30,13 @@ func TestReconciler_Reconcile_empty(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_noop(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "foo", Def: &noopDef{Input: "bar"}}},
+	existing := []resource.Resource{
+		{Type: "noop", Name: "foo", Def: &noopDef{Input: "bar"}},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -51,16 +53,16 @@ func TestReconciler_Reconcile_noop(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_noopWithSource(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
-			Type:    "noop",
-			Name:    "foo",
-			Def:     &noopDef{Input: "bar"},
-			Sources: []string{"abc", "xyz"},
-		}},
-	}
+	existing := []resource.Resource{{
+		Type:    "noop",
+		Name:    "foo",
+		Def:     &noopDef{Input: "bar"},
+		Sources: []string{"abc", "xyz"},
+	}}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -80,7 +82,7 @@ func TestReconciler_Reconcile_noopWithSource(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_create(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -117,9 +119,9 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 			res := resource.Resource{Type: "noop", Name: "foo", Def: &noopDef{Input: "bar"}}
 
 			// Existing in other namespace or project but otherwise identical resource.
-			existing := []mock.Resource{{NS: tt.ns1, Proj: tt.proj1, Res: res}}
+			store := &mock.Storage{}
+			store.Seed(tt.ns1, tt.proj1, []resource.Resource{res})
 
-			store := &mock.Store{Resources: existing}
 			r := &reconciler.Reconciler{State: store}
 
 			desired := fromSnapshot(t, snapshot.Snap{Resources: []resource.Resource{res}})
@@ -141,7 +143,7 @@ func TestReconciler_Reconcile_noUpdateOther(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -184,7 +186,7 @@ func TestReconciler_Reconcile_createWithDependencies(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	var got []string
@@ -228,7 +230,7 @@ func TestReconciler_Reconcile_create_sourceCode(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
@@ -265,7 +267,7 @@ func TestReconciler_Reconcile_sourcePointer(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_targetPointer(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	strval := "hello"
@@ -304,14 +306,14 @@ func TestReconciler_Reconcile_targetPointer(t *testing.T) {
 func TestReconciler_Reconcile_update(t *testing.T) {
 	tests := []struct {
 		name     string
-		existing []mock.Resource
+		existing []resource.Resource
 		snapshot snapshot.Snap
 		events   []mock.Event
 	}{
 		{
 			"NoSource",
-			[]mock.Resource{
-				{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "foo", Def: &noopDef{Input: "before"}}},
+			[]resource.Resource{
+				{Type: "noop", Name: "foo", Def: &noopDef{Input: "before"}},
 			},
 			snapshot.Snap{
 				Resources: []resource.Resource{
@@ -330,14 +332,12 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 		{
 			// Resource has source that did not change
 			"UpdateConfig",
-			[]mock.Resource{
-				{NS: "ns", Proj: "proj", Res: resource.Resource{
-					Type:    "noop",
-					Name:    "foo",
-					Def:     &noopDef{Input: "foo"},
-					Sources: []string{"abc"},
-				}},
-			},
+			[]resource.Resource{{
+				Type:    "noop",
+				Name:    "foo",
+				Def:     &noopDef{Input: "foo"},
+				Sources: []string{"abc"},
+			}},
 			snapshot.Snap{
 				Resources: []resource.Resource{{
 					Type:    "noop",
@@ -358,13 +358,13 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 		{
 			// Resource has source that did change, config did not
 			"UpdateSource",
-			[]mock.Resource{
-				{NS: "ns", Proj: "proj", Res: resource.Resource{
+			[]resource.Resource{
+				{
 					Type:    "noop",
 					Name:    "foo",
 					Def:     &noopDef{Input: "foo"},
 					Sources: []string{"abc"},
-				}},
+				},
 			},
 			snapshot.Snap{
 				Resources: []resource.Resource{{
@@ -386,13 +386,13 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 		{
 			// Resource has source, both source and config changed
 			"UpdateSourceAndConfig",
-			[]mock.Resource{
-				{NS: "ns", Proj: "proj", Res: resource.Resource{
+			[]resource.Resource{
+				{
 					Type:    "noop",
 					Name:    "foo",
 					Def:     &noopDef{Input: "foo"},
 					Sources: []string{"abc"},
-				}},
+				},
 			},
 			snapshot.Snap{
 				Resources: []resource.Resource{{
@@ -415,7 +415,9 @@ func TestReconciler_Reconcile_update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := &mock.Store{Resources: tt.existing}
+			store := &mock.Storage{}
+			store.Seed("ns", "proj", tt.existing)
+
 			r := &reconciler.Reconciler{State: store}
 
 			desired := fromSnapshot(t, tt.snapshot)
@@ -434,8 +436,8 @@ func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
 		Value: "before",
 	}
 
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "mock", Name: "foo", Def: prev}},
+	existing := []resource.Resource{
+		{Type: "mock", Name: "foo", Def: prev},
 	}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -456,7 +458,9 @@ func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
 		},
 	})
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{
 		State:   store,
 		Backoff: withoutRetry,
@@ -469,15 +473,17 @@ func TestReconciler_Reconcile_update_with_previous(t *testing.T) {
 
 func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 	ptr := "old-value-to-remove"
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
+	existing := []resource.Resource{
+		{
 			Type: "noop",
 			Name: "a",
 			Def:  &noopDef{Input: "foo", InputPtr: &ptr, Output: "existing-output"}, // InputPtr and Output were set
-		}},
+		},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -504,20 +510,22 @@ func TestReconciler_Reconcile_keepPrevOutput(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_updateChild(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
+	existing := []resource.Resource{
+		{
 			Type: "concat",
 			Name: "a",
 			Def:  &concatDef{In: "", Add: "a", Out: "a"},
-		}},
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
+		},
+		{
 			Type: "concat",
 			Name: "b",
 			Def:  &concatDef{In: "a", Add: "b", Out: "ab"},
-		}},
+		},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -549,21 +557,23 @@ func TestReconciler_Reconcile_updateChild(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_updateParent(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
+	existing := []resource.Resource{
+		{
 			Type: "concat",
 			Name: "a",
 			Def:  &concatDef{In: "", Add: "a", Out: "a"},
-		}},
-		{NS: "ns", Proj: "proj", Res: resource.Resource{
+		},
+		{
 			Type: "concat",
 			Name: "b",
 			Def:  &concatDef{In: "a", Add: "b", Out: "ab"},
 			Deps: []string{"a"},
-		}},
+		},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -609,15 +619,17 @@ func TestReconciler_Reconcile_updateParent(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_delete(t *testing.T) {
-	existing := []mock.Resource{
+	existing := []resource.Resource{
 		// Deliberately out of order to ensure resources are deleted in deleted
 		// reverse order from dependencies (a->b->c => delete c->b->a).
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "a", Def: &noopDef{}, Deps: nil}},
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "c", Def: &noopDef{}, Deps: []string{"b"}}},
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "b", Def: &noopDef{}, Deps: []string{"a"}}},
+		{Type: "noop", Name: "a", Def: &noopDef{}, Deps: nil},
+		{Type: "noop", Name: "c", Def: &noopDef{}, Deps: []string{"b"}},
+		{Type: "noop", Name: "b", Def: &noopDef{}, Deps: []string{"a"}},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := graph.New() // empty
@@ -628,18 +640,20 @@ func TestReconciler_Reconcile_delete(t *testing.T) {
 
 	// Parent changed so both resources will get updated.
 	assertEvents(t, store, []mock.Event{
-		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "c"}},
-		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "b"}},
-		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "a"}},
+		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "c"}},
+		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "b"}},
+		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "a"}},
 	})
 }
 
 func TestReconciler_Reconcile_deleteAfterCreate(t *testing.T) {
-	existing := []mock.Resource{
-		{NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "foo", Def: &noopDef{Input: "old"}}},
+	existing := []resource.Resource{
+		{Type: "noop", Name: "foo", Def: &noopDef{Input: "old"}},
 	}
 
-	store := &mock.Store{Resources: existing}
+	store := &mock.Storage{}
+	store.Seed("ns", "proj", existing)
+
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -655,7 +669,7 @@ func TestReconciler_Reconcile_deleteAfterCreate(t *testing.T) {
 	assertEvents(t, store, []mock.Event{
 		// Create first
 		{Op: "create", NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "bar", Def: &noopDef{Input: "new"}}}, // nolint: lll
-		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Type: "noop", Name: "foo"}},
+		{Op: "delete", NS: "ns", Proj: "proj", Res: resource.Resource{Name: "foo"}},
 	})
 }
 
@@ -684,7 +698,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 			}
 
 			r := &reconciler.Reconciler{
-				State:       &mock.Store{},
+				State:       &mock.Storage{},
 				Concurrency: c,
 			}
 
@@ -709,7 +723,7 @@ func TestReconciler_Reconcile_concurrency(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_fanIn(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -746,7 +760,7 @@ func TestReconciler_Reconcile_fanIn(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_fanOut(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{State: store}
 
 	desired := fromSnapshot(t, snapshot.Snap{
@@ -799,7 +813,7 @@ func TestReconciler_Reconcile_fanOut(t *testing.T) {
 }
 
 func TestReconciler_Reconcile_errParent(t *testing.T) {
-	store := &mock.Store{Resources: nil}
+	store := &mock.Storage{}
 	r := &reconciler.Reconciler{
 		State:   store,
 		Backoff: withoutRetry,
@@ -890,7 +904,7 @@ func fromSnapshot(t *testing.T, snap snapshot.Snap) *graph.Graph {
 	return g
 }
 
-func assertEvents(t *testing.T, store *mock.Store, want []mock.Event) {
+func assertEvents(t *testing.T, store *mock.Storage, want []mock.Event) {
 	t.Helper()
 	opts := []cmp.Option{
 		cmpopts.SortSlices(func(a, b string) bool { return a < b }),

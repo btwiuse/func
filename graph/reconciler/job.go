@@ -304,7 +304,7 @@ func (j *job) Prune(ctx context.Context) error {
 		defer cancel()
 
 		logger.Debug("Removing deleted resource from store")
-		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Type, e.res.Name); err != nil {
+		if err := j.state.Delete(dctx, j.ns, j.project.Name, e.res.Name); err != nil {
 			return errors.Wrap(err, "delete resource")
 		}
 	}
