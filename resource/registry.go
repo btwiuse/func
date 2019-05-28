@@ -65,6 +65,12 @@ func (r *Registry) New(typename string) (Definition, error) {
 	return reflect.New(t).Interface().(Definition), nil
 }
 
+// Type returns the registered type with a certain name. Returns nil if the
+// type has not been registered.
+func (r *Registry) Type(typename string) reflect.Type {
+	return r.resources[typename]
+}
+
 // Types returns the type names that have been registered. The results are
 // lexicographically sorted.
 func (r *Registry) Types() []string {

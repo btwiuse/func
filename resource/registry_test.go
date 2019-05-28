@@ -1,6 +1,7 @@
 package resource_test
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -24,6 +25,25 @@ func TestRegistry_New(t *testing.T) {
 	_, err = r.New("test")
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
+	}
+}
+
+func TestRegistry_Type(t *testing.T) {
+	r := &resource.Registry{}
+
+	got := r.Type("nonexisting")
+	if got != nil {
+		t.Errorf("Nonexisting type should return nil")
+	}
+
+	r.Register("test", &mockDef{})
+
+	got = r.Type("test")
+	gotStr := got.String()
+	wantStr := reflect.TypeOf(mockDef{}).String() // Returns underlying type
+
+	if gotStr != wantStr {
+		t.Errorf("Got = %s, want = %s", gotStr, wantStr)
 	}
 }
 
