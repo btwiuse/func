@@ -47,22 +47,23 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 	}
 
 	// Get resource definition based on resource type.
-	def, err := ctx.Resources.New(spec.Type)
-	if err != nil {
+	t := ctx.Resources.Type(spec.Type)
+	if t == nil {
 		diag := &hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Resource not supported",
 			Subject:  block.DefRange.Ptr(), // TODO: set range on type attribute
 		}
-		type notsupported interface{ NotSupported() }
-		if _, ok := err.(notsupported); ok {
-			tt := ctx.Resources.Types()
-			if s := suggest.String(spec.Type, tt); s != "" {
-				diag.Detail = fmt.Sprintf("Did you mean %q?", s)
-			}
+		tt := ctx.Resources.Types()
+		if s := suggest.String(spec.Type, tt); s != "" {
+			diag.Detail = fmt.Sprintf("Did you mean %q?", s)
 		}
 		return hcl.Diagnostics{diag}
 	}
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	def := reflect.New(t).Interface().(resource.Definition)
 
 	// Create resource node.
 	// The resource definition is currently "empty"; the field values are not set.

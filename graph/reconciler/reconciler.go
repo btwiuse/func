@@ -24,11 +24,11 @@ type StateStorage interface {
 	Put(ctx context.Context, namespace, project string, resource resource.Resource) error
 
 	// Delete removes a resource.
-	Delete(ctx context.Context, namespace, project, typename, name string) error
+	Delete(ctx context.Context, namespace, project, name string) error
 
 	// List returns all resources for a given project. Resources may be
 	// returned in any order.
-	List(ctx context.Context, namespace, project string) ([]resource.Resource, error)
+	List(ctx context.Context, namespace, project string) (map[string]resource.Resource, error)
 }
 
 // SourceStorage provides resource source code.

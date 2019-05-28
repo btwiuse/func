@@ -2,10 +2,10 @@ package api
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/func/func/config"
 	"github.com/func/func/graph"
-	"github.com/func/func/resource"
 	"github.com/func/func/source"
 	"go.uber.org/zap"
 )
@@ -23,7 +23,7 @@ type Reconciler interface {
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
-	New(typename string) (resource.Definition, error)
+	Type(typename string) reflect.Type
 	Types() []string
 }
 
