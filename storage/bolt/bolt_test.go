@@ -49,7 +49,7 @@ type testCodec struct {
 type jsonResource struct {
 	Name    string          `json:"name"`
 	Type    string          `json:"type"`
-	Deps    []string        `json:"dep,omitempty"`
+	Deps    []string        `json:"deps,omitempty"`
 	Sources []string        `json:"srcs,omitempty"`
 	Def     json.RawMessage `json:"def"`
 }
