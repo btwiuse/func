@@ -11,18 +11,22 @@ import (
 func TestEncoder_rountrip(t *testing.T) {
 	type mockDef struct {
 		resource.Definition
-		Input string
+		Input  string `func:"input"`
+		Output string `func:"output"`
 	}
 
 	reg := &resource.Registry{}
 	reg.Register("testtype", &mockDef{})
 
 	before := resource.Resource{
-		Name: "name",
+		Name: "test",
 		Type: "testtype",
-		Def: &mockDef{
-			Input: "foo",
-		},
+		Input: cty.ObjectVal(map[string]cty.Value{
+			"input": cty.StringVal("foo"),
+		}),
+		Output: cty.ObjectVal(map[string]cty.Value{
+			"output": cty.StringVal("bar"),
+		}),
 		Deps:    []string{"a", "b"},
 		Sources: []string{"abc", "def"},
 	}
