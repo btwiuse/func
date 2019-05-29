@@ -8,6 +8,7 @@ import (
 	"github.com/func/func/graph/snapshot"
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
+	"github.com/zclconf/go-cty/cty"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 )
 
@@ -40,7 +41,10 @@ func TestSnapshot_roundtrip(t *testing.T) {
 
 	end := snapshot.Take(g)
 
-	if diff := cmp.Diff(start, end); diff != "" {
+	opts := []cmp.Option{
+		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
+	}
+	if diff := cmp.Diff(start, end, opts...); diff != "" {
 		t.Errorf("Diff() (-start, +end)\n%s", diff)
 	}
 }

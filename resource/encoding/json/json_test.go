@@ -5,6 +5,7 @@ import (
 
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestEncoder_rountrip(t *testing.T) {
@@ -40,7 +41,12 @@ func TestEncoder_rountrip(t *testing.T) {
 		t.Fatalf("UnmarshalResource() err = %v", err)
 	}
 
-	if diff := cmp.Diff(after, before); diff != "" {
+	opts := []cmp.Option{
+		cmp.Transformer("GoString", func(v cty.Value) string {
+			return v.GoString()
+		}),
+	}
+	if diff := cmp.Diff(after, before, opts...); diff != "" {
 		t.Errorf("Roundtrip (-got +want)\n%s", diff)
 	}
 }

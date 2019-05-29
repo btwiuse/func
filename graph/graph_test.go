@@ -7,6 +7,7 @@ import (
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestGraph_AddResource(t *testing.T) {
@@ -17,6 +18,7 @@ func TestGraph_AddResource(t *testing.T) {
 	want := []*graph.Resource{res}
 	opts := []cmp.Option{
 		cmpopts.IgnoreUnexported(graph.Resource{}),
+		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Diff() (-got, +want)\n%s", diff)
@@ -38,6 +40,7 @@ func TestGraph_AddDependency(t *testing.T) {
 		cmpopts.IgnoreUnexported(graph.Resource{}),
 		cmpopts.IgnoreUnexported(graph.Dependency{}),
 		cmpopts.EquateEmpty(),
+		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 
 	got := res1.Dependencies()

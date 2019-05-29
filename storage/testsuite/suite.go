@@ -6,6 +6,7 @@ import (
 
 	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // The Target interface is implemented by stores that persist data.
@@ -77,13 +78,17 @@ func io(t *testing.T, s Target) {
 		t.Fatalf("Put() err = %+v", err)
 	}
 
+	opts := []cmp.Option{
+		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
+	}
+
 	// List
 	got, err := s.List(ctx, ns, proj)
 	if err != nil {
 		t.Fatalf("List() err = %+v", err)
 	}
 	want := map[string]resource.Resource{"a": a, "b": b, "c": c}
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("(-got +want)\n%s", diff)
 	}
 
@@ -109,7 +114,7 @@ func io(t *testing.T, s Target) {
 		t.Fatalf("List() err = %+v", err)
 	}
 	want = map[string]resource.Resource{"a": updateA, "c": c}
-	if diff := cmp.Diff(got, want); diff != "" {
+	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("(-got +want)\n%s", diff)
 	}
 }

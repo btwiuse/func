@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestReconciler_Reconcile_empty(t *testing.T) {
@@ -909,6 +910,7 @@ func assertEvents(t *testing.T, store *mock.Storage, want []mock.Event) {
 	opts := []cmp.Option{
 		cmpopts.SortSlices(func(a, b string) bool { return a < b }),
 		cmpopts.IgnoreUnexported(mockDef{}),
+		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 	if diff := cmp.Diff(store.Events, want, opts...); diff != "" {
 		t.Errorf("Events do not match (-got %d, +want %d)\n%s", len(store.Events), len(want), diff)

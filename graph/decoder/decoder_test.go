@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestDecodeBody(t *testing.T) {
@@ -326,7 +327,11 @@ func TestDecodeBody(t *testing.T) {
 				t.Fatalf("DecodeBody() Diagnostics\n%s", diags)
 			}
 			snap := snapshot.Take(g)
-			if diff := cmp.Diff(snap, tt.wantSnap, cmpopts.EquateEmpty()); diff != "" {
+			opts := []cmp.Option{
+				cmpopts.EquateEmpty(),
+				cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
+			}
+			if diff := cmp.Diff(snap, tt.wantSnap, opts...); diff != "" {
 				t.Errorf("Snapshot does not match (-got, +want)\n%s", diff)
 			}
 			if diff := cmp.Diff(srcs, tt.wantSources, cmpopts.EquateEmpty()); diff != "" {
