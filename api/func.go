@@ -4,8 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/func/func/config"
-	"github.com/func/func/graph"
+	"github.com/func/func/resource/graph"
 	"github.com/func/func/source"
 	"go.uber.org/zap"
 )
@@ -17,7 +16,7 @@ type API interface {
 
 // A Reconciler reconciles changes to the graph.
 type Reconciler interface {
-	Reconcile(ctx context.Context, ns string, project config.Project, graph *graph.Graph) error
+	Reconcile(ctx context.Context, id, ns, project string, graph *graph.Graph) error
 }
 
 // A ResourceRegistry is used for matching resource type names to resource

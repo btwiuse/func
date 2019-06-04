@@ -12,10 +12,10 @@ import (
 	"github.com/func/func/api"
 	"github.com/func/func/api/rpc"
 	"github.com/func/func/client"
-	"github.com/func/func/graph/reconciler"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/encoding/json"
+	"github.com/func/func/resource/reconciler"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
 	"github.com/func/func/storage/bolt"
@@ -67,8 +67,10 @@ var applyCommand = &cobra.Command{
 			}()
 
 			reco := &reconciler.Reconciler{
-				State:  bolt,
-				Source: src,
+				Logger:    zap.NewNop(),
+				Resources: bolt,
+				Source:    src,
+				Registry:  reg,
 			}
 
 			funcAPI = &api.Func{

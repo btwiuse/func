@@ -5,11 +5,12 @@ import (
 	"sync"
 
 	"github.com/func/func/config"
-	"github.com/func/func/graph"
-	"github.com/func/func/graph/decoder"
+	"github.com/func/func/resource/graph"
+	"github.com/func/func/resource/graph/hcldecoder"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/pkg/errors"
+	"github.com/segmentio/ksuid"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -24,8 +25,8 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 
 	// Resolve graph and validate resource input
 	g := graph.New()
-	decCtx := &decoder.DecodeContext{Resources: f.Resources}
-	proj, srcs, diags := decoder.DecodeBody(req.Config, decCtx, g)
+	decCtx := &hcldecoder.DecodeContext{Resources: f.Resources}
+	proj, srcs, diags := hcldecoder.DecodeBody(req.Config, decCtx, g)
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -41,7 +42,7 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	}
 
 	logger = logger.With(zap.String("project", proj.Name))
-	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources())))
+	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources)))
 
 	// Check missing source files
 	missing, err := f.missingSource(ctx, srcs)
@@ -67,7 +68,8 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	}
 
 	if f.Reconciler != nil {
-		if err := f.Reconciler.Reconcile(ctx, req.Namespace, *proj, g); err != nil {
+		id := ksuid.New().String()
+		if err := f.Reconciler.Reconcile(ctx, id, req.Namespace, proj.Name, g); err != nil {
 			return nil, errors.Wrap(err, "reconcile graph")
 		}
 	} else {
