@@ -121,9 +121,9 @@ type LambdaFunction struct {
 	// ID.
 	VPCConfig *struct {
 		// A list of VPC security groups IDs.
-		SecurityGroupIDs []string `func:"input"`
+		SecurityGroupIDs []string `func:"input" name:"security_group_ids"`
 		// A list of VPC subnet IDs.
-		SubnetIDs []string `func:"input"`
+		SubnetIDs []string `func:"input" name:"subnet_ids"`
 	} `func:"input" name:"vpc_config"`
 
 	// Outputs
