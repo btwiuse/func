@@ -2,8 +2,10 @@ module github.com/func/func
 
 require (
 	github.com/agext/levenshtein v1.2.2
+	github.com/apparentlymart/go-dump v0.0.0-20190214190832-042adf3cf4a0 // indirect
 	github.com/aws/aws-sdk-go-v2 v0.10.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/go-stack/stack v1.8.0
 	github.com/go-test/deep v1.0.2 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/go-cmp v0.3.0

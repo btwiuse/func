@@ -19,7 +19,7 @@ type Definition interface {
 type Resource struct {
 	Name string     // Name used in resource config.
 	Type string     // Type used in resource config.
-	Def  Definition // User specified configuration for resource.
+	Def  Definition // Deprecated: Should not be used any more.
 
 	// Input is the user specified static configuration for the resource. The
 	// shape of this field will depend on the Type. When creating resources,
