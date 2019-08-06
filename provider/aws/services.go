@@ -18,11 +18,11 @@ import (
 )
 
 type apigatewayService struct {
-	client apigatewayiface.APIGatewayAPI
+	client apigatewayiface.ClientAPI
 }
 
 // service returns an APIGateway API Client. If client was set, it is returned.
-func (p *apigatewayService) service(auth resource.AuthProvider, region string) (apigatewayiface.APIGatewayAPI, error) {
+func (p *apigatewayService) service(auth resource.AuthProvider, region string) (apigatewayiface.ClientAPI, error) {
 	if p.client != nil {
 		return p.client, nil
 	}
@@ -34,11 +34,11 @@ func (p *apigatewayService) service(auth resource.AuthProvider, region string) (
 }
 
 type iamService struct {
-	client iamiface.IAMAPI
+	client iamiface.ClientAPI
 }
 
 // service returns an IAM API Client. If client was set, it is returned.
-func (p *iamService) service(auth resource.AuthProvider, region *string) (iamiface.IAMAPI, error) {
+func (p *iamService) service(auth resource.AuthProvider, region *string) (iamiface.ClientAPI, error) {
 	if p.client != nil {
 		return p.client, nil
 	}
@@ -56,11 +56,11 @@ func (p *iamService) service(auth resource.AuthProvider, region *string) (iamifa
 }
 
 type lambdaService struct {
-	client lambdaiface.LambdaAPI
+	client lambdaiface.ClientAPI
 }
 
 // service returns a Lambda API Client. If client was set, it is returned.
-func (p *lambdaService) service(auth resource.AuthProvider, region string) (lambdaiface.LambdaAPI, error) {
+func (p *lambdaService) service(auth resource.AuthProvider, region string) (lambdaiface.ClientAPI, error) {
 	if p.client != nil {
 		return p.client, nil
 	}
@@ -72,11 +72,11 @@ func (p *lambdaService) service(auth resource.AuthProvider, region string) (lamb
 }
 
 type stsService struct {
-	client stsiface.STSAPI
+	client stsiface.ClientAPI
 }
 
 // service returns an STS API Client. If client was set, it is returned.
-func (p *stsService) service(auth resource.AuthProvider, region *string) (stsiface.STSAPI, error) {
+func (p *stsService) service(auth resource.AuthProvider, region *string) (stsiface.ClientAPI, error) {
 	if p.client != nil {
 		return p.client, nil
 	}

@@ -227,7 +227,30 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 		return err
 	}
 
-	p.setFromResp(resp)
+	if resp.AccessLogSettings != nil {
+		p.AccessLogSettings = &AccessLogSettings{
+			DestinationARN: resp.AccessLogSettings.DestinationArn,
+			Format:         resp.AccessLogSettings.Format,
+		}
+	}
+	p.CreatedDate = *resp.CreatedDate
+	p.LastUpdatedDate = *resp.LastUpdatedDate
+	p.MethodSettings = make(map[string]MethodSetting)
+	for k, v := range resp.MethodSettings {
+		p.MethodSettings[k] = MethodSetting{
+			CacheDataEncrypted:                     *v.CacheDataEncrypted,
+			CacheTTLInSeconds:                      *v.CacheTtlInSeconds,
+			CachingEnabled:                         *v.CachingEnabled,
+			DataTraceEnabled:                       *v.DataTraceEnabled,
+			LoggingLevel:                           *v.LoggingLevel,
+			MetricsEnabled:                         *v.MetricsEnabled,
+			RequireAuthorizationForCacheControl:    *v.RequireAuthorizationForCacheControl,
+			ThrottlingBurstLimit:                   *v.ThrottlingBurstLimit,
+			ThrottlingRateLimit:                    *v.ThrottlingRateLimit,
+			UnauthorizedCacheControlHeaderStrategy: string(v.UnauthorizedCacheControlHeaderStrategy),
+		}
+	}
+	p.WebACLARN = resp.WebAclArn
 
 	return nil
 }
@@ -309,12 +332,6 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		return err
 	}
 
-	p.setFromResp(resp)
-
-	return nil
-}
-
-func (p *APIGatewayStage) setFromResp(resp *apigateway.UpdateStageOutput) {
 	if resp.AccessLogSettings != nil {
 		p.AccessLogSettings = &AccessLogSettings{
 			DestinationARN: resp.AccessLogSettings.DestinationArn,
@@ -339,4 +356,6 @@ func (p *APIGatewayStage) setFromResp(resp *apigateway.UpdateStageOutput) {
 		}
 	}
 	p.WebACLARN = resp.WebAclArn
+
+	return nil
 }

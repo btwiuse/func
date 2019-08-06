@@ -227,7 +227,18 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 
 	// OK
 
-	p.setFromResp(resp)
+	p.CodeSha256 = resp.CodeSha256
+	p.CodeSize = resp.CodeSize
+	p.FunctionARN = resp.FunctionArn
+	t, err := time.Parse(iso8601, *resp.LastModified)
+	if err != nil {
+		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
+		t = time.Now()
+	}
+	p.LastModified = t
+	p.MasterARN = resp.MasterArn
+	p.RevisionID = resp.RevisionId
+	p.Version = resp.Version
 
 	return nil
 }
@@ -269,7 +280,7 @@ func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) 
 	return nil
 }
 
-func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaAPI, r *resource.UpdateRequest) error {
+func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientAPI, r *resource.UpdateRequest) error {
 	if len(r.Source) == 0 {
 		return errors.New("no source code provided")
 	}
@@ -304,12 +315,23 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.LambdaA
 		return errors.Wrap(err, "send request")
 	}
 
-	p.setFromResp(resp)
+	p.CodeSha256 = resp.CodeSha256
+	p.CodeSize = resp.CodeSize
+	p.FunctionARN = resp.FunctionArn
+	t, err := time.Parse(iso8601, *resp.LastModified)
+	if err != nil {
+		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
+		t = time.Now()
+	}
+	p.LastModified = t
+	p.MasterARN = resp.MasterArn
+	p.RevisionID = resp.RevisionId
+	p.Version = resp.Version
 
 	return nil
 }
 
-func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.LambdaAPI) error {
+func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.ClientAPI) error {
 	input := &lambda.UpdateFunctionConfigurationInput{
 		Description:  p.Description,
 		FunctionName: p.FunctionARN,
@@ -353,12 +375,6 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Lambd
 		return errors.Wrap(err, "send request")
 	}
 
-	p.setFromResp(resp)
-
-	return nil
-}
-
-func (p *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOutput) {
 	p.CodeSha256 = resp.CodeSha256
 	p.CodeSize = resp.CodeSize
 	p.FunctionARN = resp.FunctionArn
@@ -371,4 +387,6 @@ func (p *LambdaFunction) setFromResp(resp *lambda.UpdateFunctionConfigurationOut
 	p.MasterARN = resp.MasterArn
 	p.RevisionID = resp.RevisionId
 	p.Version = resp.Version
+
+	return nil
 }
