@@ -31,7 +31,7 @@ func Compute(value interface{}) string {
 	t := v.Type()
 	h.Write([]byte(v.Type().Name())) // nolint: errcheck
 
-	fields := schema.Inputs(t)
+	fields := schema.Fields(t).Inputs()
 
 	names := make([]string, 0, len(fields))
 	for name := range fields {
