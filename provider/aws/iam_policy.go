@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
@@ -36,10 +37,10 @@ type IAMPolicy struct {
 
 	// The JSON policy document that you want to use as the content for the new
 	// policy.
-	PolicyDocument *string `func:"input,required"`
+	PolicyDocument string `func:"input"`
 
 	// The friendly name of the policy.
-	PolicyName *string `func:"input,required"`
+	PolicyName string `func:"input"`
 
 	// Region to use for IAM API calls.
 	//
@@ -106,8 +107,8 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 	req := svc.CreatePolicyRequest(&iam.CreatePolicyInput{
 		Description:    p.Description,
 		Path:           p.Path,
-		PolicyDocument: p.PolicyDocument,
-		PolicyName:     p.PolicyName,
+		PolicyDocument: aws.String(p.PolicyDocument),
+		PolicyName:     aws.String(p.PolicyName),
 	})
 	resp, err := req.Send(ctx)
 	if err != nil {

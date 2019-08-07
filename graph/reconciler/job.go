@@ -187,7 +187,7 @@ func (j *job) processResource(ctx context.Context, res *graph.Resource) <-chan e
 		// Copy outputs from previous value
 		prevVal := reflect.Indirect(reflect.ValueOf(ex.res.Def))
 		nextVal := reflect.Indirect(reflect.ValueOf(res.Config.Def))
-		outputs := schema.Outputs(prevVal.Type())
+		outputs := schema.Fields(prevVal.Type()).Outputs()
 		for _, output := range outputs {
 			prev := prevVal.Field(output.Index)
 			next := nextVal.Field(output.Index)

@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -55,7 +56,7 @@ type APIGatewayIntegration struct {
 	Credentials *string `func:"input"`
 
 	// Specifies a put integration request's HTTP method.
-	HTTPMethod *string `func:"input,required"`
+	HTTPMethod string `func:"input"`
 
 	// Specifies a put integration HTTP method.
 	//
@@ -79,7 +80,7 @@ type APIGatewayIntegration struct {
 	PassthroughBehavior *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// A key-value map specifying request parameters that are passed from the
 	// method request to the back end. The key is an integration request
@@ -99,10 +100,10 @@ type APIGatewayIntegration struct {
 	RequestTemplates map[string]string `func:"input"`
 
 	// Specifies a put integration request's resource ID.
-	ResourceID *string `func:"input,required"`
+	ResourceID string `func:"input"`
 
 	// The string identifier of the associated Rest API.
-	RestAPIID *string `func:"input,required" name:"rest_api_id"`
+	RestAPIID string `func:"input" name:"rest_api_id"`
 
 	// Custom timeout between 50 and 29,000 milliseconds. The default value is 29,000
 	// milliseconds or 29 seconds.
@@ -135,7 +136,7 @@ type APIGatewayIntegration struct {
 	// integration with a `connection_type` of `VPC_LINK` is referred to as a
 	// private integration and uses a VpcLink to connect API Gateway to a
 	// network load balancer of a VPC.
-	IntegrationType string `func:"input,required"`
+	IntegrationType string `func:"input"`
 
 	// Specifies Uniform Resource Identifier (URI) of the integration endpoint.
 	//
@@ -239,13 +240,13 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 		ConnectionType:        apigateway.ConnectionType(p.ConnectionType),
 		ContentHandling:       apigateway.ContentHandlingStrategy(p.ContentHandling),
 		Credentials:           p.Credentials,
-		HttpMethod:            p.HTTPMethod,
+		HttpMethod:            aws.String(p.HTTPMethod),
 		IntegrationHttpMethod: p.IntegrationHTTPMethod,
 		PassthroughBehavior:   p.PassthroughBehavior,
-		ResourceId:            p.ResourceID,
+		ResourceId:            aws.String(p.ResourceID),
 		RequestParameters:     p.RequestParameters,
 		RequestTemplates:      p.RequestTemplates,
-		RestApiId:             p.RestAPIID,
+		RestApiId:             aws.String(p.RestAPIID),
 		TimeoutInMillis:       p.TimeoutInMillis,
 		Type:                  apigateway.IntegrationType(p.IntegrationType),
 		Uri:                   p.URI,
@@ -284,9 +285,9 @@ func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRe
 	}
 
 	req := svc.DeleteIntegrationRequest(&apigateway.DeleteIntegrationInput{
-		HttpMethod: p.HTTPMethod,
-		ResourceId: p.ResourceID,
-		RestApiId:  p.RestAPIID,
+		HttpMethod: aws.String(p.HTTPMethod),
+		ResourceId: aws.String(p.ResourceID),
+		RestApiId:  aws.String(p.RestAPIID),
 	})
 	if _, err := req.Send(ctx); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -353,9 +354,9 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 	}
 
 	req := svc.UpdateMethodRequest(&apigateway.UpdateMethodInput{
-		HttpMethod:      p.HTTPMethod,
-		ResourceId:      p.ResourceID,
-		RestApiId:       p.RestAPIID,
+		HttpMethod:      aws.String(p.HTTPMethod),
+		ResourceId:      aws.String(p.ResourceID),
+		RestApiId:       aws.String(p.RestAPIID),
 		PatchOperations: ops,
 	})
 	if _, err := req.Send(ctx); err != nil {

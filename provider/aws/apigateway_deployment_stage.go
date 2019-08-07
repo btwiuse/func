@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -28,7 +29,7 @@ type APIGatewayStage struct {
 	CanarySettings *APIGatewayCanarySettings `func:"input"`
 
 	// The identifier of the Deployment resource for the Stage resource.
-	DeploymentID *string `func:"input,required"`
+	DeploymentID string `func:"input"`
 
 	// The description of the Stage resource.
 	Description *string `func:"input"`
@@ -37,13 +38,13 @@ type APIGatewayStage struct {
 	DocumentationVersion *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// The string identifier of the associated Rest API.
-	RestAPIID *string `func:"input,required" name:"rest_api_id"`
+	RestAPIID string `func:"input," name:"rest_api_id"`
 
 	// The name for the Stage resource.
-	StageName *string `func:"input,required"`
+	StageName string `func:"input"`
 
 	// The key-value map of strings. The valid character set is `[a-zA-Z+-=._:/]`.
 	// The tag key can be up to 128 characters and must not start with aws:. The
@@ -189,11 +190,11 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 	}
 
 	input := &apigateway.CreateStageInput{
-		DeploymentId:         p.DeploymentID,
+		DeploymentId:         aws.String(p.DeploymentID),
 		Description:          p.Description,
 		DocumentationVersion: p.DocumentationVersion,
-		RestApiId:            p.RestAPIID,
-		StageName:            p.StageName,
+		RestApiId:            aws.String(p.RestAPIID),
+		StageName:            aws.String(p.StageName),
 		TracingEnabled:       p.TracingEnabled,
 		Tags:                 p.Tags,
 		Variables:            p.Variables,
@@ -263,8 +264,8 @@ func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest)
 	}
 
 	req := svc.DeleteStageRequest(&apigateway.DeleteStageInput{
-		RestApiId: p.RestAPIID,
-		StageName: p.StageName,
+		RestApiId: aws.String(p.RestAPIID),
+		StageName: aws.String(p.StageName),
 	})
 	_, err = req.Send(ctx)
 	return err
@@ -319,8 +320,8 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 
 	req := svc.UpdateStageRequest(&apigateway.UpdateStageInput{
 		PatchOperations: ops,
-		RestApiId:       p.RestAPIID,
-		StageName:       p.StageName,
+		RestApiId:       aws.String(p.RestAPIID),
+		StageName:       aws.String(p.StageName),
 	})
 	resp, err := req.Send(ctx)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -33,7 +34,7 @@ type IAMRole struct {
 	//
 	// * The special characters tab (\u0009), line feed (\u000A), and carriage
 	//   return (\u000D)
-	AssumeRolePolicyDocument *string `func:"input,required"`
+	AssumeRolePolicyDocument string `func:"input"`
 
 	// A description of the role.
 	Description *string `func:"input"`
@@ -91,7 +92,7 @@ type IAMRole struct {
 	//
 	// Role names are not distinguished by case. For example, you cannot create
 	// roles named both "PRODROLE" and "prodrole".
-	RoleName *string `func:"input,required"`
+	RoleName string `func:"input"`
 
 	// The Amazon Resource Name (ARN) specifying the role.
 	ARN *string `func:"output"`
@@ -113,12 +114,12 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	}
 
 	req := svc.CreateRoleRequest(&iam.CreateRoleInput{
-		AssumeRolePolicyDocument: p.AssumeRolePolicyDocument,
+		AssumeRolePolicyDocument: aws.String(p.AssumeRolePolicyDocument),
 		Description:              p.Description,
 		MaxSessionDuration:       p.MaxSessionDuration,
 		Path:                     p.Path,
 		PermissionsBoundary:      p.PermissionsBoundary,
-		RoleName:                 p.RoleName,
+		RoleName:                 aws.String(p.RoleName),
 	})
 	res, err := req.Send(ctx)
 	if err != nil {
@@ -140,7 +141,7 @@ func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	}
 
 	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
-		RoleName: p.RoleName,
+		RoleName: aws.String(p.RoleName),
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
@@ -157,7 +158,7 @@ func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	}
 
 	req := svc.UpdateRoleRequest(&iam.UpdateRoleInput{
-		RoleName:           p.RoleName,
+		RoleName:           aws.String(p.RoleName),
 		Description:        p.Description,
 		MaxSessionDuration: p.MaxSessionDuration,
 	})

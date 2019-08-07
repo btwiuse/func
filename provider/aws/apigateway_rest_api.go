@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -55,14 +56,14 @@ type APIGatewayRestAPI struct {
 	MinimumCompressionSize *int64 `func:"input"`
 
 	// The name of the RestApi.
-	Name *string `func:"input,required"`
+	Name string `func:"input"`
 
 	// A stringified JSON policy document that applies to this RestApi regardless
 	// of the caller and Method
 	Policy *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// A version identifier for the API.
 	Version *string `func:"input"`
@@ -93,7 +94,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 		CloneFrom:              p.CloneFrom,
 		Description:            p.Description,
 		MinimumCompressionSize: p.MinimumCompressionSize,
-		Name:                   p.Name,
+		Name:                   aws.String(p.Name),
 		Policy:                 p.Policy,
 		Version:                p.Version,
 		BinaryMediaTypes:       p.BinaryMediaTypes,

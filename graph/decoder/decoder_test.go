@@ -193,7 +193,7 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &complexDef{
-						Map: &map[string]string{"foo": "bar"},
+						Map: map[string]string{"foo": "bar"},
 					}},
 				},
 			},
@@ -210,7 +210,7 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &complexDef{
-						Slice: &[]string{"hello", "world"},
+						Slice: []string{"hello", "world"},
 					}},
 				},
 			},
@@ -257,7 +257,7 @@ func TestDecodeBody(t *testing.T) {
 			wantSnap: snapshot.Snap{
 				Resources: []resource.Resource{
 					{Type: "a", Name: "foo", Def: &complexDef{
-						Multiple: &[]sub{
+						Multiple: []sub{
 							{Val: "hello"},
 							{Val: "world"},
 						},
@@ -615,7 +615,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			resources: map[string]resource.Definition{
 				"a": &struct { // nolint: maligned
 					resource.Definition
-					RequiredChild struct{} `func:"input,required"`
+					RequiredChild struct{} `func:"input"`
 				}{},
 			},
 			diags: hcl.Diagnostics{{
@@ -824,7 +824,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			resources: map[string]resource.Definition{
 				"a": &struct {
 					resource.Definition
-					Input string `func:"input,required"`
+					Input string `func:"input"`
 				}{},
 			},
 			diags: hcl.Diagnostics{{
@@ -887,18 +887,18 @@ func parseBody(t *testing.T, src string) hcl.Body {
 
 type simpleDef struct {
 	resource.Definition
-	Input  string `func:"input,required"`
+	Input  string `func:"input"`
 	Output string `func:"output"`
 }
 
 type complexDef struct {
 	resource.Definition
 
-	Map      *map[string]string `func:"input"`
-	Slice    *[]string          `func:"input"`
-	Child    *Child             `func:"input" name:"nested"`
-	Multiple *[]sub             `func:"input" name:"multi"`
-	Int      *int               `func:"input"`
+	Map      map[string]string `func:"input"`
+	Slice    []string          `func:"input"`
+	Child    *Child            `func:"input" name:"nested"`
+	Multiple []sub             `func:"input" name:"multi"`
+	Int      *int              `func:"input"`
 }
 
 type Child struct {
@@ -906,7 +906,7 @@ type Child struct {
 }
 
 type sub struct {
-	Val      string  `func:"input,required" name:"value"`
+	Val      string  `func:"input" name:"value"`
 	Optional *string `func:"input"`
 }
 

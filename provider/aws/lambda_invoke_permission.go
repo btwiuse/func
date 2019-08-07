@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ type LambdaInvokePermission struct {
 	// is a string starting with lambda: followed by the API name . For example,
 	// lambda:CreateFunction. You can use wildcard (lambda:*) to grant permission
 	// for all AWS Lambda actions.
-	Action *string `func:"input,required"`
+	Action string `func:"input"`
 
 	// A unique token that must be supplied by the principal invoking the function.
 	// This is currently only used for Alexa Smart Home functions.
@@ -32,17 +33,17 @@ type LambdaInvokePermission struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName *string `func:"input,required"`
+	FunctionName string `func:"input"`
 
 	// The principal who is getting this permission. The principal can be an
 	// AWS service (e.g. `s3.amazonaws.com` or `sns.amazonaws.com`) for service
 	// triggers, or an account ID for cross-account access. If you specify a
 	// service as a principal, use the SourceArn parameter to limit who can
 	// invoke the function through that service.
-	Principal *string `func:"input,required"`
+	Principal string `func:"input"`
 
 	// Region the Lambda function has been deployed to.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// Specify a version or alias to add permissions to a published version of the
 	// function.
@@ -71,7 +72,7 @@ type LambdaInvokePermission struct {
 	SourceARN *string `func:"input"`
 
 	// A unique statement identifier.
-	StatementID *string `func:"input,required"`
+	StatementID string `func:"input"`
 
 	// Outputs
 
@@ -91,15 +92,15 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 	}
 
 	input := &lambda.AddPermissionInput{
-		Action:           p.Action,
+		Action:           aws.String(p.Action),
 		EventSourceToken: p.EventSourceToken,
-		FunctionName:     p.FunctionName,
-		Principal:        p.Principal,
+		FunctionName:     aws.String(p.FunctionName),
+		Principal:        aws.String(p.Principal),
 		Qualifier:        p.Qualifier,
 		RevisionId:       p.RevisionID,
 		SourceAccount:    p.SourceAccount,
 		SourceArn:        p.SourceARN,
-		StatementId:      p.StatementID,
+		StatementId:      aws.String(p.StatementID),
 	}
 
 	req := svc.AddPermissionRequest(input)
@@ -121,10 +122,10 @@ func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteR
 	}
 
 	req := svc.RemovePermissionRequest(&lambda.RemovePermissionInput{
-		FunctionName: p.FunctionName,
+		FunctionName: aws.String(p.FunctionName),
 		Qualifier:    p.Qualifier,
 		RevisionId:   p.RevisionID,
-		StatementId:  p.StatementID,
+		StatementId:  aws.String(p.StatementID),
 	})
 	_, err = req.Send(ctx)
 	return err
