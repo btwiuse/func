@@ -149,7 +149,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 
 type bodyField struct {
 	index int
-	input schema.InputField
+	input *schema.Field
 	expr  hcl.Expression
 }
 
@@ -157,7 +157,8 @@ type bodyField struct {
 // Nested blocks are decoded directly into the target value.
 func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[string]bodyField, hcl.Diagnostics) {
 	// Get schema from target inputs.
-	fields := schema.Inputs(val.Type())
+	ff := schema.Fields(val.Type())
+	fields := ff.Inputs()
 	bodySchema := inputSchema(fields)
 
 	// Decode body with given schema.
@@ -178,7 +179,7 @@ func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[string]bo
 			// Optional attribute was not set
 			continue
 		}
-		values[name] = bodyField{index: f.Index, input: f, expr: attr.Expr}
+		values[name] = bodyField{index: f.Index, input: &f, expr: attr.Expr}
 	}
 
 	// Blocks
@@ -193,7 +194,7 @@ func (d *decoder) decodeResBody(body hcl.Body, val reflect.Value) (map[string]bo
 	}
 
 	// Outputs
-	for name, f := range schema.Outputs(val.Type()) {
+	for name, f := range ff.Outputs() {
 		values[name] = bodyField{index: f.Index}
 	}
 
@@ -270,7 +271,7 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 	}
 
 	if len(blocks) == 0 {
-		if isPtr {
+		if isPtr || isSlice {
 			// Missing optional block, or zero blocks to insert into a
 			// slice of structs.
 			return diags
@@ -290,7 +291,7 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 	// We know there is exactly one block to decode.
 	block := blocks[0]
 
-	fields := schema.Inputs(typ)
+	fields := schema.Fields(typ).Inputs()
 	schema := inputSchema(fields)
 	cont, diags := block.Body.Content(schema)
 	if diags.HasErrors() {
@@ -378,7 +379,7 @@ func decodeStaticBlocks(name string, parent hcl.Body, blocks hcl.Blocks, val ref
 	return diags
 }
 
-func inputSchema(ff map[string]schema.InputField) *hcl.BodySchema {
+func inputSchema(ff map[string]schema.Field) *hcl.BodySchema {
 	schema := &hcl.BodySchema{}
 	for name, f := range ff {
 		if isBlock(f.Type) {
@@ -387,9 +388,10 @@ func inputSchema(ff map[string]schema.InputField) *hcl.BodySchema {
 			})
 			continue
 		}
+		k := f.Type.Kind()
 		schema.Attributes = append(schema.Attributes, hcl.AttributeSchema{
 			Name:     name,
-			Required: f.Required,
+			Required: k != reflect.Ptr && k != reflect.Slice && k != reflect.Map,
 		})
 	}
 	return schema

@@ -14,7 +14,7 @@ type field struct {
 	index int
 
 	// Only set for inputs
-	input schema.InputField
+	input *schema.Field
 	expr  *expression
 }
 

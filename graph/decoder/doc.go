@@ -31,7 +31,7 @@
 //
 //   type MyResource struct {
 //       // Inputs
-//       Name    string   `func:"input,required"`
+//       Name    string   `func:"input"`
 //       Age     *int     `func:"input"`
 //       Address *Address `func:"input"`
 //

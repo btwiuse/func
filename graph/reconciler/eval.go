@@ -35,7 +35,7 @@ func evalDependency(dep *graph.Dependency) error {
 			return errors.Errorf("no such field resource: %s", f.Name)
 		}
 		v := reflect.Indirect(reflect.ValueOf(parent.Config.Def))
-		outputs := schema.Outputs(v.Type())
+		outputs := schema.Fields(v.Type()).Outputs()
 		field, ok := outputs[f.Field]
 		if !ok {
 			return fmt.Errorf("%s does not have an output field %q", parent.Config.Name, f.Field)
@@ -46,7 +46,7 @@ func evalDependency(dep *graph.Dependency) error {
 
 	// Get target field.
 	v := reflect.Indirect(reflect.ValueOf(dep.Child().Config.Def))
-	inputs := schema.Inputs(v.Type())
+	inputs := schema.Fields(v.Type()).Inputs()
 	field, ok := inputs[dep.Target.Field]
 	if !ok {
 		return fmt.Errorf("%s does not have an input field %q", dep.Child().Config.Name, dep.Target.Field)
