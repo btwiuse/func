@@ -15,8 +15,6 @@ type InputField struct {
 	Index    int
 	Required bool
 	Type     reflect.Type
-
-	validation string
 }
 
 // An OutputField is a single field marked with a func:"output" struct tag.
@@ -43,10 +41,9 @@ func Inputs(target reflect.Type) map[string]InputField {
 			continue
 		}
 		field := InputField{
-			Type:       f.Type,
-			Required:   false,
-			Index:      i,
-			validation: f.Tag.Get("validate"),
+			Type:     f.Type,
+			Required: false,
+			Index:    i,
 		}
 		if comma := strings.Index(tag, ","); comma >= 0 {
 			attr := tag[comma+1:]
@@ -97,25 +94,4 @@ func Outputs(target reflect.Type) map[string]OutputField {
 		fields[name] = field
 	}
 	return fields
-}
-
-// Validate validates that the given value is a valid, according to a validate
-// struct tag.
-//
-//   type Example struct {
-//       Name int    `func:"input" validate:"gte=5,lt10"`
-//       ARN  string `func:"input" validate:"arn"`
-//   }
-//
-// Fields are validated using https://gopkg.in/go-playground/validator.v9.
-//
-// Additional custom validation rules are added:
-//
-//   arn    validate that the value is a valid AWS ARN.
-//   div    validate that field is divisible by the given value.
-//
-// Type validation is not performed, validation may panic if an invalid
-// validation rule is set based on type (for example, arn on a int64 field).
-func (f InputField) Validate(value interface{}) error {
-	return validate(value, f.validation)
 }

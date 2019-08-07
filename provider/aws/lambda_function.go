@@ -39,7 +39,7 @@ type LambdaFunction struct {
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 	DeadLetterConfig *struct {
-		TargetArn *string `func:"input" validate:"arn"`
+		TargetArn *string `func:"input"`
 	} `func:"input"`
 
 	// A description of the function.
@@ -78,7 +78,7 @@ type LambdaFunction struct {
 	// The amount of memory that your function has access to. Increasing the
 	// function's memory also increases it's CPU allocation. The default value
 	// is 128 MB. The value must be a multiple of 64 MB.
-	MemorySize *int64 `func:"input" validate:"gte=64,lte=3008,div=64"`
+	MemorySize *int64 `func:"input"`
 
 	// Set to true to publish the first version of the function during
 	// creation.
@@ -89,10 +89,10 @@ type LambdaFunction struct {
 
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
-	Role *string `func:"input,required" validate:"arn"`
+	Role *string `func:"input,required"`
 
 	// The runtime version for the function.
-	Runtime string `func:"input,required" validate:"oneof=nodejs8.10 python3.6 python3.7 python2.7 ruby2.5 java8 go1.x dotnetcore2.1 dotnetcore1.0"` // nolint: lll
+	Runtime string `func:"input,required"`
 
 	// The list of tags (key-value pairs) assigned to the new function. For
 	// more information, see
@@ -103,7 +103,7 @@ type LambdaFunction struct {
 	// The amount of time that Lambda allows a function to run before
 	// terminating it. The default is 3 seconds. The maximum allowed value is
 	// 900 seconds.
-	Timeout *int64 `func:"input" validate:"gte=1,lte=900"`
+	Timeout *int64 `func:"input"`
 
 	// Set Mode to Active to sample and trace a subset of incoming requests
 	// with AWS X-Ray.

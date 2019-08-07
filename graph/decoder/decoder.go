@@ -472,18 +472,6 @@ func (d *decoder) resolveValues() hcl.Diagnostics {
 			// This should not happen as the conversion to the target type was successful.
 			panic(fmt.Sprintf("Assign value: %v", err))
 		}
-
-		// Validate
-		if err := f.input.Validate(reflect.Indirect(f.value()).Interface()); err != nil {
-			diags = append(diags, &hcl.Diagnostic{
-				Severity: hcl.DiagError,
-				Summary:  "Validation error",
-				Detail:   fmt.Sprintf("Value for %s %v", target.Field, err),
-				Subject:  f.expr.StartRange().Ptr(),
-				Context:  f.expr.Range().Ptr(),
-			})
-			continue
-		}
 	}
 	return diags
 }

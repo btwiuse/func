@@ -23,7 +23,7 @@ type APIGatewayRestAPI struct {
 	// - HEADER to read the API key from the X-API-Key header of a request.
 	// - AUTHORIZER to read the API key from the UsageIdentifierKey from a custom
 	//   authorizer.
-	APIKeySource *string `func:"input" validate:"HEADER AUTHORIZER"`
+	APIKeySource *string `func:"input"`
 
 	// The list of binary media types supported by the RestApi.
 	// By default, the RestApi supports only UTF-8-encoded text payloads.
@@ -52,7 +52,7 @@ type APIGatewayRestAPI struct {
 	// a null value) on an API. When compression is enabled, compression or decompression
 	// is not applied on the payload if the payload size is smaller than this value.
 	// Setting it to zero allows compression for any payload size.
-	MinimumCompressionSize *int64 `func:"input" validate:"gte=0,lte=10485760"`
+	MinimumCompressionSize *int64 `func:"input"`
 
 	// The name of the RestApi.
 	Name *string `func:"input,required"`

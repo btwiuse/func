@@ -838,32 +838,6 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				},
 			}},
 		},
-		{
-			name: "ValidationError",
-			body: parseBody(t, `
-				resource "foo" {
-					type  = "a"
-
-					season = "tuesday"
-				}
-			`),
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
-					Season string `func:"input" validate:"oneof=spring summer fall winter"`
-				}{},
-			},
-			diags: hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  "Validation error",
-				Detail:   "Value for season must be one of: [spring summer fall winter]",
-				Subject: &hcl.Range{
-					Filename: "file.hcl",
-					Start:    hcl.Pos{Line: 4, Column: 16},
-					End:      hcl.Pos{Line: 4, Column: 23},
-				},
-			}},
-		},
 	}
 
 	for _, tt := range tests {

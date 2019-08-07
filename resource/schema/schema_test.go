@@ -1,7 +1,6 @@
 package schema_test
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -19,13 +18,13 @@ type lambda struct {
 	Handler          *string           `func:"input,required"`
 	KMSKeyARN        *string           `func:"input"`
 	Layers           []string          `func:"input"`
-	MemorySize       *int64            `func:"input" validate:"gte=128,lte=3008,div=64"`
+	MemorySize       *int64            `func:"input"`
 	Publish          *bool             `func:"input"`
 	Region           string            `func:"input,required"`
-	Role             *string           `func:"input,required" validate:"arn"`
-	Runtime          *string           `func:"input,required" validate:"oneof=test1 test2"`
+	Role             *string           `func:"input,required"`
+	Runtime          *string           `func:"input,required"`
 	Tags             map[string]string `func:"input"`
-	Timeout          *int64            `func:"input" validate:"gte=1,lte=900"`
+	Timeout          *int64            `func:"input"`
 	TracingConfig    *TracingConfig    `func:"input"`
 	VPCConfig        *VPCConfig        `func:"input"`
 
@@ -137,89 +136,6 @@ func TestOutputs(t *testing.T) {
 			}
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
 				t.Errorf("Inputs() (-got, +want)\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestInputField_Validate(t *testing.T) {
-	type check struct {
-		input interface{}
-		want  string
-	}
-
-	tests := []struct {
-		name     string
-		target   reflect.Type
-		validate map[string][]check
-	}{
-		{
-			name:   "lambda",
-			target: reflect.TypeOf(lambda{}),
-			validate: map[string][]check{
-				"description": {
-					{"", ""},
-					{"description", ""},
-				},
-				"memory_size": {
-					{0, "must be 128 or more"},
-					{127, "must be 128 or more"},
-					{128, ""},
-					{129, "must be divisible by 64"},
-					{5000, "must be 3008 or less"},
-				},
-				"runtime": {
-					{"test1", ""},
-					{"foo", "must be one of: [test1 test2]"},
-				},
-				"role": {
-					{"foo", "must be a valid arn (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)"},
-
-					// Valid ARNs from https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#genref-arns
-					{"arn:partition:service:region:account-id:resource", ""},
-					{"arn:partition:service:region:account-id:resourcetype/resource", ""},
-					{"arn:partition:service:region:account-id:resourcetype/resource/qualifier", ""},
-					{"arn:partition:service:region:account-id:resourcetype/resource:qualifier", ""},
-					{"arn:partition:service:region:account-id:resourcetype:resource", ""},
-					{"arn:partition:service:region:account-id:resourcetype:resource:qualifier", ""},
-				},
-			},
-		},
-	}
-
-	inputName := func(input interface{}) string {
-		str := fmt.Sprintf("%v", input)
-		if len(str) == 0 {
-			return "<empty>"
-		}
-		return str
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fields := schema.Inputs(tt.target)
-			for f, checks := range tt.validate {
-				t.Run(f, func(t *testing.T) {
-					field, ok := fields[f]
-					if !ok {
-						t.Fatalf("No such field: %q", f)
-					}
-					for _, c := range checks {
-						t.Run(inputName(c.input), func(t *testing.T) {
-							got := field.Validate(c.input)
-							var gotStr string
-							if got != nil {
-								gotStr = got.Error()
-							}
-							if gotStr != c.want {
-								t.Errorf(
-									"Validation messages do not match\nGot:  %v\nWant: %s",
-									got, c.want,
-								)
-							}
-						})
-					}
-				})
 			}
 		})
 	}
