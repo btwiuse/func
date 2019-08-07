@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -19,7 +20,7 @@ type IAMRolePolicyAttachment struct {
 	// For more information about ARNs, see Amazon Resource Names (ARNs) and AWS
 	// Service Namespaces (http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 	// in the AWS General Reference.
-	PolicyARN *string `func:"input,required"`
+	PolicyARN string `func:"input"`
 
 	// Region to use for IAM API calls.
 	//
@@ -32,7 +33,7 @@ type IAMRolePolicyAttachment struct {
 	// This parameter allows (through its regex pattern (http://wikipedia.org/wiki/regex))
 	// a string of characters consisting of upper and lowercase alphanumeric characters
 	// with no spaces. You can also include any of the following characters: _+=,.@-
-	RoleName *string `func:"input,required"`
+	RoleName string `func:"input"`
 
 	// No outputs
 
@@ -47,8 +48,8 @@ func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.Create
 	}
 
 	req := svc.AttachRolePolicyRequest(&iam.AttachRolePolicyInput{
-		PolicyArn: p.PolicyARN,
-		RoleName:  p.RoleName,
+		PolicyArn: aws.String(p.PolicyARN),
+		RoleName:  aws.String(p.RoleName),
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")
@@ -67,8 +68,8 @@ func (p *IAMRolePolicyAttachment) Delete(ctx context.Context, r *resource.Delete
 	}
 
 	req := svc.DetachRolePolicyRequest(&iam.DetachRolePolicyInput{
-		PolicyArn: p.PolicyARN,
-		RoleName:  p.RoleName,
+		PolicyArn: aws.String(p.PolicyARN),
+		RoleName:  aws.String(p.RoleName),
 	})
 	if _, err := req.Send(ctx); err != nil {
 		return errors.Wrap(err, "send request")

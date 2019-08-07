@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
@@ -32,10 +33,10 @@ type APIGatewayDeployment struct {
 	Description *string `func:"input"`
 
 	// The region the API Gateway is deployed to.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// The string identifier of the associated RestApi.
-	RestAPIID *string `func:"input,required" name:"rest_api_id"`
+	RestAPIID string `func:"input" name:"rest_api_id"`
 
 	// The description of the Stage resource for the Deployment resource to
 	// create.
@@ -55,7 +56,7 @@ type APIGatewayDeployment struct {
 
 	// ChangeTrigger causes a new deployment to be executed when the value has
 	// changed, even if other inputs have not changed.
-	ChangeTrigger string `func:"input,required"`
+	ChangeTrigger string `func:"input"`
 
 	// Outputs
 
@@ -111,7 +112,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 
 	input := &apigateway.CreateDeploymentInput{
 		Description:      p.Description,
-		RestApiId:        p.RestAPIID,
+		RestApiId:        aws.String(p.RestAPIID),
 		StageDescription: p.StageDescription,
 		StageName:        p.StageName,
 		TracingEnabled:   p.TracingEnabled,
@@ -174,7 +175,7 @@ func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteReq
 	}
 
 	req := svc.DeleteDeploymentRequest(&apigateway.DeleteDeploymentInput{
-		RestApiId:    p.RestAPIID,
+		RestApiId:    aws.String(p.RestAPIID),
 		DeploymentId: p.ID,
 	})
 	_, err = req.Send(ctx)

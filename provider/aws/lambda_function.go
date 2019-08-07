@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
 	"github.com/cenkalti/backoff"
@@ -60,12 +61,12 @@ type LambdaFunction struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName *string `func:"input,required"`
+	FunctionName string `func:"input"`
 
 	// The name of the method within your code that Lambda calls to execute
 	// your function. For more information, see
 	// [Programming Model](http://docs.aws.amazon.com/lambda/latest/dg/programming-model-v2.html).
-	Handler *string `func:"input,required"`
+	Handler string `func:"input"`
 
 	// The ARN of the KMS key used to encrypt your function's environment
 	// variables. If not provided, AWS Lambda will use a default service key.
@@ -85,14 +86,14 @@ type LambdaFunction struct {
 	Publish *bool `func:"input"`
 
 	// Region to run the Lambda function in.
-	Region string `func:"input,required"`
+	Region string `func:"input"`
 
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
-	Role *string `func:"input,required"`
+	Role string `func:"input"`
 
 	// The runtime version for the function.
-	Runtime string `func:"input,required"`
+	Runtime string `func:"input"`
 
 	// The list of tags (key-value pairs) assigned to the new function. For
 	// more information, see
@@ -182,13 +183,13 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 			ZipFile: zip.Bytes(),
 		},
 		Description:  p.Description,
-		FunctionName: p.FunctionName,
-		Handler:      p.Handler,
+		FunctionName: aws.String(p.FunctionName),
+		Handler:      aws.String(p.Handler),
 		KMSKeyArn:    p.KMSKeyArn,
 		Layers:       p.Layers,
 		MemorySize:   p.MemorySize,
 		Publish:      p.Publish,
-		Role:         p.Role,
+		Role:         aws.String(p.Role),
 		Runtime:      lambda.Runtime(p.Runtime),
 		Tags:         p.Tags,
 		Timeout:      p.Timeout,
@@ -335,10 +336,10 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Clien
 	input := &lambda.UpdateFunctionConfigurationInput{
 		Description:  p.Description,
 		FunctionName: p.FunctionARN,
-		Handler:      p.Handler,
+		Handler:      aws.String(p.Handler),
 		KMSKeyArn:    p.KMSKeyArn,
 		MemorySize:   p.MemorySize,
-		Role:         p.Role,
+		Role:         aws.String(p.Role),
 		Layers:       p.Layers,
 		Runtime:      lambda.Runtime(p.Runtime),
 		Timeout:      p.Timeout,
