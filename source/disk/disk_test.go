@@ -68,6 +68,7 @@ func TestStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
+	defer resp.Body.Close() // nolint: errcheck
 	if resp.StatusCode != http.StatusOK {
 		if dumped, err := httputil.DumpResponse(resp, true); err == nil {
 			t.Log(string(dumped))
