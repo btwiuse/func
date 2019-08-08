@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+
+	"github.com/zclconf/go-cty/cty"
 )
 
 // A Field represents an extracted field from a struct.
@@ -40,6 +42,26 @@ func (ff FieldSet) Outputs() FieldSet {
 		}
 	}
 	return out
+}
+
+// CtyType converts the FieldSet to a cty object type.
+//
+// The type is processed deeply, nested structs or pointers to structs are
+// included.
+//
+// Fields that have interface types are not included as they cannot be
+// represented in the cty type system.
+//
+// Panics if a field cannot be converted. See ImpliedType() for details.
+func (ff FieldSet) CtyType() cty.Type {
+	obj := make(map[string]cty.Type, len(ff))
+	for k, v := range ff {
+		if v.Type.Kind() == reflect.Interface {
+			continue
+		}
+		obj[k] = ImpliedType(v.Type)
+	}
+	return cty.Object(obj)
 }
 
 // Fields extracts fields from target. Unexported fields are ignored.
