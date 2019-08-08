@@ -25,10 +25,7 @@ require (
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
-	golang.org/x/exp v0.0.0-20190731235908-ec7cb31e5a56 // indirect
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa // indirect
-	gonum.org/v1/gonum v0.0.0-20190805055805-3ce8ac2a2fb1
-	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
 )
