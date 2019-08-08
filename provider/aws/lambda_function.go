@@ -274,7 +274,7 @@ func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) 
 		}
 	}
 	if r.ConfigChanged {
-		if err := p.updateConfig(ctx, svc); err != nil {
+		if err := p.updateConfig(ctx, svc, r); err != nil {
 			return errors.Wrap(err, "update config")
 		}
 	}
@@ -289,6 +289,8 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 		return errors.New("only one source archive allowed")
 	}
 
+	prev := r.Previous.(*LambdaFunction)
+
 	src, err := r.Source[0].Reader(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get source reader")
@@ -302,7 +304,7 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 	}
 
 	input := &lambda.UpdateFunctionCodeInput{
-		FunctionName: p.FunctionARN,
+		FunctionName: prev.FunctionARN,
 		ZipFile:      zip.Bytes(),
 	}
 
@@ -332,10 +334,11 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 	return nil
 }
 
-func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.ClientAPI) error {
+func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.ClientAPI, r *resource.UpdateRequest) error {
+	prev := r.Previous.(*LambdaFunction)
 	input := &lambda.UpdateFunctionConfigurationInput{
 		Description:  p.Description,
-		FunctionName: p.FunctionARN,
+		FunctionName: prev.FunctionARN,
 		Handler:      aws.String(p.Handler),
 		KMSKeyArn:    p.KMSKeyArn,
 		MemorySize:   p.MemorySize,
