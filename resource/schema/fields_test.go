@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -170,4 +171,41 @@ func TestFieldSet_CtyType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFieldName_camel() {
+	field := reflect.StructField{
+		Name: "DeadLetterConfig",
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: dead_letter_config
+}
+
+func ExampleFieldName_camel2() {
+	field := reflect.StructField{
+		Name: "KMSKeyArn",
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: kms_key_arn
+}
+
+func ExampleFieldName_withoutCustom() {
+	field := reflect.StructField{
+		Name: "RestAPIID", // Will not split before ID
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: rest_apiid
+}
+
+func ExampleFieldName_withCustom() {
+	field := reflect.StructField{
+		Name: "RestAPIID",
+		Tag:  reflect.StructTag(`name:"rest_api_id"`),
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: rest_api_id
 }
