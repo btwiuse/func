@@ -7,17 +7,12 @@ jobs:
     working_directory: /src
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - mod-v1-{{ checksum "go.mod" }}
       - run:
           name: Download dependencies
+          environment:
+            GOPROXY: https://proxy.golang.org
           command: |
             go mod download
-      - save_cache:
-          key: mod-v1-{{ checksum "go.mod" }}
-          paths:
-            - /go/pkg/mod
       - run:
           name: Test
           command: |
