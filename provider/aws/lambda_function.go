@@ -40,7 +40,7 @@ type LambdaFunction struct {
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 	DeadLetterConfig *struct {
-		TargetArn *string `func:"input"`
+		TargetArn *string
 	} `func:"input"`
 
 	// A description of the function.
@@ -48,7 +48,7 @@ type LambdaFunction struct {
 
 	// Environment variables that are accessible from function code during execution.
 	Environment *struct {
-		Variables map[string]string `func:"input"`
+		Variables map[string]string
 	} `func:"input"`
 
 	// The name of the Lambda function.
@@ -112,7 +112,7 @@ type LambdaFunction struct {
 	// https://docs.aws.amazon.com/goto/WebAPI/lambda-2015-03-31/TracingConfig
 	TracingConfig *struct {
 		// The tracing mode.
-		Mode string `func:"input" validte:"oneof=Active Passive"`
+		Mode string
 	} `func:"input"`
 
 	// If your Lambda function accesses resources in a VPC, you provide this parameter
@@ -121,9 +121,9 @@ type LambdaFunction struct {
 	// ID.
 	VPCConfig *struct {
 		// A list of VPC security groups IDs.
-		SecurityGroupIDs []string `func:"input" name:"security_group_ids"`
+		SecurityGroupIDs []string
 		// A list of VPC subnet IDs.
-		SubnetIDs []string `func:"input" name:"subnet_ids"`
+		SubnetIDs []string
 	} `func:"input" name:"vpc_config"`
 
 	// Outputs

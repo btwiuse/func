@@ -190,7 +190,7 @@ type APIGatewayIntegrationResponse struct {
 	// If this property is not defined, the response payload will be passed
 	// through from the integration response to the method response without
 	// modification.
-	ContentHandling string `func:"output"`
+	ContentHandling string
 
 	// A key-value map specifying response parameters that are passed to the
 	// method response from the back end. The key is a method response header
@@ -203,12 +203,12 @@ type APIGatewayIntegrationResponse struct {
 	// `integration.response.body.{JSON-expression}`, where name is a valid and
 	// unique response header name and JSON-expression is a valid JSON
 	// expression without the `$` prefix.
-	ResponseParameters map[string]string `func:"output"`
+	ResponseParameters map[string]string
 
 	// Specifies the templates used to transform the integration response body.
 	// Response templates are represented as a key/value map, with a
 	// content-type as the key and a template as the value.
-	ResponseTemplates map[string]string `func:"output"`
+	ResponseTemplates map[string]string
 
 	// Specifies the regular expression pattern used to choose an integration
 	// response based on the response from the back end.
@@ -219,11 +219,11 @@ type APIGatewayIntegrationResponse struct {
 	// contain any newline (`\n`) character in such cases. If the back end is
 	// an AWS Lambda function, the AWS Lambda function error header is matched.
 	// For all other HTTP and AWS back ends, the HTTP status code is matched.
-	SelectionPattern string `func:"output"`
+	SelectionPattern string
 
 	// Specifies the status code that is used to map the integration response
 	// to an existing MethodResponse.
-	StatusCode string `func:"output"`
+	StatusCode string
 }
 
 // Create creates a new resource.
