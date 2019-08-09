@@ -30,7 +30,7 @@ type APIGatewayIntegration struct {
 	// value is `INTERNET` for connections through the public routable internet or
 	// `VPC_LINK` for private connections between API Gateway and a network load balancer
 	// in a VPC. The default value is `INTERNET`.
-	ConnectionType string `func:"input"`
+	ConnectionType *string `func:"input"`
 
 	// Specifies how to handle request payload content type conversions. Supported
 	// values are `CONVERT_TO_BINARY` and `CONVERT_TO_TEXT`, with the following
@@ -44,7 +44,7 @@ type APIGatewayIntegration struct {
 	// If this property is not defined, the request payload will be passed through
 	// from the method request to integration request without modification, provided
 	// that the `passthrough_behaviors` is configured to support payload pass-through.
-	ContentHandling string `func:"input"`
+	ContentHandling *string `func:"input"`
 
 	// Specifies the credentials required for the integration, if any.
 	//
@@ -237,8 +237,6 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 		CacheNamespace:        p.CacheNamespace,
 		CacheKeyParameters:    p.CacheKeyParameters,
 		ConnectionId:          p.ConnectionID,
-		ConnectionType:        apigateway.ConnectionType(p.ConnectionType),
-		ContentHandling:       apigateway.ContentHandlingStrategy(p.ContentHandling),
 		Credentials:           p.Credentials,
 		HttpMethod:            aws.String(p.HTTPMethod),
 		IntegrationHttpMethod: p.IntegrationHTTPMethod,
@@ -250,6 +248,13 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 		TimeoutInMillis:       p.TimeoutInMillis,
 		Type:                  apigateway.IntegrationType(p.IntegrationType),
 		Uri:                   p.URI,
+	}
+
+	if p.ConnectionType != nil {
+		input.ConnectionType = apigateway.ConnectionType(*p.ConnectionType)
+	}
+	if p.ContentHandling != nil {
+		input.ContentHandling = apigateway.ContentHandlingStrategy(*p.ContentHandling)
 	}
 
 	req := svc.PutIntegrationRequest(input)

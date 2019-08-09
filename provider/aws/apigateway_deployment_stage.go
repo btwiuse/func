@@ -41,7 +41,7 @@ type APIGatewayStage struct {
 	Region string `func:"input"`
 
 	// The string identifier of the associated Rest API.
-	RestAPIID string `func:"input," name:"rest_api_id"`
+	RestAPIID string `func:"input" name:"rest_api_id"`
 
 	// The name for the Stage resource.
 	StageName string `func:"input"`
