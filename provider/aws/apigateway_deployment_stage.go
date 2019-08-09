@@ -41,7 +41,7 @@ type APIGatewayStage struct {
 	Region string `func:"input"`
 
 	// The string identifier of the associated Rest API.
-	RestAPIID string `func:"input," name:"rest_api_id"`
+	RestAPIID string `func:"input" name:"rest_api_id"`
 
 	// The name for the Stage resource.
 	StageName string `func:"input"`
@@ -98,30 +98,30 @@ type APIGatewayStage struct {
 // APIGatewayCanarySettings contains settings for canary deployment.
 type APIGatewayCanarySettings struct {
 	// The ID of the canary deployment.
-	DeploymentID *string `func:"input"`
+	DeploymentID *string
 
 	// The percent (0-100) of traffic diverted to a canary deployment.
-	PercentTraffic *float64 `func:"input"`
+	PercentTraffic *float64
 
 	// Stage variables overridden for a canary release deployment, including new
 	// stage variables introduced in the canary. These stage variables are represented
 	// as a string-to-string map between stage variable names and their values.
-	StageVariableOverrides *map[string]string `func:"input"`
+	StageVariableOverrides *map[string]string
 
 	// A Boolean flag to indicate whether the canary deployment uses the stage cache
 	// or not.
-	UseStageCache *bool `func:"input"`
+	UseStageCache *bool
 }
 
 // AccessLogSettings contains settings for an APIGateway deployment stage.
 type AccessLogSettings struct {
 	// The ARN of the CloudWatch Logs log group to receive access logs.
-	DestinationARN *string `func:"output"`
+	DestinationARN *string
 
 	// A single line format of the access logs of data, as specified by
 	// selected `$context` variables.
 	// The format must include at least `$context.requestId`.
-	Format *string `func:"output"`
+	Format *string
 }
 
 // MethodSetting contains settings for a method in an APIGateway deployment stage.
@@ -129,54 +129,54 @@ type MethodSetting struct { // nolint: maligned
 	// Specifies whether the cached responses are encrypted. The PATCH path for
 	// this setting is /{method_setting_key}/caching/dataEncrypted, and the value
 	// is a Boolean.
-	CacheDataEncrypted bool `func:"output"`
+	CacheDataEncrypted bool
 
 	// Specifies the time to live (TTL), in seconds, for cached responses. The higher
 	// the TTL, the longer the response will be cached. The PATCH path for this
 	// setting is /{method_setting_key}/caching/ttlInSeconds, and the value is an
 	// integer.
-	CacheTTLInSeconds int64 `func:"output"`
+	CacheTTLInSeconds int64
 
 	// Specifies whether responses should be cached and returned for requests. A
 	// cache cluster must be enabled on the stage for responses to be cached. The
 	// PATCH path for this setting is /{method_setting_key}/caching/enabled, and
 	// the value is a Boolean.
-	CachingEnabled bool `func:"output"`
+	CachingEnabled bool
 
 	// Specifies whether data trace logging is enabled for this method, which affects
 	// the log entries pushed to Amazon CloudWatch Logs. The PATCH path for this
 	// setting is /{method_setting_key}/logging/dataTrace, and the value is a Boolean.
-	DataTraceEnabled bool `func:"output"`
+	DataTraceEnabled bool
 
 	// Specifies the logging level for this method, which affects the log entries
 	// pushed to Amazon CloudWatch Logs. The PATCH path for this setting is /{method_setting_key}/logging/loglevel,
 	// and the available levels are OFF, ERROR, and INFO.
-	LoggingLevel string `func:"output"`
+	LoggingLevel string
 
 	// Specifies whether Amazon CloudWatch metrics are enabled for this method.
 	// The PATCH path for this setting is /{method_setting_key}/metrics/enabled,
 	// and the value is a Boolean.
-	MetricsEnabled bool `func:"output"`
+	MetricsEnabled bool
 
 	// Specifies whether authorization is required for a cache invalidation request.
 	// The PATCH path for this setting is /{method_setting_key}/caching/requireAuthorizationForCacheControl,
 	// and the value is a Boolean.
-	RequireAuthorizationForCacheControl bool `func:"output"`
+	RequireAuthorizationForCacheControl bool
 
 	// Specifies the throttling burst limit. The PATCH path for this setting is
 	// /{method_setting_key}/throttling/burstLimit, and the value is an integer.
-	ThrottlingBurstLimit int64 `func:"output"`
+	ThrottlingBurstLimit int64
 
 	// Specifies the throttling rate limit. The PATCH path for this setting is /{method_setting_key}/throttling/rateLimit,
 	// and the value is a double.
-	ThrottlingRateLimit float64 `func:"output"`
+	ThrottlingRateLimit float64
 
 	// Specifies how to handle unauthorized requests for cache invalidation.
 	// Available values are:
 	// - `FAIL_WITH_403`
 	// - `SUCCEED_WITH_RESPONSE_HEADER`
 	// - `SUCCEED_WITHOUT_RESPONSE_HEADER`
-	UnauthorizedCacheControlHeaderStrategy string `func:"output"`
+	UnauthorizedCacheControlHeaderStrategy string
 }
 
 // Type returns the resource type of an apigateway deployment.

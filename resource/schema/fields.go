@@ -3,7 +3,11 @@ package schema
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
+
+	"github.com/zclconf/go-cty/cty"
 )
 
 // A Field represents an extracted field from a struct.
@@ -42,6 +46,26 @@ func (ff FieldSet) Outputs() FieldSet {
 	return out
 }
 
+// CtyType converts the FieldSet to a cty object type.
+//
+// The type is processed deeply, nested structs or pointers to structs are
+// included.
+//
+// Fields that have interface types are not included as they cannot be
+// represented in the cty type system.
+//
+// Panics if a field cannot be converted. See ImpliedType() for details.
+func (ff FieldSet) CtyType() cty.Type {
+	obj := make(map[string]cty.Type, len(ff))
+	for k, v := range ff {
+		if v.Type.Kind() == reflect.Interface {
+			continue
+		}
+		obj[k] = ImpliedType(v.Type)
+	}
+	return cty.Object(obj)
+}
+
 // Fields extracts fields from target. Unexported fields are ignored.
 //
 // All fields are extracted, regardless if they are marked as an input, output
@@ -78,7 +102,7 @@ func Fields(target reflect.Type) FieldSet {
 			name = n
 			delete(tag, "name")
 		} else {
-			name = fieldName(f)
+			name = FieldName(f)
 		}
 		field.functag = tag["func"]
 		delete(tag, "func")
@@ -86,6 +110,23 @@ func Fields(target reflect.Type) FieldSet {
 		fields[name] = field
 	}
 	return fields
+}
+
+var reFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var reAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+// FieldName returns the user-facing name of a field.
+//
+// If the field has a `name:"<fieldname>"` struct tag set, it is returned.
+// Otherwise, the field name is derived from the struct field name by
+// converting it to lower snake case.
+func FieldName(f reflect.StructField) string {
+	if n, ok := f.Tag.Lookup("name"); ok {
+		return n
+	}
+	snake := reFirstCap.ReplaceAllString(f.Name, "${1}_${2}")
+	snake = reAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
 }
 
 // parseTag parses a struct tag string into a map where the key is the key of

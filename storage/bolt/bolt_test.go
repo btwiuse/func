@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/func/func/resource"
 	"github.com/func/func/storage/testsuite"
 	"github.com/pkg/errors"
+	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/gocty"
+	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
 func TestBolt(t *testing.T) {
@@ -42,8 +44,15 @@ func TestBolt(t *testing.T) {
 	})
 }
 
+// testCodec encodes data as json. Rather than pre-registering types, types are
+// registered on-demand as they are encoded. This allows tests to be simpler as
+// types do not have to be registered in advance.
 type testCodec struct {
-	types map[string]reflect.Type
+	types map[string]io
+}
+
+type io struct {
+	input, output cty.Type
 }
 
 type jsonResource struct {
@@ -51,27 +60,46 @@ type jsonResource struct {
 	Type    string          `json:"type"`
 	Deps    []string        `json:"deps,omitempty"`
 	Sources []string        `json:"srcs,omitempty"`
-	Def     json.RawMessage `json:"def"`
+	Input   json.RawMessage `json:"input"`
+	Output  json.RawMessage `json:"output"`
 }
 
 func (c *testCodec) MarshalResource(res resource.Resource) ([]byte, error) {
 	if c.types == nil {
-		c.types = make(map[string]reflect.Type)
+		c.types = make(map[string]io)
 	}
-	typ := reflect.TypeOf(res.Def)
-	c.types[res.Type] = typ
-	def, err := json.Marshal(res.Def)
+
+	t, ok := c.types[res.Type]
+	if !ok {
+		i, err := gocty.ImpliedType(res.Input)
+		if err != nil {
+			return nil, err
+		}
+		o, err := gocty.ImpliedType(res.Output)
+		if err != nil {
+			return nil, err
+		}
+		t = io{i, o}
+		c.types[res.Type] = t
+	}
+
+	input, err := ctyjson.Marshal(res.Input, t.input)
 	if err != nil {
-		return nil, errors.Wrap(err, "marshal definition")
+		return nil, errors.Wrap(err, "marshal input")
 	}
-	r := jsonResource{
+	output, err := ctyjson.Marshal(res.Output, t.output)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal output")
+	}
+
+	return json.Marshal(jsonResource{
 		Name:    res.Name,
 		Type:    res.Type,
 		Deps:    res.Deps,
 		Sources: res.Sources,
-		Def:     def,
-	}
-	return json.Marshal(r)
+		Input:   input,
+		Output:  output,
+	})
 }
 
 func (c *testCodec) UnmarshalResource(b []byte) (resource.Resource, error) {
@@ -79,23 +107,26 @@ func (c *testCodec) UnmarshalResource(b []byte) (resource.Resource, error) {
 	if err := json.Unmarshal(b, &res); err != nil {
 		return resource.Resource{}, errors.Wrap(err, "unmarshal")
 	}
+
 	t, ok := c.types[res.Type]
 	if !ok {
 		return resource.Resource{}, fmt.Errorf("type not registered: %q", res.Type)
 	}
-	var def resource.Definition
-	if t != nil {
-		v := reflect.New(t)
-		if err := json.Unmarshal(res.Def, v.Interface()); err != nil {
-			return resource.Resource{}, errors.Wrap(err, "unmarshal")
-		}
-		def = v.Elem().Interface().(resource.Definition)
+	input, err := ctyjson.Unmarshal(res.Input, t.input)
+	if err != nil {
+		return resource.Resource{}, errors.Wrap(err, "unmarshal input")
 	}
+	output, err := ctyjson.Unmarshal(res.Output, t.output)
+	if err != nil {
+		return resource.Resource{}, errors.Wrap(err, "unmarshal output")
+	}
+
 	return resource.Resource{
 		Name:    res.Name,
 		Type:    res.Type,
 		Deps:    res.Deps,
 		Sources: res.Sources,
-		Def:     def,
+		Input:   input,
+		Output:  output,
 	}, nil
 }

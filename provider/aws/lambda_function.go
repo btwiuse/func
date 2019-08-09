@@ -40,7 +40,7 @@ type LambdaFunction struct {
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 	DeadLetterConfig *struct {
-		TargetArn *string `func:"input"`
+		TargetArn *string
 	} `func:"input"`
 
 	// A description of the function.
@@ -48,7 +48,7 @@ type LambdaFunction struct {
 
 	// Environment variables that are accessible from function code during execution.
 	Environment *struct {
-		Variables map[string]string `func:"input"`
+		Variables map[string]string
 	} `func:"input"`
 
 	// The name of the Lambda function.
@@ -112,7 +112,7 @@ type LambdaFunction struct {
 	// https://docs.aws.amazon.com/goto/WebAPI/lambda-2015-03-31/TracingConfig
 	TracingConfig *struct {
 		// The tracing mode.
-		Mode string `func:"input" validte:"oneof=Active Passive"`
+		Mode string
 	} `func:"input"`
 
 	// If your Lambda function accesses resources in a VPC, you provide this parameter
@@ -121,9 +121,9 @@ type LambdaFunction struct {
 	// ID.
 	VPCConfig *struct {
 		// A list of VPC security groups IDs.
-		SecurityGroupIDs []string `func:"input" name:"security_group_ids"`
+		SecurityGroupIDs []string
 		// A list of VPC subnet IDs.
-		SubnetIDs []string `func:"input" name:"subnet_ids"`
+		SubnetIDs []string
 	} `func:"input" name:"vpc_config"`
 
 	// Outputs
@@ -274,7 +274,7 @@ func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) 
 		}
 	}
 	if r.ConfigChanged {
-		if err := p.updateConfig(ctx, svc); err != nil {
+		if err := p.updateConfig(ctx, svc, r); err != nil {
 			return errors.Wrap(err, "update config")
 		}
 	}
@@ -289,6 +289,8 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 		return errors.New("only one source archive allowed")
 	}
 
+	prev := r.Previous.(*LambdaFunction)
+
 	src, err := r.Source[0].Reader(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get source reader")
@@ -302,7 +304,7 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 	}
 
 	input := &lambda.UpdateFunctionCodeInput{
-		FunctionName: p.FunctionARN,
+		FunctionName: prev.FunctionARN,
 		ZipFile:      zip.Bytes(),
 	}
 
@@ -332,10 +334,11 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 	return nil
 }
 
-func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.ClientAPI) error {
+func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.ClientAPI, r *resource.UpdateRequest) error {
+	prev := r.Previous.(*LambdaFunction)
 	input := &lambda.UpdateFunctionConfigurationInput{
 		Description:  p.Description,
-		FunctionName: p.FunctionARN,
+		FunctionName: prev.FunctionARN,
 		Handler:      aws.String(p.Handler),
 		KMSKeyArn:    p.KMSKeyArn,
 		MemorySize:   p.MemorySize,

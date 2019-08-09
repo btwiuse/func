@@ -77,30 +77,30 @@ type APIGatewayDeployment struct {
 // passed as input to APIGatewayDeployment.
 type APIGatewayDeploymentCanarySettings struct {
 	// The percentage (0.0-100.0) of traffic routed to the canary deployment.
-	PercentTraffic *float64 `func:"input"`
+	PercentTraffic *float64
 
 	// A stage variable overrides used for the canary release deployment. They
 	// can override existing stage variables or add new stage variables for the
 	// canary release deployment. These stage variables are represented as a
 	// string-to-string map between stage variable names and their values.
-	StageVariableOverrides map[string]string `func:"input"`
+	StageVariableOverrides map[string]string
 
 	// A Boolean flag to indicate whether the canary release deployment uses
 	// the stage cache or not.
-	UseStageCache *bool `func:"input"`
+	UseStageCache *bool
 }
 
 // APIGatewayMethodSnapshot contains a snapshot of a deployed method. It is
 // provided as an output from APIGatewayDeployment.
 type APIGatewayMethodSnapshot struct {
 	// Specifies whether the method requires a valid ApiKey.
-	APIKeyRequired bool `func:"output"`
+	APIKeyRequired bool
 
 	// The method's authorization type. Valid values are `NONE` for open
 	// access, `AWS_IAM` for using AWS IAM permissions, `CUSTOM` for using a
 	// custom authorizer, or `COGNITO_USER_POOLS` for using a Cognito user
 	// pool.
-	AuthorizationType string `func:"output"`
+	AuthorizationType string
 }
 
 // Create creates a new deployment.

@@ -1,12 +1,14 @@
 package schema_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/func/func/resource/schema"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestFields(t *testing.T) {
@@ -117,4 +119,93 @@ func TestFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFieldSet_CtyType(t *testing.T) {
+	tests := []struct {
+		name   string
+		fields schema.FieldSet
+		want   cty.Type
+	}{
+		{
+			"Simple",
+			schema.FieldSet{
+				"foo": {
+					Index: 0,
+					Type:  reflect.TypeOf("string"),
+				},
+			},
+			cty.Object(map[string]cty.Type{
+				"foo": cty.String,
+			}),
+		},
+		{
+			"Nested",
+			schema.FieldSet{
+				"foo": {
+					Index: 0,
+					Type: reflect.TypeOf(struct {
+						Bar string
+						Baz *int
+					}{}),
+				},
+			},
+			cty.Object(map[string]cty.Type{
+				"foo": cty.Object(map[string]cty.Type{
+					"bar": cty.String,
+					"baz": cty.Number,
+				}),
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fields.CtyType()
+			opts := []cmp.Option{
+				cmp.Comparer(func(a, b cty.Type) bool {
+					return a.Equals(b)
+				}),
+			}
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("CtyType() (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func ExampleFieldName_camel() {
+	field := reflect.StructField{
+		Name: "DeadLetterConfig",
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: dead_letter_config
+}
+
+func ExampleFieldName_camel2() {
+	field := reflect.StructField{
+		Name: "KMSKeyArn",
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: kms_key_arn
+}
+
+func ExampleFieldName_withoutCustom() {
+	field := reflect.StructField{
+		Name: "RestAPIID", // Will not split before ID
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: rest_apiid
+}
+
+func ExampleFieldName_withCustom() {
+	field := reflect.StructField{
+		Name: "RestAPIID",
+		Tag:  reflect.StructTag(`name:"rest_api_id"`),
+	}
+	got := schema.FieldName(field)
+	fmt.Println(got)
+	// Output: rest_api_id
 }

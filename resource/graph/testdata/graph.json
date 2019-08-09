@@ -1,0 +1,252 @@
+{
+  "res": {
+    "api": {
+      "type": "aws_apigateway_rest_api",
+      "data": {"name": "func-test-api", "region": "eu-central-1"}
+    },
+    "apigateway_assume_doc": {
+      "type": "aws_iam_policy_document",
+      "data": {
+        "statement": [
+          {
+            "actions": ["sts:AssumeRole"],
+            "effect": "Allow",
+            "principals": {"Service": ["apigateway.amazonaws.com"]}
+          }
+        ]
+      }
+    },
+    "apigateway_exec": {
+      "type": "aws_iam_role_policy_attachment",
+      "data": {"role_name": "func-apigateway"},
+      "edges": [
+        {
+          "field": ["policy_arn"],
+          "expr": [{"ref": ["lambda_exec_policy", "arn"]}]
+        }
+      ]
+    },
+    "apigateway_role": {
+      "type": "aws_iam_role",
+      "data": {
+        "description": "Exec role for Apigateway",
+        "role_name": "func-apigateway"
+      },
+      "edges": [
+        {
+          "field": ["assume_role_policy_document"],
+          "expr": [{"ref": ["apigateway_assume_doc", "json"]}]
+        }
+      ]
+    },
+    "func": {
+      "type": "aws_lambda_function",
+      "srcs": [
+        "dc0ed88dd7d4b6dd916f566b9f548a34304b7249735a9dd1100bf08a23834998"
+      ],
+      "data": {
+        "function_name": "test",
+        "handler": "index.handler",
+        "region": "eu-central-1",
+        "runtime": "nodejs8.10"
+      },
+      "edges": [{"field": ["role"], "expr": [{"ref": ["lambda_role", "arn"]}]}]
+    },
+    "get_world": {
+      "type": "aws_apigateway_method",
+      "data": {
+        "authorization_type": "NONE",
+        "http_method": "POST",
+        "region": "eu-central-1"
+      },
+      "edges": [
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]},
+        {"field": ["resource_id"], "expr": [{"ref": ["world", "id"]}]}
+      ]
+    },
+    "hello": {
+      "type": "aws_apigateway_resource",
+      "data": {"path_part": "hello", "region": "eu-central-1"},
+      "edges": [
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]},
+        {"field": ["parent_id"], "expr": [{"ref": ["api", "root_resource_id"]}]}
+      ]
+    },
+    "invoke_lambda": {
+      "type": "aws_lambda_invoke_permission",
+      "data": {
+        "action": "lambda:InvokeFunction",
+        "principal": "apigateway.amazonaws.com",
+        "region": "eu-central-1"
+      },
+      "edges": [
+        {
+          "field": ["source_arn"],
+          "expr": [
+            {"lit": "arn:aws:execute-api:eu-central-1:"},
+            {"ref": ["me", "account"]},
+            {"lit": ":"},
+            {"ref": ["api", "id"]},
+            {"lit": "/*/POST"},
+            {"ref": ["world", "path"]}
+          ]
+        },
+        {
+          "field": ["statement_id"],
+          "expr": [
+            {"lit": "apigateway-invoke-"},
+            {"ref": ["api", "id"]},
+            {"lit": "-POST"}
+          ]
+        },
+        {
+          "field": ["function_name"],
+          "expr": [{"ref": ["func", "function_arn"]}]
+        }
+      ]
+    },
+    "lambda_assume_doc": {
+      "type": "aws_iam_policy_document",
+      "data": {
+        "statement": [
+          {
+            "actions": ["sts:AssumeRole"],
+            "effect": "Allow",
+            "principals": {"Service": ["lambda.amazonaws.com"]}
+          }
+        ]
+      }
+    },
+    "lambda_exec_doc": {
+      "type": "aws_iam_policy_document",
+      "data": {
+        "statement": [
+          {
+            "actions": ["lambda:InvokeFunction"],
+            "effect": "Allow",
+            "resources": ["*"]
+          }
+        ]
+      }
+    },
+    "lambda_exec_policy": {
+      "type": "aws_iam_policy",
+      "data": {
+        "description": "Grants access to execute lambda",
+        "policy_name": "func-lambda-exec"
+      },
+      "edges": [
+        {
+          "field": ["policy_document"],
+          "expr": [{"ref": ["lambda_exec_doc", "json"]}]
+        }
+      ]
+    },
+    "lambda_logs_attach": {
+      "type": "aws_iam_role_policy_attachment",
+      "data": {"role_name": "func-lambda"},
+      "edges": [
+        {
+          "field": ["policy_arn"],
+          "expr": [{"ref": ["lambda_logs_policy", "arn"]}]
+        }
+      ]
+    },
+    "lambda_logs_doc": {
+      "type": "aws_iam_policy_document",
+      "data": {
+        "statement": [
+          {
+            "actions": [
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            "effect": "Allow",
+            "resources": ["*"]
+          }
+        ]
+      }
+    },
+    "lambda_logs_policy": {
+      "type": "aws_iam_policy",
+      "data": {
+        "description": "Grants access to write logs",
+        "policy_name": "func-logs"
+      },
+      "edges": [
+        {
+          "field": ["policy_document"],
+          "expr": [{"ref": ["lambda_logs_doc", "json"]}]
+        }
+      ]
+    },
+    "lambda_role": {
+      "type": "aws_iam_role",
+      "data": {
+        "description": "Exec role for Lambda",
+        "role_name": "func-lambda"
+      },
+      "edges": [
+        {
+          "field": ["assume_role_policy_document"],
+          "expr": [{"ref": ["lambda_assume_doc", "json"]}]
+        }
+      ]
+    },
+    "me": {"type": "aws_sts_caller_identity", "data": {}},
+    "test_deployment": {
+      "type": "aws_apigateway_deployment",
+      "data": {"region": "eu-central-1"},
+      "edges": [
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]},
+        {
+          "field": ["change_trigger"],
+          "expr": [{"ref": ["invoke_lambda", "statement"]}]
+        }
+      ]
+    },
+    "test_stage": {
+      "type": "aws_apigateway_stage",
+      "data": {"region": "eu-central-1", "stage_name": "test"},
+      "edges": [
+        {
+          "field": ["deployment_id"],
+          "expr": [{"ref": ["test_deployment", "id"]}]
+        },
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]}
+      ]
+    },
+    "trigger_lambda": {
+      "type": "aws_apigateway_integration",
+      "data": {
+        "http_method": "POST",
+        "integration_http_method": "POST",
+        "integration_type": "AWS_PROXY",
+        "region": "eu-central-1"
+      },
+      "edges": [
+        {"field": ["resource_id"], "expr": [{"ref": ["world", "id"]}]},
+        {
+          "field": ["uri"],
+          "expr": [
+            {
+              "lit": "arn:aws:apigateway:eu-central-1:lambda:path/2015-03-31/functions/"
+            },
+            {"ref": ["func", "function_arn"]},
+            {"lit": "/invocations"}
+          ]
+        },
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]}
+      ]
+    },
+    "world": {
+      "type": "aws_apigateway_resource",
+      "data": {"path_part": "world", "region": "eu-central-1"},
+      "edges": [
+        {"field": ["parent_id"], "expr": [{"ref": ["hello", "id"]}]},
+        {"field": ["rest_api_id"], "expr": [{"ref": ["api", "id"]}]}
+      ]
+    }
+  }
+}

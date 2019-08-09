@@ -29,34 +29,34 @@ type IAMPolicyDocument struct {
 // IAMPolicyStatement is a single statement in an IAM Policy Document.
 type IAMPolicyStatement struct {
 	// Include an optional statement ID to differentiate between your statements.
-	ID *string `func:"input"`
+	ID *string
 
 	// Use `Allow` or `Deny` to indicate whether the policy allows or
 	// denies access.
-	Effect string `func:"input"`
+	Effect string
 
 	// The account, user, role, or federated user to which you would like to
 	// allow or deny access.
 	//
 	// If you are creating a policy to attach to a user or role, you cannot
 	// include this element. The principal is implied as that user or role.
-	Principals *map[string][]string `func:"input"`
+	Principals *map[string][]string
 
 	// The account, user, role or federated user to which the statement does
 	// **not** apply to.
-	NotPrincipals *map[string][]string `func:"input"`
+	NotPrincipals *map[string][]string
 
 	// Include a list of actions that the policy allows or denies.
-	Actions *[]string `func:"input"`
+	Actions *[]string
 
 	// List of actions that the statement do **not** apply to.
-	NotActions *[]string `func:"input"`
+	NotActions *[]string
 
 	// List of resources to which the actions apply.
-	Resources *[]string `func:"input"`
+	Resources *[]string
 
 	// List of resources to which the actions do **not** apply.
-	NotResources *[]string `func:"input"`
+	NotResources *[]string
 
 	// Specify the circumstances under which the policy grants permission.
 	//
@@ -68,7 +68,7 @@ type IAMPolicyStatement struct {
 	//
 	// See https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
 	// for supported operators.
-	Conditions *map[string]map[string]string `func:"input"`
+	Conditions *map[string]map[string]string
 }
 
 // Create creates a new IAM role.
