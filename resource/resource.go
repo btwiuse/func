@@ -17,9 +17,8 @@ type Definition interface {
 
 // A Resource is an instance of a resource supplied by the user.
 type Resource struct {
-	Name string     // Name used in resource config.
-	Type string     // Type used in resource config.
-	Def  Definition // Deprecated: Should not be used any more.
+	Name string // Name used in resource config.
+	Type string // Type used in resource config.
 
 	// Input is the user specified static configuration for the resource. The
 	// shape of this field will depend on the Type. When creating resources,
