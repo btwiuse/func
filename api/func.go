@@ -26,10 +26,16 @@ type ResourceRegistry interface {
 	Types() []string
 }
 
+// A Validator validates user input.
+type Validator interface {
+	Validate(input interface{}, rule string) error
+}
+
 // Func implements the core business logic.
 type Func struct {
 	Logger     *zap.Logger
 	Source     source.Storage
 	Resources  ResourceRegistry
+	Validator  Validator
 	Reconciler Reconciler
 }
