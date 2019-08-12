@@ -23,7 +23,7 @@ type APIGatewayDeployment struct {
 
 	// Specifies the cache cluster size for the Stage resource specified in the
 	// input, if a cache cluster is enabled.
-	CacheClusterSize *string `func:"input"`
+	CacheClusterSize *string `func:"input" validate:"oneof=0.5 1.6 6.1 13.5 28.4 58.2 118 237"`
 
 	// The input configuration for the canary deployment when the deployment is
 	// a canary release deployment.
@@ -77,7 +77,7 @@ type APIGatewayDeployment struct {
 // passed as input to APIGatewayDeployment.
 type APIGatewayDeploymentCanarySettings struct {
 	// The percentage (0.0-100.0) of traffic routed to the canary deployment.
-	PercentTraffic *float64
+	PercentTraffic *float64 `validate:"min=0,max=100"`
 
 	// A stage variable overrides used for the canary release deployment. They
 	// can override existing stage variables or add new stage variables for the

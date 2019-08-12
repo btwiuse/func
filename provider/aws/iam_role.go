@@ -55,7 +55,7 @@ type IAMRole struct {
 	// operations to create a console URL. For more information, see
 	// [Using IAM Roles](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html)
 	// in the IAM User Guide.
-	MaxSessionDuration *int64 `func:"input"`
+	MaxSessionDuration *int64 `func:"input" validate:"min=3600,max=43200"`
 
 	// The path to the role. For more information about paths, see
 	// [IAM Identifiers](http://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html)

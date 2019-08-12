@@ -863,6 +863,7 @@ func TestDecodeBody(t *testing.T) {
 
 			dec := &hcldecoder.Decoder{
 				Resources: resource.RegistryFromResources(tt.resources),
+				Validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			}
 			_, srcs, diags := dec.DecodeBody(body, g)
 			parser.CheckDiags(t, diags)
@@ -912,6 +913,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		name      string
 		config    string
 		resources map[string]resource.Definition
+		validator hcldecoder.Validator
 		diags     hcl.Diagnostics // filename is always file.hcl
 	}{
 		{
@@ -920,6 +922,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				project "foo" "bar" {}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Extraneous label for project",
@@ -944,6 +947,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -965,6 +969,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsupported argument",
@@ -1010,6 +1015,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Could not decode source information",
@@ -1034,6 +1040,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -1060,6 +1067,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -1086,6 +1094,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"first_type": &simpleDef{}, "second_type": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -1112,6 +1121,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"first_type": &simpleDef{}, "second_type": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -1138,6 +1148,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"test_type": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
 					Severity: hcl.DiagError,
@@ -1171,6 +1182,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					} `func:"input"`
 				} `func:"input"`
 			}{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -1201,6 +1213,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					Value string `func:"input"`
 				} `func:"input"`
 			}{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Duplicate block",
@@ -1231,6 +1244,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					RequiredChild struct{} `func:"input"`
 				}{},
 			},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required block",
@@ -1259,6 +1273,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					} `func:"input"`
 				} `func:"input"`
 			}{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required block",
@@ -1327,6 +1342,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Duplicate resource",
@@ -1352,6 +1368,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					Int int `func:"input"`
 				}{},
 			},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsuitable value type",
@@ -1377,6 +1394,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					String string `func:"input"`
 				}{},
 			},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagWarning,
 				Summary:  "Value is converted from number to string",
@@ -1395,6 +1413,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -1413,6 +1432,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				}
 			`,
 			resources: map[string]resource.Definition{},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Variables not allowed",
@@ -1459,6 +1479,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			resources: map[string]resource.Definition{
 				"simple": &simpleDef{},
 			},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource not supported",
@@ -1484,6 +1505,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					Input string `func:"input"`
 				}{},
 			},
+			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Missing required argument",
@@ -1492,6 +1514,73 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					Filename: "file.hcl",
 					Start:    hcl.Pos{Line: 1, Column: 14, Byte: 13},
 					End:      hcl.Pos{Line: 1, Column: 14, Byte: 13},
+				},
+			}},
+		},
+		{
+			name: "ValidationError",
+			config: `
+				resource "a" {
+					type  = "validation"
+					input = "foo"
+				}
+			`,
+			resources: map[string]resource.Definition{
+				"validation": &struct {
+					resource.Definition
+					Input string `func:"input" validate:"bar"`
+				}{},
+			},
+			validator: ValidateFunc(func(v interface{}, param string) error {
+				if fmt.Sprintf("%v", v) != param {
+					return fmt.Errorf(`value must be %q`, param)
+				}
+				return nil
+			}),
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Validation error",
+				Detail:   `Value must be "bar"`,
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 3, Column: 10, Byte: 46},
+					End:      hcl.Pos{Line: 3, Column: 15, Byte: 51},
+				},
+			}},
+		},
+		{
+			name: "ValidationErrorRef",
+			config: `
+				resource "a" {
+					type  = "simple"
+					input = "foo"
+				}
+				resource "b" {
+					type  = "validation"
+					input = a.input
+				}
+			`,
+			resources: map[string]resource.Definition{
+				"simple": &simpleDef{},
+				"validation": &struct {
+					resource.Definition
+					Input string `func:"input" validate:"bar"`
+				}{},
+			},
+			validator: ValidateFunc(func(v interface{}, param string) error {
+				if fmt.Sprintf("%v", v) != param {
+					return fmt.Errorf(`value must be %q`, param)
+				}
+				return nil
+			}),
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Validation error",
+				Detail:   `Value must be "bar"`,
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 7, Column: 2, Byte: 88},
+					End:      hcl.Pos{Line: 7, Column: 17, Byte: 103},
 				},
 			}},
 		},
@@ -1509,6 +1598,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 
 			dec := &hcldecoder.Decoder{
 				Resources: resource.RegistryFromResources(tt.resources),
+				Validator: tt.validator,
 			}
 			_, _, diags := dec.DecodeBody(body, g)
 
@@ -1616,3 +1706,7 @@ type simpleDef struct {
 	Input  *string `func:"input"`
 	Output string  `func:"output"`
 }
+
+type ValidateFunc func(interface{}, string) error
+
+func (fn ValidateFunc) Validate(val interface{}, rule string) error { return fn(val, rule) }

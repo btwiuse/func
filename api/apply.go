@@ -27,6 +27,7 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	g := graph.New()
 	dec := &hcldecoder.Decoder{
 		Resources: f.Resources,
+		Validator: f.Validator,
 	}
 	proj, srcs, diags := dec.DecodeBody(req.Config, g)
 	if diags.HasErrors() {

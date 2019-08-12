@@ -3,6 +3,7 @@ package hcldecoder
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/func/func/config"
 	"github.com/func/func/ctyext"
@@ -25,11 +26,18 @@ type ResourceRegistry interface {
 	Types() []string
 }
 
+// A Validator validates user input.
+type Validator interface {
+	// Validate is called for every input set by the user.
+	Validate(input interface{}, rule string) error
+}
+
 // Decoder is the context to use when decoding.
 //
 // The same instance of Decoder must not be used more than once.
 type Decoder struct {
 	Resources ResourceRegistry
+	Validator Validator
 
 	resources map[string]*res
 	sources   []*config.SourceInfo
@@ -169,6 +177,7 @@ type res struct {
 
 // expression wraps a graph expression with the source range.
 type expression struct {
+	field     schema.Field
 	inputType cty.Type
 	graph.Expression
 	hcl.Range
@@ -252,7 +261,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 	fields := schema.Fields(cfgType)
 
 	// Decode inputs
-	inputs, deps, morediags := decodeInputs(resConfig.Config, fields.Inputs())
+	inputs, deps, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())
 	diags = append(diags, morediags...)
 	res.Input = inputs
 	res.Deps = uniqueStringSlice(deps)
@@ -286,8 +295,8 @@ func uniqueStringSlice(ss []string) []string {
 //
 // The returned diagnostics may contain warnings, which should be displayed to
 // the user but still result in valid inputs.
-func decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps []string, diags hcl.Diagnostics) {
-	schema := bodySchema(fields)
+func (d *Decoder) decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps []string, diags hcl.Diagnostics) { // nolint: lll
+	schema := d.bodySchema(fields)
 
 	cont, diags := body.Content(schema)
 
@@ -301,11 +310,11 @@ func decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps 
 	inputs := make(map[string]cty.Value)
 
 	// Attributes
-	deps, morediags := decodeAttributes(cont, fields, inputs)
+	deps, morediags := d.decodeAttributes(cont, fields, inputs)
 	diags = append(diags, morediags...)
 
 	// Blocks
-	moredeps, morediags := decodeBlocks(cont, fields, inputs)
+	moredeps, morediags := d.decodeBlocks(cont, fields, inputs)
 	diags = append(diags, morediags...)
 
 	deps = append(deps, moredeps...)
@@ -313,11 +322,11 @@ func decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps 
 	return cty.ObjectVal(inputs), deps, diags
 }
 
-func decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) {
+func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
 	var parents []string
 	var diags hcl.Diagnostics
 	for name, f := range ff {
-		if isBlock(f.Type) {
+		if d.isBlock(f.Type) {
 			continue
 		}
 
@@ -336,6 +345,7 @@ func decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]c
 				parents = append(parents, v.RootName())
 			}
 			in[name] = cty.CapsuleVal(exprType, &expression{
+				field:      f,
 				inputType:  typ,
 				Expression: expr.MustConvert(attr.Expr),
 				Range:      attr.Range,
@@ -346,32 +356,62 @@ func decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]c
 		// Get static value.
 		v, morediags := attr.Expr.Value(nil)
 		diags = append(diags, morediags...)
-		if diags.HasErrors() {
+		if morediags.HasErrors() {
 			continue
 		}
 
 		// If type does not match 1:1, check if it can be converted (int -> string etc).
 		if !v.Type().Equals(typ) {
-			converted, morediags := convertVal(v, typ, attr.Range.Ptr())
+			converted, morediags := d.convertVal(v, typ, attr.Range.Ptr())
 			diags = append(diags, morediags...)
-			if diags.HasErrors() {
+			if morediags.HasErrors() {
 				continue
 			}
 			v = converted
 		}
+
+		// Validate static input
+		diags = append(diags, d.validate(v, f, attr.Expr.Range())...)
 
 		in[name] = v
 	}
 	return parents, diags
 }
 
-func decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) {
+func (d *Decoder) validate(val cty.Value, field schema.Field, exprRange hcl.Range) hcl.Diagnostics {
+	rule := field.Tags["validate"]
+	if rule == "" {
+		// No validation rule
+		return nil
+	}
+	var diags hcl.Diagnostics
+	t := field.Type
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	goval := reflect.New(t)
+	if err := ctyext.FromCtyValue(val, goval.Interface(), nil); err != nil {
+		panic(err)
+	}
+	if err := d.Validator.Validate(goval.Elem().Interface(), rule); err != nil {
+		detail := fmt.Sprintf("%+v", err)
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Validation error",
+			Detail:   strings.ToUpper(detail[0:1]) + detail[1:],
+			Subject:  exprRange.Ptr(),
+		})
+	}
+	return diags
+}
+
+func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
 	var deps []string // nolint: prealloc
 	var diags hcl.Diagnostics
 
 	blocksByType := cont.Blocks.ByType()
 	for name, f := range ff {
-		if !isBlock(f.Type) {
+		if !d.isBlock(f.Type) {
 			continue
 		}
 
@@ -381,7 +421,7 @@ func decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.V
 			list := make([]cty.Value, len(blocks))
 			for i, b := range blocks {
 				fields := schema.Fields(f.Type.Elem()) // Do not limit to inputs -- only top level input required
-				v, moredeps, morediags := decodeInputs(b.Body, fields)
+				v, moredeps, morediags := d.decodeInputs(b.Body, fields)
 				deps = append(deps, moredeps...)
 				diags = append(diags, morediags...)
 				list[i] = v
@@ -407,7 +447,7 @@ func decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.V
 			continue
 		}
 
-		if len(blocks) == 0 && isRequired(f.Type) {
+		if len(blocks) == 0 && d.isRequired(f.Type) {
 			// Missing required block
 			diags = append(diags, &hcl.Diagnostic{
 				Severity: hcl.DiagError,
@@ -427,7 +467,7 @@ func decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.V
 		// Single block
 		b := blocks[0]
 		fields := schema.Fields(f.Type) // Do not limit to inputs -- only top level input required
-		v, moredeps, morediags := decodeInputs(b.Body, fields)
+		v, moredeps, morediags := d.decodeInputs(b.Body, fields)
 		deps = append(deps, moredeps...)
 		diags = append(diags, morediags...)
 		in[name] = v
@@ -563,7 +603,16 @@ func (d *Decoder) resolveValues() hcl.Diagnostics {
 
 				if exprRefs == 0 {
 					// Expression can now be statically resolved.
-					return expr.Value(nil)
+					v, err := expr.Value(nil)
+					if err != nil {
+						return cty.NilVal, err
+					}
+					// Validate resolved value
+					diags := d.validate(v, expr.field, expr.Range)
+					if diags.HasErrors() {
+						return cty.NilVal, diags
+					}
+					return v, nil
 				}
 
 				return v, nil
@@ -579,7 +628,7 @@ func (d *Decoder) resolveValues() hcl.Diagnostics {
 	return nil
 }
 
-func convertVal(input cty.Value, want cty.Type, rng *hcl.Range) (cty.Value, hcl.Diagnostics) {
+func (d *Decoder) convertVal(input cty.Value, want cty.Type, rng *hcl.Range) (cty.Value, hcl.Diagnostics) {
 	got := input.Type()
 
 	// Get conversion.
@@ -626,10 +675,10 @@ func convertVal(input cty.Value, want cty.Type, rng *hcl.Range) (cty.Value, hcl.
 	return converted, diags
 }
 
-func bodySchema(fields schema.FieldSet) *hcl.BodySchema {
+func (d *Decoder) bodySchema(fields schema.FieldSet) *hcl.BodySchema {
 	s := &hcl.BodySchema{}
 	for name, f := range fields {
-		if isBlock(f.Type) {
+		if d.isBlock(f.Type) {
 			s.Blocks = append(s.Blocks, hcl.BlockHeaderSchema{
 				Type: name,
 			})
@@ -637,13 +686,13 @@ func bodySchema(fields schema.FieldSet) *hcl.BodySchema {
 		}
 		s.Attributes = append(s.Attributes, hcl.AttributeSchema{
 			Name:     name,
-			Required: isRequired(f.Type),
+			Required: d.isRequired(f.Type),
 		})
 	}
 	return s
 }
 
-func isBlock(t reflect.Type) bool {
+func (d *Decoder) isBlock(t reflect.Type) bool {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -663,7 +712,7 @@ func isBlock(t reflect.Type) bool {
 	return false
 }
 
-func isRequired(t reflect.Type) bool {
+func (d *Decoder) isRequired(t reflect.Type) bool {
 	switch t.Kind() {
 	case reflect.Ptr, reflect.Slice, reflect.Map:
 		return false
