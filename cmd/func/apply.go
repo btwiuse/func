@@ -52,6 +52,7 @@ var applyCommand = &cobra.Command{
 
 			reg := &resource.Registry{}
 			aws.Register(reg)
+			aws.AddValidators(validator)
 
 			boltfile, err := bolt.DefaultFile()
 			if err != nil {
