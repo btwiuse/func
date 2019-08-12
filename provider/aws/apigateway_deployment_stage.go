@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
@@ -186,7 +185,7 @@ func (p *APIGatewayStage) Type() string { return "aws_apigateway_stage" }
 func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.CreateStageInput{
@@ -217,15 +216,13 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 		}
 	}
 
-	req := svc.CreateStageRequest(input)
-	resp, err := req.Send(ctx)
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.CreateStageRequest(input).Send(ctx)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeBadRequestException {
-				return backoff.Permanent(err)
-			}
-		}
-		return err
+		return handlePutError(err)
 	}
 
 	if resp.AccessLogSettings != nil {
@@ -260,15 +257,19 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 func (p *APIGatewayStage) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DeleteStageRequest(&apigateway.DeleteStageInput{
+	input := &apigateway.DeleteStageInput{
 		RestApiId: aws.String(p.RestAPIID),
 		StageName: aws.String(p.StageName),
-	})
-	_, err = req.Send(ctx)
-	return err
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	_, err = svc.DeleteStageRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update triggers a new deployment.
@@ -282,10 +283,10 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 		prev.StageName != p.StageName {
 		// These cannot be updated with patch.
 		if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
-			return errors.Wrap(err, "update-delete")
+			return err
 		}
 		if err := p.Create(ctx, r.CreateRequest()); err != nil {
-			return errors.Wrap(err, "update-create")
+			return err
 		}
 
 		// No further patch operations are needed, since the newly created
@@ -315,22 +316,21 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.UpdateStageRequest(&apigateway.UpdateStageInput{
+	input := &apigateway.UpdateStageInput{
 		PatchOperations: ops,
 		RestApiId:       aws.String(p.RestAPIID),
 		StageName:       aws.String(p.StageName),
-	})
-	resp, err := req.Send(ctx)
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.UpdateStageRequest(input).Send(ctx)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeBadRequestException {
-				return backoff.Permanent(err)
-			}
-		}
-		return err
+		return handlePutError(err)
 	}
 
 	if resp.AccessLogSettings != nil {

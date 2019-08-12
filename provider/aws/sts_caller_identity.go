@@ -5,7 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // STSCallerIdentity returns info for the current user.
@@ -41,13 +40,13 @@ type STSCallerIdentity struct {
 func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	req := svc.GetCallerIdentityRequest(&sts.GetCallerIdentityInput{})
 	resp, err := req.Send(ctx)
 	if err != nil {
-		return err
+		return handlePutError(err)
 	}
 
 	p.Account = resp.Account
@@ -57,12 +56,12 @@ func (p *STSCallerIdentity) Create(ctx context.Context, r *resource.CreateReques
 	return nil
 }
 
-// Delete deletes the IAM policy.
+// Delete is a no-op.
 func (p *STSCallerIdentity) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	return nil
 }
 
-// Update returns an error. A policy cannot be updated.
+// Update is a no-op.
 func (p *STSCallerIdentity) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	return nil
 }

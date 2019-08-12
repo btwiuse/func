@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // APIGatewayDeployment provides a Serverless REST API.
@@ -107,7 +107,7 @@ type APIGatewayMethodSnapshot struct {
 func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.CreateDeploymentInput{
@@ -132,22 +132,26 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 
 	sha := sha256.New()
 	if _, err := sha.Write([]byte(p.ChangeTrigger)); err != nil {
-		return err
+		return backoff.Permanent(err)
 	}
 	if input.Variables == nil {
 		input.Variables = make(map[string]string)
 	}
 	input.Variables["func_change_trigger_hash"] = hex.EncodeToString(sha.Sum(nil))
 
-	req := svc.CreateDeploymentRequest(input)
-	resp, err := req.Send(ctx)
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.CreateDeploymentRequest(input).Send(ctx)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeBadRequestException {
-				return backoff.Permanent(err)
+		if aerr, ok := err.(awserr.RequestFailure); ok {
+			if strings.Contains(aerr.Message(), "No integration defined for method") {
+				// Retry
+				return err
 			}
 		}
-		return err
+		return handlePutError(err)
 	}
 
 	p.APISummary = make(map[string]map[string]APIGatewayMethodSnapshot, len(resp.ApiSummary))
@@ -171,15 +175,19 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 func (p *APIGatewayDeployment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DeleteDeploymentRequest(&apigateway.DeleteDeploymentInput{
+	input := &apigateway.DeleteDeploymentInput{
 		RestApiId:    aws.String(p.RestAPIID),
 		DeploymentId: p.ID,
-	})
-	_, err = req.Send(ctx)
-	return err
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	_, err = svc.DeleteDeploymentRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update triggers a new deployment.

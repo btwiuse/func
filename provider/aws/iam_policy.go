@@ -101,18 +101,22 @@ type IAMPolicy struct {
 func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.CreatePolicyRequest(&iam.CreatePolicyInput{
+	input := &iam.CreatePolicyInput{
 		Description:    p.Description,
 		Path:           p.Path,
 		PolicyDocument: aws.String(p.PolicyDocument),
 		PolicyName:     aws.String(p.PolicyName),
-	})
-	resp, err := req.Send(ctx)
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.CreatePolicyRequest(input).Send(ctx)
 	if err != nil {
-		return errors.Wrap(err, "send request")
+		return handlePutError(err)
 	}
 
 	p.ARN = resp.Policy.Arn
@@ -131,17 +135,18 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 func (p *IAMPolicy) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DeletePolicyRequest(&iam.DeletePolicyInput{
+	input := &iam.DeletePolicyInput{
 		PolicyArn: p.ARN,
-	})
-	if _, err := req.Send(ctx); err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.DeletePolicyRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update returns an error. A policy cannot be updated.

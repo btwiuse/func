@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // DefaultPolicyVersion is set on a policy when the version is omitted.
@@ -152,7 +152,7 @@ func (p *IAMPolicyDocument) generate() error {
 
 	j, err := json.Marshal(doc)
 	if err != nil {
-		return errors.Wrap(err, "marshal")
+		return backoff.Permanent(err)
 	}
 
 	p.JSON = string(j)

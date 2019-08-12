@@ -9,7 +9,6 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // APIGatewayIntegration provides a resource (GET /, POST /user etc) in a REST
@@ -230,7 +229,7 @@ type APIGatewayIntegrationResponse struct {
 func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.PutIntegrationInput{
@@ -257,15 +256,19 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 		input.ContentHandling = apigateway.ContentHandlingStrategy(*p.ContentHandling)
 	}
 
-	req := svc.PutIntegrationRequest(input)
-	resp, err := req.Send(ctx)
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.PutIntegrationRequest(input).Send(ctx)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeBadRequestException || aerr.Code() == "ValidationException" {
-				return backoff.Permanent(err)
+		if aerr, ok := err.(awserr.RequestFailure); ok {
+			if aerr.Code() == apigateway.ErrCodeNotFoundException {
+				// Retry
+				return err
 			}
 		}
-		return err
+		return handlePutError(err)
 	}
 
 	p.IntegrationResponses = make(map[string]APIGatewayIntegrationResponse, len(resp.IntegrationResponses))
@@ -286,24 +289,21 @@ func (p *APIGatewayIntegration) Create(ctx context.Context, r *resource.CreateRe
 func (p *APIGatewayIntegration) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DeleteIntegrationRequest(&apigateway.DeleteIntegrationInput{
+	input := &apigateway.DeleteIntegrationInput{
 		HttpMethod: aws.String(p.HTTPMethod),
 		ResourceId: aws.String(p.ResourceID),
 		RestApiId:  aws.String(p.RestAPIID),
-	})
-	if _, err := req.Send(ctx); err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeNotFoundException {
-				return nil
-			}
-			if aerr.Code() == apigateway.ErrCodeBadRequestException {
-				return backoff.Permanent(err)
-			}
-		}
-		return err
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	_, err = svc.DeleteIntegrationRequest(input).Send(ctx)
+	if err != nil {
+		return handleDelError(err)
 	}
 
 	return nil
@@ -319,10 +319,10 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 		prev.IntegrationType != p.IntegrationType {
 		// These cannot be updated with patch.
 		if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
-			return errors.Wrap(err, "update-delete")
+			return err
 		}
 		if err := p.Create(ctx, r.CreateRequest()); err != nil {
-			return errors.Wrap(err, "update-create")
+			return err
 		}
 
 		// No further patch operations are needed, since the newly created
@@ -355,22 +355,33 @@ func (p *APIGatewayIntegration) Update(ctx context.Context, r *resource.UpdateRe
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.UpdateMethodRequest(&apigateway.UpdateMethodInput{
+	input := &apigateway.UpdateIntegrationInput{
 		HttpMethod:      aws.String(p.HTTPMethod),
 		ResourceId:      aws.String(p.ResourceID),
 		RestApiId:       aws.String(p.RestAPIID),
 		PatchOperations: ops,
-	})
-	if _, err := req.Send(ctx); err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == apigateway.ErrCodeBadRequestException {
-				return backoff.Permanent(err)
-			}
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.UpdateIntegrationRequest(input).Send(ctx)
+	if err != nil {
+		return handlePutError(err)
+	}
+
+	p.IntegrationResponses = make(map[string]APIGatewayIntegrationResponse, len(resp.IntegrationResponses))
+	for k, ir := range resp.IntegrationResponses {
+		p.IntegrationResponses[k] = APIGatewayIntegrationResponse{
+			ContentHandling:    string(ir.ContentHandling),
+			ResponseParameters: ir.ResponseParameters,
+			ResponseTemplates:  ir.ResponseTemplates,
+			SelectionPattern:   *ir.SelectionPattern,
+			StatusCode:         *ir.StatusCode,
 		}
-		return err
 	}
 
 	return nil

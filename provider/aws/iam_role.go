@@ -6,8 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // IAMRole creates a new role for your AWS account. For more information about
@@ -110,25 +110,29 @@ type IAMRole struct {
 func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.CreateRoleRequest(&iam.CreateRoleInput{
+	input := &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(p.AssumeRolePolicyDocument),
 		Description:              p.Description,
 		MaxSessionDuration:       p.MaxSessionDuration,
 		Path:                     p.Path,
 		PermissionsBoundary:      p.PermissionsBoundary,
 		RoleName:                 aws.String(p.RoleName),
-	})
-	res, err := req.Send(ctx)
-	if err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	p.ARN = res.Role.Arn
-	p.CreateDate = res.Role.CreateDate
-	p.RoleID = res.Role.RoleId
+	resp, err := svc.CreateRoleRequest(input).Send(ctx)
+	if err != nil {
+		return handlePutError(err)
+	}
+
+	p.ARN = resp.Role.Arn
+	p.CreateDate = resp.Role.CreateDate
+	p.RoleID = resp.Role.RoleId
 
 	return nil
 }
@@ -137,34 +141,36 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 func (p *IAMRole) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DeleteRoleRequest(&iam.DeleteRoleInput{
+	input := &iam.DeleteRoleInput{
 		RoleName: aws.String(p.RoleName),
-	})
-	if _, err := req.Send(ctx); err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.DeleteRoleRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the IAM role.
 func (p *IAMRole) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.UpdateRoleRequest(&iam.UpdateRoleInput{
+	input := &iam.UpdateRoleInput{
 		RoleName:           aws.String(p.RoleName),
 		Description:        p.Description,
 		MaxSessionDuration: p.MaxSessionDuration,
-	})
-	if _, err := req.Send(ctx); err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.UpdateRoleRequest(input).Send(ctx)
+	return handlePutError(err)
 }

@@ -113,10 +113,13 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 		}
 	}
 
-	req := svc.CreateRestApiRequest(input)
-	resp, err := req.Send(ctx)
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.CreateRestApiRequest(input).Send(ctx)
 	if err != nil {
-		return err
+		return handlePutError(err)
 	}
 
 	p.CreatedDate = resp.CreatedDate
@@ -149,13 +152,12 @@ func (p *APIGatewayRestAPI) Delete(ctx context.Context, r *resource.DeleteReques
 	input := &apigateway.DeleteRestApiInput{
 		RestApiId: p.ID,
 	}
-
-	req := svc.DeleteRestApiRequest(input)
-	if _, err := req.Send(ctx); err != nil {
-		return err
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.DeleteRestApiRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the rest api.
@@ -223,16 +225,19 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.UpdateRestApiInput{
-		RestApiId:       p.ID,
+		RestApiId:       prev.ID,
 		PatchOperations: ops,
 	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
 
-	req := svc.UpdateRestApiRequest(input)
-	if _, err := req.Send(ctx); err != nil {
+	resp, err := svc.UpdateRestApiRequest(input).Send(ctx)
+	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == apigateway.ErrCodeBadRequestException {
 				if strings.Contains(aerr.Message(), "update is still in progress") {
@@ -241,11 +246,12 @@ func (p *APIGatewayRestAPI) Update(ctx context.Context, r *resource.UpdateReques
 					//   endpoint type update is still in progress.
 					return err
 				}
-				return backoff.Permanent(err)
 			}
 		}
-		return err
+		return handlePutError(err)
 	}
+
+	_ = resp
 
 	return nil
 }
