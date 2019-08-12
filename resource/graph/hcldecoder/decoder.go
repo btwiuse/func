@@ -3,6 +3,7 @@ package hcldecoder
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/func/func/config"
 	"github.com/func/func/ctyext"
@@ -25,11 +26,18 @@ type ResourceRegistry interface {
 	Types() []string
 }
 
+// A Validator validates user input.
+type Validator interface {
+	// Validate is called for every input set by the user.
+	Validate(input interface{}, rule string) error
+}
+
 // Decoder is the context to use when decoding.
 //
 // The same instance of Decoder must not be used more than once.
 type Decoder struct {
 	Resources ResourceRegistry
+	Validator Validator
 
 	resources map[string]*res
 	sources   []*config.SourceInfo
@@ -169,6 +177,7 @@ type res struct {
 
 // expression wraps a graph expression with the source range.
 type expression struct {
+	field     schema.Field
 	inputType cty.Type
 	graph.Expression
 	hcl.Range
@@ -336,6 +345,7 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in
 				parents = append(parents, v.RootName())
 			}
 			in[name] = cty.CapsuleVal(exprType, &expression{
+				field:      f,
 				inputType:  typ,
 				Expression: expr.MustConvert(attr.Expr),
 				Range:      attr.Range,
@@ -346,7 +356,7 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in
 		// Get static value.
 		v, morediags := attr.Expr.Value(nil)
 		diags = append(diags, morediags...)
-		if diags.HasErrors() {
+		if morediags.HasErrors() {
 			continue
 		}
 
@@ -354,15 +364,45 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in
 		if !v.Type().Equals(typ) {
 			converted, morediags := d.convertVal(v, typ, attr.Range.Ptr())
 			diags = append(diags, morediags...)
-			if diags.HasErrors() {
+			if morediags.HasErrors() {
 				continue
 			}
 			v = converted
 		}
 
+		// Validate static input
+		diags = append(diags, d.validate(v, f, attr.Expr.Range())...)
+
 		in[name] = v
 	}
 	return parents, diags
+}
+
+func (d *Decoder) validate(val cty.Value, field schema.Field, exprRange hcl.Range) hcl.Diagnostics {
+	rule := field.Tags["validate"]
+	if rule == "" {
+		// No validation rule
+		return nil
+	}
+	var diags hcl.Diagnostics
+	t := field.Type
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	goval := reflect.New(t)
+	if err := ctyext.FromCtyValue(val, goval.Interface(), nil); err != nil {
+		panic(err)
+	}
+	if err := d.Validator.Validate(goval.Elem().Interface(), rule); err != nil {
+		detail := fmt.Sprintf("%+v", err)
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Validation error",
+			Detail:   strings.ToUpper(detail[0:1]) + detail[1:],
+			Subject:  exprRange.Ptr(),
+		})
+	}
+	return diags
 }
 
 func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
@@ -563,7 +603,16 @@ func (d *Decoder) resolveValues() hcl.Diagnostics {
 
 				if exprRefs == 0 {
 					// Expression can now be statically resolved.
-					return expr.Value(nil)
+					v, err := expr.Value(nil)
+					if err != nil {
+						return cty.NilVal, err
+					}
+					// Validate resolved value
+					diags := d.validate(v, expr.field, expr.Range)
+					if diags.HasErrors() {
+						return cty.NilVal, diags
+					}
+					return v, nil
 				}
 
 				return v, nil
