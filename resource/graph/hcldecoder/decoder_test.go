@@ -977,6 +977,30 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			}},
 		},
 		{
+			name: "RefWithUnsupportedArgument",
+			config: `
+				resource "foo" {
+					type         = "a"
+					notsupported = 123
+				}
+				resource "bar" {
+					type         = "a"
+					input        = foo.input
+				}
+			`,
+			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			diags: hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Unsupported argument",
+				Detail:   `An argument named "notsupported" is not expected here.`,
+				Subject: &hcl.Range{
+					Filename: "file.hcl",
+					Start:    hcl.Pos{Line: 3, Column: 2, Byte: 38},
+					End:      hcl.Pos{Line: 3, Column: 14, Byte: 50},
+				},
+			}},
+		},
+		{
 			name: "InvalidSource",
 			config: `
 				resource "foo" {

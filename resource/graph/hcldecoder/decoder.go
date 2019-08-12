@@ -290,9 +290,13 @@ func decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps 
 	schema := bodySchema(fields)
 
 	cont, diags := body.Content(schema)
-	if diags.HasErrors() {
-		return cty.NilVal, nil, diags
-	}
+
+	// NOTE(akupila): We need to proceed even if diags contain errors.
+	// - If cty.NilVal is returned and another object contains a reference to
+	//   this object's input, it will panic.
+	// - If cty.EmptyObjectVal is returned, inputs are not registered and
+	//   references to the object will incorrectly say the object doesn't have
+	//   an input.
 
 	inputs := make(map[string]cty.Value)
 
