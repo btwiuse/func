@@ -25,8 +25,10 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 
 	// Resolve graph and validate resource input
 	g := graph.New()
-	decCtx := &hcldecoder.DecodeContext{Resources: f.Resources}
-	proj, srcs, diags := hcldecoder.DecodeBody(req.Config, decCtx, g)
+	dec := &hcldecoder.Decoder{
+		Resources: f.Resources,
+	}
+	proj, srcs, diags := dec.DecodeBody(req.Config, g)
 	if diags.HasErrors() {
 		return nil, diags
 	}

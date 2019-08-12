@@ -25,11 +25,14 @@ type ResourceRegistry interface {
 	Types() []string
 }
 
-// DecodeContext is the context to use when decoding.
+// Decoder is the context to use when decoding.
 //
-// For now, only the resource names can be provided.
-type DecodeContext struct {
+// The same instance of Decoder must not be used more than once.
+type Decoder struct {
 	Resources ResourceRegistry
+
+	resources map[string]*res
+	sources   []*config.SourceInfo
 }
 
 // DecodeBody decodes a given raw configuration body into the target graph.
@@ -49,15 +52,18 @@ type DecodeContext struct {
 // The returned Sources contains all source information that was decoded from
 // the body. The resources added to the graph will only have the key attached
 // to them.
-func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config.Project, []*config.SourceInfo, hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) (*config.Project, []*config.SourceInfo, hcl.Diagnostics) { // nolint: lll
 	var hclSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
+
+	if d.resources != nil {
+		panic("DecodeBody must only be called once")
+	}
+	d.resources = make(map[string]*res)
 
 	cont, diags := body.Content(hclSchema)
 	if diags.HasErrors() {
 		return nil, nil, diags
 	}
-
-	dec := newDecoder()
 
 	var project *config.Project
 	for _, b := range cont.Blocks {
@@ -83,17 +89,17 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config
 					Context:  b.DefRange.Ptr(),
 				})
 			}
-			diags = append(diags, dec.decodeResource(b, ctx)...)
+			diags = append(diags, d.decodeResource(b)...)
 		}
 	}
 
-	diags = append(diags, dec.resolveValues()...)
+	diags = append(diags, d.resolveValues()...)
 
 	if diags.HasErrors() {
-		return project, dec.sources, diags
+		return project, d.sources, diags
 	}
 
-	if err := dec.AddResources(target); err != nil {
+	if err := d.addResources(target); err != nil {
 		// This only happens if there's a bug within the decoder, which
 		// hopefully another test would catch.
 		diags = append(diags, &hcl.Diagnostic{
@@ -102,22 +108,10 @@ func DecodeBody(body hcl.Body, ctx *DecodeContext, target *graph.Graph) (*config
 		})
 	}
 
-	return project, dec.sources, diags
+	return project, d.sources, diags
 }
 
-// decoder maintains decoding state.
-type decoder struct {
-	resources map[string]*res
-	sources   []*config.SourceInfo
-}
-
-func newDecoder() *decoder {
-	return &decoder{
-		resources: make(map[string]*res),
-	}
-}
-
-func (d *decoder) AddResources(g *graph.Graph) error {
+func (d *Decoder) addResources(g *graph.Graph) error {
 	// deps keep track of dependencies to add. The dependencies must be added
 	// after all resources have been added.
 	deps := make(map[string][]graph.Dependency)
@@ -186,7 +180,7 @@ type expression struct {
 var exprType = cty.Capsule("expression", reflect.TypeOf(expression{}))
 
 // decodeResource decodes a resource block and adds it to the decoder.
-func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagnostics {
+func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 	res := &res{
 		Name:     block.Labels[0],
 		DefRange: block.DefRange.Ptr(),
@@ -234,7 +228,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 	}
 
 	// Get resource definition based on resource type.
-	t := ctx.Resources.Type(resConfig.Type)
+	t := d.Resources.Type(resConfig.Type)
 	if t == nil {
 		rng := hcldec.SourceRange(block.Body, &hcldec.AttrSpec{Name: "type", Type: cty.String})
 		diag := &hcl.Diagnostic{
@@ -242,7 +236,7 @@ func (d *decoder) decodeResource(block *hcl.Block, ctx *DecodeContext) hcl.Diagn
 			Summary:  "Resource not supported",
 			Subject:  rng.Ptr(),
 		}
-		availableTypes := ctx.Resources.Types()
+		availableTypes := d.Resources.Types()
 		if s := suggest.String(resConfig.Type, availableTypes); s != "" {
 			diag.Detail = fmt.Sprintf("Did you mean %q?", s)
 		}
@@ -438,7 +432,7 @@ func decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.V
 	return deps, diags
 }
 
-func (d *decoder) resolveValues() hcl.Diagnostics {
+func (d *Decoder) resolveValues() hcl.Diagnostics {
 	remainingRefs := 1 // ensure at least one cycle
 	for remainingRefs > 0 {
 		remainingRefs = 0

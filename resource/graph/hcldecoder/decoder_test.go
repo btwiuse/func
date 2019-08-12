@@ -861,8 +861,10 @@ func TestDecodeBody(t *testing.T) {
 			parser := &testParser{}
 			body := parser.Parse(t, tt.config)
 
-			ctx := &hcldecoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
-			_, srcs, diags := hcldecoder.DecodeBody(body, ctx, g)
+			dec := &hcldecoder.Decoder{
+				Resources: resource.RegistryFromResources(tt.resources),
+			}
+			_, srcs, diags := dec.DecodeBody(body, g)
 			parser.CheckDiags(t, diags)
 
 			opts := []cmp.Option{
@@ -892,7 +894,9 @@ func TestDecodeBody_project(t *testing.T) {
 	body := parser.Parse(t, `
 		project "test" {}
 	`)
-	got, _, diags := hcldecoder.DecodeBody(body, nil, graph.New())
+
+	dec := &hcldecoder.Decoder{}
+	got, _, diags := dec.DecodeBody(body, graph.New())
 	parser.CheckDiags(t, diags)
 
 	want := &config.Project{
@@ -1479,8 +1483,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			}
 			body := parser.Parse(t, tt.config)
 
-			ctx := &hcldecoder.DecodeContext{Resources: resource.RegistryFromResources(tt.resources)}
-			_, _, diags := hcldecoder.DecodeBody(body, ctx, g)
+			dec := &hcldecoder.Decoder{
+				Resources: resource.RegistryFromResources(tt.resources),
+			}
+			_, _, diags := dec.DecodeBody(body, g)
 
 			opts := []cmp.Option{
 				cmpopts.SortSlices(func(a, b hcl.Diagnostic) bool { return a.Error() < b.Error() }),
