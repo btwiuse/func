@@ -16,6 +16,7 @@ import (
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/encoding/json"
 	"github.com/func/func/resource/reconciler"
+	"github.com/func/func/resource/validation"
 	"github.com/func/func/source"
 	"github.com/func/func/source/disk"
 	"github.com/func/func/storage/bolt"
@@ -45,6 +46,9 @@ var applyCommand = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Could not start local storage: %v", err)
 			}
+
+			validator := validation.New()
+			validation.AddBuiltin(validator)
 
 			reg := &resource.Registry{}
 			aws.Register(reg)
@@ -77,6 +81,7 @@ var applyCommand = &cobra.Command{
 				Logger:     zap.NewNop(),
 				Source:     src,
 				Resources:  reg,
+				Validator:  validator,
 				Reconciler: reco,
 			}
 		} else {
