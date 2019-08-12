@@ -33,7 +33,7 @@ type IAMPolicyStatement struct {
 
 	// Use `Allow` or `Deny` to indicate whether the policy allows or
 	// denies access.
-	Effect string
+	Effect string `validate:"oneof=Allow Deny"`
 
 	// The account, user, role, or federated user to which you would like to
 	// allow or deny access.

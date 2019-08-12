@@ -24,7 +24,7 @@ type APIGatewayRestAPI struct {
 	// - HEADER to read the API key from the X-API-Key header of a request.
 	// - AUTHORIZER to read the API key from the UsageIdentifierKey from a custom
 	//   authorizer.
-	APIKeySource *string `func:"input"`
+	APIKeySource *string `func:"input" validate:"oneof=HEADER AUTHORIZER"`
 
 	// The list of binary media types supported by the RestApi.
 	// By default, the RestApi supports only UTF-8-encoded text payloads.
@@ -45,7 +45,7 @@ type APIGatewayRestAPI struct {
 		//   `EDGE`.
 		// - For a regional API and its custom domain name, the endpoint type
 		//   is `REGIONAL`. For a private API, the endpoint type is `PRIVATE`.
-		Types []string `func:"input"`
+		Types []string
 	} `func:"input"`
 
 	// A nullable integer that is used to enable compression (with non-negative
@@ -53,7 +53,7 @@ type APIGatewayRestAPI struct {
 	// a null value) on an API. When compression is enabled, compression or decompression
 	// is not applied on the payload if the payload size is smaller than this value.
 	// Setting it to zero allows compression for any payload size.
-	MinimumCompressionSize *int64 `func:"input"`
+	MinimumCompressionSize *int64 `func:"input" validate:"min=0,max=10485760"`
 
 	// The name of the RestApi.
 	Name string `func:"input"`

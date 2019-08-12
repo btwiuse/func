@@ -40,7 +40,7 @@ type LambdaFunction struct {
 	// more information, see
 	// [Dead Letter Queues](http://docs.aws.amazon.com/lambda/latest/dg/dlq.html).
 	DeadLetterConfig *struct {
-		TargetArn *string
+		TargetArn *string `validate:"aws_arn"`
 	} `func:"input"`
 
 	// A description of the function.
@@ -61,7 +61,7 @@ type LambdaFunction struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName string `func:"input"`
+	FunctionName string `func:"input" validation:"min=1,max=64"`
 
 	// The name of the method within your code that Lambda calls to execute
 	// your function. For more information, see
@@ -79,7 +79,7 @@ type LambdaFunction struct {
 	// The amount of memory that your function has access to. Increasing the
 	// function's memory also increases it's CPU allocation. The default value
 	// is 128 MB. The value must be a multiple of 64 MB.
-	MemorySize *int64 `func:"input"`
+	MemorySize *int64 `func:"input" validate:"min=64,max=3008,div=64"`
 
 	// Set to true to publish the first version of the function during
 	// creation.
@@ -90,10 +90,10 @@ type LambdaFunction struct {
 
 	// The Amazon Resource Name (ARN) of the function's execution role
 	// (http://docs.aws.amazon.com/lambda/latest/dg/intro-permission-model.html#lambda-intro-execution-role).
-	Role string `func:"input"`
+	Role string `func:"input" validate:"aws_arn"`
 
 	// The runtime version for the function.
-	Runtime string `func:"input"`
+	Runtime string `func:"input" validate:"oneof=nodejs8.10 nodejs10.x java8 python2.7 python3.6 python3.7 dotnetcore1.0 dotnetcore2.0 dotnetcore2.1 go1.x ruby2.5 provided"` // nolint :lll
 
 	// The list of tags (key-value pairs) assigned to the new function. For
 	// more information, see
@@ -104,7 +104,7 @@ type LambdaFunction struct {
 	// The amount of time that Lambda allows a function to run before
 	// terminating it. The default is 3 seconds. The maximum allowed value is
 	// 900 seconds.
-	Timeout *int64 `func:"input"`
+	Timeout *int64 `func:"input" validate:"min=1,max=900"`
 
 	// Set Mode to Active to sample and trace a subset of incoming requests
 	// with AWS X-Ray.
@@ -112,7 +112,7 @@ type LambdaFunction struct {
 	// https://docs.aws.amazon.com/goto/WebAPI/lambda-2015-03-31/TracingConfig
 	TracingConfig *struct {
 		// The tracing mode.
-		Mode string
+		Mode string `validate:"oneof=Active PassTrough"`
 	} `func:"input"`
 
 	// If your Lambda function accesses resources in a VPC, you provide this parameter

@@ -8,6 +8,10 @@ type registry interface {
 	Register(typename string, def resource.Definition)
 }
 
+type validator interface {
+	Add(name string, validate func(interface{}, string) error)
+}
+
 // Register adds all supported AWS resources to the registry.
 func Register(reg registry) {
 	reg.Register("aws_apigateway_deployment", &APIGatewayDeployment{})

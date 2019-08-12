@@ -69,7 +69,7 @@ type LambdaInvokePermission struct {
 	// If you add a permission to a service principal without providing the source
 	// ARN, any AWS account that creates a mapping to your function ARN can invoke
 	// your Lambda function.
-	SourceARN *string `func:"input"`
+	SourceARN *string `func:"input" validate:"aws_arn"`
 
 	// A unique statement identifier.
 	StatementID string `func:"input"`

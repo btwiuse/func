@@ -30,7 +30,7 @@ type APIGatewayIntegration struct {
 	// value is `INTERNET` for connections through the public routable internet or
 	// `VPC_LINK` for private connections between API Gateway and a network load balancer
 	// in a VPC. The default value is `INTERNET`.
-	ConnectionType *string `func:"input"`
+	ConnectionType *string `func:"input" validate:"oneof=INTERNET VPC_LINK"`
 
 	// Specifies how to handle request payload content type conversions. Supported
 	// values are `CONVERT_TO_BINARY` and `CONVERT_TO_TEXT`, with the following
@@ -44,7 +44,7 @@ type APIGatewayIntegration struct {
 	// If this property is not defined, the request payload will be passed through
 	// from the method request to integration request without modification, provided
 	// that the `passthrough_behaviors` is configured to support payload pass-through.
-	ContentHandling *string `func:"input"`
+	ContentHandling *string `func:"input" validate:"oneof=CONVERT_TO_BINARY CONVERT_TO_TEXT"`
 
 	// Specifies the credentials required for the integration, if any.
 	//
@@ -77,7 +77,7 @@ type APIGatewayIntegration struct {
 	// - `WHEN_NO_TEMPLATES` allows pass-through when the integration has NO content
 	//   types mapped to templates. However if there is at least one content type
 	//   defined, unmapped content types will be rejected with the same 415 response.
-	PassthroughBehavior *string `func:"input"`
+	PassthroughBehavior *string `func:"input" validate:"oneof=WHEN_NO_MATCH NEVER WHEN_NO_TEMPLATES"`
 
 	// The region the API Gateway is deployed to.
 	Region string `func:"input"`
@@ -107,7 +107,7 @@ type APIGatewayIntegration struct {
 
 	// Custom timeout between 50 and 29,000 milliseconds. The default value is 29,000
 	// milliseconds or 29 seconds.
-	TimeoutInMillis *int64 `func:"input"`
+	TimeoutInMillis *int64 `func:"input" validate:"gte=50,lte=29000"`
 
 	// Specifies a put integration input's type.
 	//
@@ -136,7 +136,7 @@ type APIGatewayIntegration struct {
 	// integration with a `connection_type` of `VPC_LINK` is referred to as a
 	// private integration and uses a VpcLink to connect API Gateway to a
 	// network load balancer of a VPC.
-	IntegrationType string `func:"input"`
+	IntegrationType string `func:"input" validate:"oneof=AWS AWS_PROXY HTTP HTTP_PROXY MOCK"`
 
 	// Specifies Uniform Resource Identifier (URI) of the integration endpoint.
 	//
