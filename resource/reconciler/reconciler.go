@@ -115,7 +115,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, ns, proj string, graph *
 	}
 
 	if err := run.CreateUpdate(ctx); err != nil {
-		return errors.Wrap(err, "create/update")
+		return err
 	}
 
 	if err := run.RemovePrevious(ctx); err != nil {
@@ -201,8 +201,6 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		}
 		defer r.Sem.Release(1)
 
-		logger.Debug("Processing")
-
 		// Create definition
 		defType := r.Registry.Type(res.Type)
 		if defType == nil {
@@ -212,6 +210,8 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		if err := r.resolveDependencies(res); err != nil {
 			return errors.Wrap(err, "resolve dependencies")
 		}
+
+		logger.Debug("Processing")
 
 		// Compute hash based on current inputs.
 		hash := res.Input.Hash()
@@ -325,7 +325,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 			if update {
 				opStr = "update"
 			}
-			return errors.Wrap(err, opStr)
+			return errors.Wrap(err, fmt.Sprintf("%s %s.%s", opStr, res.Type, res.Name))
 		}
 
 		// Capture generated output values
