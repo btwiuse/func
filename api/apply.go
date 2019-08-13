@@ -31,7 +31,7 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 	}
 	proj, srcs, diags := dec.DecodeBody(req.Config, g)
 	if diags.HasErrors() {
-		return nil, diags
+		return nil, NewDiagnosticsError(diags)
 	}
 
 	if proj == nil {

@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	json "encoding/json"
+	fmt "fmt"
 	http "net/http"
 
 	"github.com/func/func/api"
@@ -46,10 +47,20 @@ func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 			if diagJSON := twerr.Meta("diagnostics"); diagJSON != "" {
 				var diags hcl.Diagnostics
 				if derr := json.Unmarshal([]byte(diagJSON), &diags); derr == nil {
-					return nil, diags
+					return nil, api.NewDiagnosticsError(diags)
 				}
 			}
-			return nil, errors.Errorf("%s: %s", twerr.Code(), twerr.Msg())
+			switch twerr.Code() {
+			case
+				twirp.DeadlineExceeded,
+				twirp.FailedPrecondition,
+				twirp.Aborted,
+				twirp.Internal,
+				twirp.Unavailable:
+				return nil, api.NewRetryableError(fmt.Errorf("%s: %s", twerr.Code(), twerr.Msg()))
+			default:
+				return nil, err
+			}
 		}
 		return nil, err
 	}

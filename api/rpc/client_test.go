@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/func/func/api"
@@ -45,9 +44,7 @@ func TestClientApply_Response(t *testing.T) {
 	tests := []struct {
 		name     string
 		rpcResp  *ApplyResponse
-		rpcErr   error
 		wantResp *api.ApplyResponse
-		wantErr  error
 	}{
 		{
 			name:     "Empty",
@@ -75,28 +72,13 @@ func TestClientApply_Response(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:    "Error",
-			rpcErr:  twirp.NewError(twirp.Unavailable, "example error"),
-			wantErr: errors.New("unavailable: example error"),
-		},
-		{
-			name: "Diagnostics",
-			rpcErr: twirp.NewError(twirp.Unavailable, "example error").
-				WithMeta("diagnostics", marshalDiagnostics(t, hcl.Diagnostics{
-					{Severity: hcl.DiagError, Summary: "example diagnostics"},
-				})),
-			wantErr: hcl.Diagnostics{
-				{Severity: hcl.DiagError, Summary: "example diagnostics"},
-			},
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := &mockRPC{
 				apply: func(ctx context.Context, req *ApplyRequest) (*ApplyResponse, error) {
-					return tt.rpcResp, tt.rpcErr
+					return tt.rpcResp, nil
 				},
 			}
 
@@ -107,15 +89,6 @@ func TestClientApply_Response(t *testing.T) {
 
 			cli := &Client{cli: mock}
 			resp, err := cli.Apply(context.Background(), req)
-			if tt.wantErr != nil {
-				if err == nil {
-					t.Fatalf("Apply() got <nil> error, want = %v", tt.wantErr)
-				}
-				if err.Error() != tt.wantErr.Error() {
-					t.Fatalf("Apply() error\nGot  %v\nWant %v", err, tt.wantErr)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("Apply() err = %v", err)
 			}
@@ -125,7 +98,90 @@ func TestClientApply_Response(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestClientApply_ResponseErrRetry(t *testing.T) {
+	tests := []struct {
+		status twirp.ErrorCode
+		retry  bool
+	}{
+		{twirp.Canceled, false},
+		{twirp.Unknown, false},
+		{twirp.InvalidArgument, false},
+		{twirp.Malformed, false},
+		{twirp.DeadlineExceeded, true},
+		{twirp.NotFound, false},
+		{twirp.BadRoute, false},
+		{twirp.AlreadyExists, false},
+		{twirp.PermissionDenied, false},
+		{twirp.Unauthenticated, false},
+		{twirp.ResourceExhausted, false},
+		{twirp.FailedPrecondition, true},
+		{twirp.Aborted, true},
+		{twirp.OutOfRange, false},
+		{twirp.Unimplemented, false},
+		{twirp.Internal, true},
+		{twirp.Unavailable, true},
+		{twirp.DataLoss, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			mock := &mockRPC{
+				apply: func(ctx context.Context, req *ApplyRequest) (*ApplyResponse, error) {
+					return nil, twirp.NewError(tt.status, "err")
+				},
+			}
+
+			req := &api.ApplyRequest{Namespace: "ns", Config: &hclpack.Body{}}
+			cli := &Client{cli: mock}
+			_, err := cli.Apply(context.Background(), req)
+			if err == nil {
+				t.Fatalf("Apply() err is nil")
+			}
+			rerr, got := err.(api.RetryableError)
+			if got != tt.retry {
+				t.Errorf("Apply() got retryable = %t, want = %t", got, tt.retry)
+			}
+			if got {
+				if rerr.CanRetry() != tt.retry {
+					t.Errorf("Apply() retryable error reports retry = %t", rerr.CanRetry())
+				}
+			}
+		})
+	}
+}
+
+func TestClientApply_ResponseErrDiagnostics(t *testing.T) {
+	diags := hcl.Diagnostics{
+		{Severity: hcl.DiagError, Summary: "example diagnostics"},
+	}
+
+	mock := &mockRPC{
+		apply: func(ctx context.Context, req *ApplyRequest) (*ApplyResponse, error) {
+			twerr := twirp.
+				NewError(twirp.InvalidArgument, "example error").
+				WithMeta("diagnostics", marshalDiagnostics(t, diags))
+			return nil, twerr
+		},
+	}
+
+	req := &api.ApplyRequest{Namespace: "ns", Config: &hclpack.Body{}}
+
+	cli := &Client{cli: mock}
+	_, err := cli.Apply(context.Background(), req)
+	derr, ok := err.(api.DiagnosticsError)
+	if !ok {
+		t.Fatalf("Apply() err is not a DiagnosticsError")
+	}
+	if diff := cmp.Diff(derr.Diagnostics(), diags); diff != "" {
+		t.Errorf("Apply() diagnostics (-got +want)\n%s", diff)
+	}
+
+	rerr, got := err.(api.RetryableError)
+	if got && rerr.CanRetry() {
+		t.Errorf("Apply() diagnostics error is retryable")
+	}
 }
 
 type mockRPC struct {

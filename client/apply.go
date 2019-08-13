@@ -7,7 +7,6 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/api"
 	"github.com/func/func/source"
-	"github.com/hashicorp/hcl2/hcl"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -30,10 +29,15 @@ func (cli *Client) Apply(ctx context.Context, rootDir, namespace string) error {
 	op := func() error {
 		resp, err := cli.API.Apply(ctx, req)
 		if err != nil {
-			if diags, ok := err.(hcl.Diagnostics); ok {
-				return backoff.Permanent(cli.errDiagnostics(diags))
+			if rerr, ok := err.(api.RetryableError); ok {
+				if rerr.CanRetry() {
+					return err
+				}
 			}
-			return errors.Wrap(err, "apply")
+			if derr, ok := err.(api.DiagnosticsError); ok {
+				return backoff.Permanent(cli.errDiagnostics(derr.Diagnostics()))
+			}
+			return backoff.Permanent(err)
 		}
 
 		if len(resp.SourcesRequired) > 0 {
