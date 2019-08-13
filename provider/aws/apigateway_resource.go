@@ -5,9 +5,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // APIGatewayResource provides a resource (GET /, POST /user etc) in a REST
@@ -42,7 +42,7 @@ type APIGatewayResource struct {
 func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.CreateResourceInput{
@@ -50,11 +50,13 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 		PathPart:  aws.String(p.PathPart),
 		RestApiId: aws.String(p.RestAPIID),
 	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
 
-	req := svc.CreateResourceRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.CreateResourceRequest(input).Send(ctx)
 	if err != nil {
-		return err
+		return handlePutError(err)
 	}
 
 	p.ID = resp.Id
@@ -73,20 +75,19 @@ func (p *APIGatewayResource) Create(ctx context.Context, r *resource.CreateReque
 func (p *APIGatewayResource) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.DeleteResourceInput{
 		ResourceId: p.ID,
 		RestApiId:  aws.String(p.RestAPIID),
 	}
-
-	req := svc.DeleteResourceRequest(input)
-	if _, err := req.Send(ctx); err != nil {
-		return err
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.DeleteResourceRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the rest api resource. Only the path part can be updated.
@@ -98,7 +99,7 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 		apigatewaypatch.Field{Name: "PathPart", Path: "/pathPart"},
 	)
 	if err != nil {
-		return err
+		return backoff.Permanent(err)
 	}
 
 	if len(ops) == 0 {
@@ -107,19 +108,18 @@ func (p *APIGatewayResource) Update(ctx context.Context, r *resource.UpdateReque
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.UpdateResourceInput{
 		RestApiId:       aws.String(p.RestAPIID),
-		ResourceId:      p.ID,
+		ResourceId:      prev.ID,
 		PatchOperations: ops,
 	}
-
-	req := svc.UpdateResourceRequest(input)
-	if _, err := req.Send(ctx); err != nil {
-		return err
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.UpdateResourceRequest(input).Send(ctx)
+	return handlePutError(err)
 }

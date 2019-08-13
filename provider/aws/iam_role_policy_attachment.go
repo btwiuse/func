@@ -5,8 +5,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // IAMRolePolicyAttachment attaches a role policy to a role.
@@ -44,18 +44,24 @@ type IAMRolePolicyAttachment struct {
 func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.AttachRolePolicyRequest(&iam.AttachRolePolicyInput{
+	input := &iam.AttachRolePolicyInput{
 		PolicyArn: aws.String(p.PolicyARN),
 		RoleName:  aws.String(p.RoleName),
-	})
-	if _, err := req.Send(ctx); err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	resp, err := svc.AttachRolePolicyRequest(input).Send(ctx)
+	if err != nil {
+		return handlePutError(err)
 	}
 
 	// No outputs in response
+	_ = resp
 
 	return nil
 }
@@ -64,18 +70,19 @@ func (p *IAMRolePolicyAttachment) Create(ctx context.Context, r *resource.Create
 func (p *IAMRolePolicyAttachment) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.DetachRolePolicyRequest(&iam.DetachRolePolicyInput{
+	input := &iam.DetachRolePolicyInput{
 		PolicyArn: aws.String(p.PolicyARN),
 		RoleName:  aws.String(p.RoleName),
-	})
-	if _, err := req.Send(ctx); err != nil {
-		return errors.Wrap(err, "send request")
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.DetachRolePolicyRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update removes the previous attachment and creates a new one.
@@ -85,12 +92,12 @@ func (p *IAMRolePolicyAttachment) Update(ctx context.Context, r *resource.Update
 	// Delete previous
 	prev := r.Previous.(*IAMRolePolicyAttachment)
 	if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
-		return errors.Wrap(err, "update-delete")
+		return err
 	}
 
 	// Create next
 	if err := p.Create(ctx, r.CreateRequest()); err != nil {
-		return errors.Wrap(err, "update-create")
+		return err
 	}
 
 	return nil

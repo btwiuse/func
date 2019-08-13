@@ -4,12 +4,10 @@ import (
 	"context"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/apigateway"
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/provider/aws/internal/apigatewaypatch"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // APIGatewayMethod provides a resource (`GET /`, `POST /user` etc) in a REST
@@ -93,7 +91,7 @@ type APIGatewayMethod struct {
 func (p *APIGatewayMethod) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &apigateway.PutMethodInput{
@@ -109,11 +107,13 @@ func (p *APIGatewayMethod) Create(ctx context.Context, r *resource.CreateRequest
 		RequestModels:       p.RequestModels,
 		RequestParameters:   p.RequestParameters,
 	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
 
-	req := svc.PutMethodRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.PutMethodRequest(input).Send(ctx)
 	if err != nil {
-		return err
+		return handlePutError(err)
 	}
 
 	// The response is a UpdateMethodOutput but it does not contain any
@@ -127,19 +127,20 @@ func (p *APIGatewayMethod) Create(ctx context.Context, r *resource.CreateRequest
 func (p *APIGatewayMethod) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
-	}
-
-	req := svc.DeleteMethodRequest(&apigateway.DeleteMethodInput{
-		HttpMethod: aws.String(p.HTTPMethod),
-		ResourceId: aws.String(p.ResourceID),
-		RestApiId:  aws.String(p.RestAPIID),
-	})
-	if _, err := req.Send(ctx); err != nil {
 		return err
 	}
 
-	return nil
+	input := &apigateway.DeleteMethodInput{
+		HttpMethod: aws.String(p.HTTPMethod),
+		ResourceId: aws.String(p.ResourceID),
+		RestApiId:  aws.String(p.RestAPIID),
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	_, err = svc.DeleteMethodRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the rest api resource. Only the path part can be updated.
@@ -151,10 +152,10 @@ func (p *APIGatewayMethod) Update(ctx context.Context, r *resource.UpdateRequest
 		prev.RestAPIID != p.RestAPIID {
 		// These cannot be updated with patch.
 		if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
-			return errors.Wrap(err, "update-delete")
+			return err
 		}
 		if err := p.Create(ctx, r.CreateRequest()); err != nil {
-			return errors.Wrap(err, "update-create")
+			return err
 		}
 
 		// No further patch operations are needed, since the newly created
@@ -174,7 +175,7 @@ func (p *APIGatewayMethod) Update(ctx context.Context, r *resource.UpdateRequest
 		apigatewaypatch.Field{Name: "RequestValidatorID", Path: "/requestValidatorId"},
 	)
 	if err != nil {
-		return err
+		return backoff.Permanent(err)
 	}
 
 	if len(ops) == 0 {
@@ -183,23 +184,19 @@ func (p *APIGatewayMethod) Update(ctx context.Context, r *resource.UpdateRequest
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.UpdateMethodRequest(&apigateway.UpdateMethodInput{
+	input := &apigateway.UpdateMethodInput{
 		HttpMethod:      aws.String(p.HTTPMethod),
 		ResourceId:      aws.String(p.ResourceID),
 		RestApiId:       aws.String(p.RestAPIID),
 		PatchOperations: ops,
-	})
-	if _, err := req.Send(ctx); err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == "SerializationError" {
-				return backoff.Permanent(err)
-			}
-		}
-		return err
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
 	}
 
-	return nil
+	_, err = svc.UpdateMethodRequest(input).Send(ctx)
+	return handlePutError(err)
 }

@@ -3,10 +3,12 @@ package aws
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
 	"github.com/aws/aws-sdk-go-v2/service/lambda/lambdaiface"
 	"github.com/cenkalti/backoff"
@@ -155,20 +157,20 @@ type LambdaFunction struct {
 // Create creates an AWS lambda function.
 func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) error {
 	if len(r.Source) == 0 {
-		return errors.New("no source code provided")
+		return backoff.Permanent(fmt.Errorf("no source code provided"))
 	}
 	if len(r.Source) > 1 {
-		return errors.New("only one source archive allowed")
+		return backoff.Permanent(fmt.Errorf("only one source archive allowed"))
 	}
 
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	src, err := r.Source[0].Reader(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get source reader")
+		return backoff.Permanent(errors.Wrap(err, "get source reader"))
 	}
 	var zip bytes.Buffer
 	if err := convert.Zip(&zip, src); err != nil {
@@ -220,10 +222,18 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 		return backoff.Permanent(err)
 	}
 
-	req := svc.CreateFunctionRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.CreateFunctionRequest(input).Send(ctx)
 	if err != nil {
-		return err
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == lambda.ErrCodeInvalidParameterValueException &&
+				aerr.Message() == "The role defined for the function cannot be assumed by Lambda." {
+				// This happens when the IAM role has not provisioned yet, as
+				// IAM is eventually consistent. The same call will succeed
+				// within ~10 seconds.
+				return err
+			}
+		}
+		return handlePutError(err)
 	}
 
 	// OK
@@ -248,34 +258,34 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 func (p *LambdaFunction) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	input := &lambda.DeleteFunctionInput{FunctionName: p.FunctionARN}
-
+	input := &lambda.DeleteFunctionInput{
+		FunctionName: p.FunctionARN,
+	}
 	if err := input.Validate(); err != nil {
 		return backoff.Permanent(err)
 	}
 
-	req := svc.DeleteFunctionRequest(input)
-	_, err = req.Send(ctx)
-	return err
+	_, err = svc.DeleteFunctionRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the lambda function.
 func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 	if r.SourceChanged {
 		if err := p.updateCode(ctx, svc, r); err != nil {
-			return errors.Wrap(err, "update code")
+			return err
 		}
 	}
 	if r.ConfigChanged {
 		if err := p.updateConfig(ctx, svc, r); err != nil {
-			return errors.Wrap(err, "update config")
+			return err
 		}
 	}
 	return nil
@@ -283,10 +293,10 @@ func (p *LambdaFunction) Update(ctx context.Context, r *resource.UpdateRequest) 
 
 func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientAPI, r *resource.UpdateRequest) error {
 	if len(r.Source) == 0 {
-		return errors.New("no source code provided")
+		return backoff.Permanent(fmt.Errorf("no source code provided"))
 	}
 	if len(r.Source) > 1 {
-		return errors.New("only one source archive allowed")
+		return backoff.Permanent(fmt.Errorf("only one source archive allowed"))
 	}
 
 	prev := r.Previous.(*LambdaFunction)
@@ -297,25 +307,23 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 	}
 	var zip bytes.Buffer
 	if err := convert.Zip(&zip, src); err != nil {
-		return errors.Wrap(err, "convert zip")
+		return backoff.Permanent(errors.Wrap(err, "convert zip"))
 	}
 	if err := src.Close(); err != nil {
-		return errors.Wrap(err, "close source code")
+		return backoff.Permanent(errors.Wrap(err, "close source code"))
 	}
 
 	input := &lambda.UpdateFunctionCodeInput{
 		FunctionName: prev.FunctionARN,
 		ZipFile:      zip.Bytes(),
 	}
-
 	if err := input.Validate(); err != nil {
 		return backoff.Permanent(err)
 	}
 
-	req := svc.UpdateFunctionCodeRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.UpdateFunctionCodeRequest(input).Send(ctx)
 	if err != nil {
-		return errors.Wrap(err, "send request")
+		return handlePutError(err)
 	}
 
 	p.CodeSha256 = resp.CodeSha256
@@ -373,10 +381,9 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Clien
 		return backoff.Permanent(err)
 	}
 
-	req := svc.UpdateFunctionConfigurationRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.UpdateFunctionConfigurationRequest(input).Send(ctx)
 	if err != nil {
-		return errors.Wrap(err, "send request")
+		return handlePutError(err)
 	}
 
 	p.CodeSha256 = resp.CodeSha256

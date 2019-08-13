@@ -5,8 +5,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/lambda"
+	"github.com/cenkalti/backoff"
 	"github.com/func/func/resource"
-	"github.com/pkg/errors"
 )
 
 // LambdaInvokePermission sets permissions on a Lambda function.
@@ -88,7 +88,7 @@ type LambdaInvokePermission struct {
 func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
 	input := &lambda.AddPermissionInput{
@@ -102,11 +102,13 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 		SourceArn:        p.SourceARN,
 		StatementId:      aws.String(p.StatementID),
 	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
 
-	req := svc.AddPermissionRequest(input)
-	resp, err := req.Send(ctx)
+	resp, err := svc.AddPermissionRequest(input).Send(ctx)
 	if err != nil {
-		return err
+		return handlePutError(err)
 	}
 
 	p.Statement = resp.Statement
@@ -118,17 +120,21 @@ func (p *LambdaInvokePermission) Create(ctx context.Context, r *resource.CreateR
 func (p *LambdaInvokePermission) Delete(ctx context.Context, r *resource.DeleteRequest) error {
 	svc, err := p.service(r.Auth, p.Region)
 	if err != nil {
-		return errors.Wrap(err, "get client")
+		return err
 	}
 
-	req := svc.RemovePermissionRequest(&lambda.RemovePermissionInput{
+	input := &lambda.RemovePermissionInput{
 		FunctionName: aws.String(p.FunctionName),
 		Qualifier:    p.Qualifier,
 		RevisionId:   p.RevisionID,
 		StatementId:  aws.String(p.StatementID),
-	})
-	_, err = req.Send(ctx)
-	return err
+	}
+	if err := input.Validate(); err != nil {
+		return backoff.Permanent(err)
+	}
+
+	_, err = svc.RemovePermissionRequest(input).Send(ctx)
+	return handleDelError(err)
 }
 
 // Update updates the lambda function.
@@ -138,10 +144,10 @@ func (p *LambdaInvokePermission) Update(ctx context.Context, r *resource.UpdateR
 	prev := r.Previous.(*LambdaInvokePermission)
 
 	if err := prev.Delete(ctx, r.DeleteRequest()); err != nil {
-		return errors.Wrap(err, "update-delete")
+		return err
 	}
 	if err := p.Create(ctx, r.CreateRequest()); err != nil {
-		return errors.Wrap(err, "update-create")
+		return err
 	}
 
 	return nil
