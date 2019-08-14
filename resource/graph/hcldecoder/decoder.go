@@ -219,6 +219,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 		// defined.
 		return diags[:1]
 	}
+	res.Type = resConfig.Type
 
 	// Add source to resource.
 	if resConfig.Source != "" {
@@ -251,14 +252,8 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 		}
 		return hcl.Diagnostics{diag}
 	}
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	def := reflect.New(t).Interface()
-	res.Type = resConfig.Type
 
-	cfgType := reflect.TypeOf(def)
-	fields := schema.Fields(cfgType)
+	fields := schema.Fields(t)
 
 	// Decode inputs
 	inputs, deps, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())
