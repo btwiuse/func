@@ -23,7 +23,7 @@ import (
 // implementations.
 type ResourceRegistry interface {
 	Type(typename string) reflect.Type
-	Types() []string
+	Typenames() []string
 }
 
 // A Validator validates user input.
@@ -219,6 +219,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 		// defined.
 		return diags[:1]
 	}
+	res.Type = resConfig.Type
 
 	// Add source to resource.
 	if resConfig.Source != "" {
@@ -245,20 +246,14 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 			Summary:  "Resource not supported",
 			Subject:  rng.Ptr(),
 		}
-		availableTypes := d.Resources.Types()
+		availableTypes := d.Resources.Typenames()
 		if s := suggest.String(resConfig.Type, availableTypes); s != "" {
 			diag.Detail = fmt.Sprintf("Did you mean %q?", s)
 		}
 		return hcl.Diagnostics{diag}
 	}
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	def := reflect.New(t).Interface().(resource.Definition)
-	res.Type = resConfig.Type
 
-	cfgType := reflect.TypeOf(def)
-	fields := schema.Fields(cfgType)
+	fields := schema.Fields(t)
 
 	// Decode inputs
 	inputs, deps, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())

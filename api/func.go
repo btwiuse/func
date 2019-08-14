@@ -23,7 +23,7 @@ type Reconciler interface {
 // implementations.
 type ResourceRegistry interface {
 	Type(typename string) reflect.Type
-	Types() []string
+	Typenames() []string
 }
 
 // A Validator validates user input.
