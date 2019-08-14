@@ -53,8 +53,8 @@ func (b *Bolt) Close() error {
 	return b.db.Close()
 }
 
-// Put creates or updates a resource.
-func (b *Bolt) Put(ctx context.Context, ns, project string, resource resource.Resource) error {
+// PutResource creates or updates a resource.
+func (b *Bolt) PutResource(ctx context.Context, ns, project string, resource resource.Resource) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := b.createBucketIfNotExists(tx, []string{ns, project, "resources"})
 		if err != nil {
@@ -69,8 +69,8 @@ func (b *Bolt) Put(ctx context.Context, ns, project string, resource resource.Re
 	})
 }
 
-// Delete deletes a resource. No-op if the resource does not exist.
-func (b *Bolt) Delete(ctx context.Context, ns, project, name string) error {
+// DeleteResource deletes a resource. No-op if the resource does not exist.
+func (b *Bolt) DeleteResource(ctx context.Context, ns, project, name string) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
 		bucket := b.getBucket(tx, []string{ns, project, "resources"})
 		if bucket == nil {
@@ -80,8 +80,8 @@ func (b *Bolt) Delete(ctx context.Context, ns, project, name string) error {
 	})
 }
 
-// List lists all resources in a project.
-func (b *Bolt) List(ctx context.Context, ns, project string) (map[string]resource.Resource, error) {
+// ListResources lists all resources in a project.
+func (b *Bolt) ListResources(ctx context.Context, ns, project string) (map[string]resource.Resource, error) {
 	out := make(map[string]resource.Resource)
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := b.getBucket(tx, []string{ns, project, "resources"})

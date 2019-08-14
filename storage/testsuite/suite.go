@@ -14,9 +14,9 @@ import (
 
 // The Target interface is implemented by stores that persist data.
 type Target interface {
-	Put(ctx context.Context, ns, project string, resource resource.Resource) error
-	Delete(ctx context.Context, ns, project, name string) error
-	List(ctx context.Context, ns, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, ns, project string, resource resource.Resource) error
+	DeleteResource(ctx context.Context, ns, project, name string) error
+	ListResources(ctx context.Context, ns, project string) (map[string]resource.Resource, error)
 }
 
 // Config provides configuration options for the test suite.
@@ -90,24 +90,24 @@ func resourceIO(t *testing.T, cfg Config) {
 	defer done()
 
 	// Add some resources
-	if err := s.Put(ctx, ns, proj, a); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, a); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
-	if err := s.Put(ctx, ns, proj, b); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, b); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
-	if err := s.Put(ctx, ns, proj, c); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, c); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
 
 	opts := []cmp.Option{
 		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 
-	// List
-	got, err := s.List(ctx, ns, proj)
+	// List resources
+	got, err := s.ListResources(ctx, ns, proj)
 	if err != nil {
-		t.Fatalf("List() err = %+v", err)
+		t.Fatalf("ListResources() err = %+v", err)
 	}
 	want := map[string]resource.Resource{"a": a, "b": b, "c": c}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
@@ -115,7 +115,7 @@ func resourceIO(t *testing.T, cfg Config) {
 	}
 
 	// Delete a resource
-	if err := s.Delete(ctx, "ns", proj, "b"); err != nil {
+	if err := s.DeleteResource(ctx, "ns", proj, "b"); err != nil {
 		t.Fatalf("DeleteResource() err = %+v", err)
 	}
 
@@ -130,13 +130,13 @@ func resourceIO(t *testing.T, cfg Config) {
 			"output": cty.StringVal("QUX"),
 		}),
 	}
-	if err := s.Put(ctx, ns, proj, updateA); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, updateA); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
 
-	got, err = s.List(ctx, ns, proj)
+	got, err = s.ListResources(ctx, ns, proj)
 	if err != nil {
-		t.Fatalf("List() err = %+v", err)
+		t.Fatalf("ListResources() err = %+v", err)
 	}
 	want = map[string]resource.Resource{"a": updateA, "c": c}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
@@ -155,11 +155,11 @@ func listResourcesOtherNS(t *testing.T, cfg Config) {
 	defer done()
 
 	a := resource.Resource{Name: "a", Type: "t", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
-	if err := s.Put(ctx, "ns", "proj", a); err != nil {
+	if err := s.PutResource(ctx, "ns", "proj", a); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := s.List(ctx, "other", "proj")
+	got, err := s.ListResources(ctx, "other", "proj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,11 +180,11 @@ func listResourcesOtherProject(t *testing.T, cfg Config) {
 	defer done()
 
 	a := resource.Resource{Name: "a", Type: "atype", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
-	if err := s.Put(ctx, "ns", "proj", a); err != nil {
+	if err := s.PutResource(ctx, "ns", "proj", a); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := s.List(ctx, "ns", "other")
+	got, err := s.ListResources(ctx, "ns", "other")
 	if err != nil {
 		t.Fatal(err)
 	}
