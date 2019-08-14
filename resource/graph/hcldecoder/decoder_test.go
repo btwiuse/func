@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode"
@@ -24,7 +25,7 @@ func TestDecodeBody(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      string
-		resources   map[string]resource.Definition
+		types       map[string]reflect.Type
 		want        *graph.Graph
 		wantSources []*config.SourceInfo
 	}{
@@ -36,7 +37,7 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -58,12 +59,11 @@ func TestDecodeBody(t *testing.T) {
 					strings = [123, 4.5, -6.789]
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					String  string   `func:"input"`
 					Strings []string `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -91,7 +91,7 @@ func TestDecodeBody(t *testing.T) {
 					source = "ff:abc:def"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -120,7 +120,7 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.input
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -157,7 +157,7 @@ func TestDecodeBody(t *testing.T) {
 					input = bar.input
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -198,7 +198,7 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.output
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -245,7 +245,7 @@ func TestDecodeBody(t *testing.T) {
 					input = "Oh, ${foo.input} ${bar.input} ${foo.output}!"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
 					"foo": {
@@ -291,11 +291,10 @@ func TestDecodeBody(t *testing.T) {
 					input = "hello"
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"ptr": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"ptr": reflect.TypeOf(struct {
 					Input *string `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -319,11 +318,10 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"mapdef": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"mapdef": reflect.TypeOf(struct {
 					Map map[string]string `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -347,11 +345,10 @@ func TestDecodeBody(t *testing.T) {
 					strings = ["hello", "world"]
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"slicedef": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"slicedef": reflect.TypeOf(struct {
 					Strings []string `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -380,15 +377,14 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"structdef": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"structdef": reflect.TypeOf(struct {
 					Deep struct {
 						Nested struct {
 							Val int // no input tag required here
 						} // or here
 					} `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -413,13 +409,12 @@ func TestDecodeBody(t *testing.T) {
 					type = "structdef"
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"structdef": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"structdef": reflect.TypeOf(struct {
 					Sub *struct {
 						Val string
 					} `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -445,13 +440,12 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"pie": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"pie": reflect.TypeOf(struct {
 					Value *struct {
 						Val uint32
 					} `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -482,14 +476,13 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"multi": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"multi": reflect.TypeOf(struct {
 					Multi []struct {
 						Name string
 						Age  int64
 					} `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -525,13 +518,12 @@ func TestDecodeBody(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"multi": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"multi": reflect.TypeOf(struct {
 					Multi []*struct {
 						Name string
 					} `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -563,12 +555,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.nested["foo"].output
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"complex": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"complex": reflect.TypeOf(struct {
 					Nested map[string]simpleDef `func:"output"`
-				}{},
-				"simple": &simpleDef{},
+				}{}),
+				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -609,12 +600,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.nested["foo"][0]["bar"].output
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"complex": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"complex": reflect.TypeOf(struct {
 					Nested map[string][]map[string]simpleDef `func:"output"`
-				}{},
-				"simple": &simpleDef{},
+				}{}),
+				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -661,12 +651,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.nested[0].output
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"complex": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"complex": reflect.TypeOf(struct {
 					Nested []simpleDef `func:"output"`
-				}{},
-				"simple": &simpleDef{},
+				}{}),
+				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -716,14 +705,12 @@ func TestDecodeBody(t *testing.T) {
 					strings = bar.output.names
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					In  string `func:"input"`
 					Out string `func:"output"`
-				}{},
-				"b": &struct {
-					resource.Definition
+				}{}),
+				"b": reflect.TypeOf(struct {
 					Input struct {
 						String string
 						Int    int32
@@ -732,12 +719,11 @@ func TestDecodeBody(t *testing.T) {
 						Number uint64
 						Names  []string
 					} `func:"output"`
-				}{},
-				"c": &struct {
-					resource.Definition
+				}{}),
+				"c": reflect.TypeOf(struct {
 					Num     float64  `func:"input"`
 					Strings []string `func:"input"`
-				}{},
+				}{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -805,12 +791,11 @@ func TestDecodeBody(t *testing.T) {
 					input = foo.out[1]
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"output": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"output": reflect.TypeOf(struct {
 					Out []string `func:"output"`
-				}{},
-				"simple": &simpleDef{},
+				}{}),
+				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &graph.Graph{
 				Resources: map[string]*resource.Resource{
@@ -862,7 +847,7 @@ func TestDecodeBody(t *testing.T) {
 			body := parser.Parse(t, tt.config)
 
 			dec := &hcldecoder.Decoder{
-				Resources: resource.RegistryFromResources(tt.resources),
+				Resources: &resource.Registry{Types: tt.types},
 				Validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			}
 			_, srcs, diags := dec.DecodeBody(body, g)
@@ -912,7 +897,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    string
-		resources map[string]resource.Definition
+		types     map[string]reflect.Type
 		validator hcldecoder.Validator
 		diags     hcl.Diagnostics // filename is always file.hcl
 	}{
@@ -921,7 +906,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			config: `
 				project "foo" "bar" {}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -946,7 +931,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = "a"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -968,7 +953,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					notsupported = 123
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -993,7 +978,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input        = foo.input
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Unsupported argument",
@@ -1014,7 +999,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					source = "xxx"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1039,7 +1024,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = nonexisting.output
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
@@ -1066,7 +1051,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = zoo.output
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
@@ -1093,7 +1078,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = foo.nonexisting
 				}
 			`,
-			resources: map[string]resource.Definition{"first_type": &simpleDef{}, "second_type": &simpleDef{}},
+			types: map[string]reflect.Type{
+				"first_type":  reflect.TypeOf(simpleDef{}),
+				"second_type": reflect.TypeOf(simpleDef{}),
+			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
@@ -1120,7 +1108,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = foo.putput # typo
 				}
 			`,
-			resources: map[string]resource.Definition{"first_type": &simpleDef{}, "second_type": &simpleDef{}},
+			types: map[string]reflect.Type{
+				"first_type":  reflect.TypeOf(simpleDef{}),
+				"second_type": reflect.TypeOf(simpleDef{}),
+			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
@@ -1147,7 +1138,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = foo.output.value # nested value in string
 				}
 			`,
-			resources: map[string]resource.Definition{"test_type": &simpleDef{}},
+			types:     map[string]reflect.Type{"test_type": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{
 				{
@@ -1174,14 +1165,15 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &struct {
-				resource.Definition
-				Nested struct {
-					Sub struct {
-						Value []int `func:"input"`
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
+					Nested struct {
+						Sub struct {
+							Value []int `func:"input"`
+						} `func:"input"`
 					} `func:"input"`
-				} `func:"input"`
-			}{}},
+				}{}),
+			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1207,12 +1199,14 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &struct {
-				resource.Definition
-				Nested struct {
-					Value string `func:"input"`
-				} `func:"input"`
-			}{}},
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
+					resource.Definition
+					Nested struct {
+						Value string `func:"input"`
+					} `func:"input"`
+				}{}),
+			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1238,11 +1232,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					# required block not set
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct { // nolint: maligned
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					RequiredChild struct{} `func:"input"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
@@ -1265,14 +1258,16 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					}
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &struct {
-				resource.Definition
-				Nested struct {
-					Sub struct {
-						Val string `func:"input"`
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
+					resource.Definition
+					Nested struct {
+						Sub struct {
+							Val string
+						}
 					} `func:"input"`
-				} `func:"input"`
-			}{}},
+				}{}),
+			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1313,7 +1308,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = "test"
 				}
 			`,
-			resources: map[string]resource.Definition{"test": &simpleDef{}},
+			types: map[string]reflect.Type{"test": reflect.TypeOf(simpleDef{})},
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
 				Summary:  "Resource name not set",
@@ -1341,7 +1336,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = "world"
 				}
 			`,
-			resources: map[string]resource.Definition{"a": &simpleDef{}},
+			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1362,11 +1357,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					int = "this cannot be an int"
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					Int int `func:"input"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
@@ -1388,11 +1382,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					string = 123
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					String string `func:"input"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
@@ -1412,7 +1405,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = "not_found"
 				}
 			`,
-			resources: map[string]resource.Definition{},
+			types:     map[string]reflect.Type{},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1431,7 +1424,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = foo.bar
 				}
 			`,
-			resources: map[string]resource.Definition{},
+			types:     map[string]reflect.Type{},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
@@ -1476,8 +1469,8 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					type = "sample"
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"simple": &simpleDef{},
+			types: map[string]reflect.Type{
+				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
@@ -1499,11 +1492,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					# input not set
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"a": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"a": reflect.TypeOf(struct {
 					Input string `func:"input"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
@@ -1525,11 +1517,10 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = "foo"
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"validation": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"validation": reflect.TypeOf(struct {
 					Input string `func:"input" validate:"bar"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(v interface{}, param string) error {
 				if fmt.Sprintf("%v", v) != param {
@@ -1560,12 +1551,11 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 					input = a.input
 				}
 			`,
-			resources: map[string]resource.Definition{
-				"simple": &simpleDef{},
-				"validation": &struct {
-					resource.Definition
+			types: map[string]reflect.Type{
+				"simple": reflect.TypeOf(simpleDef{}),
+				"validation": reflect.TypeOf(struct {
 					Input string `func:"input" validate:"bar"`
-				}{},
+				}{}),
 			},
 			validator: ValidateFunc(func(v interface{}, param string) error {
 				if fmt.Sprintf("%v", v) != param {
@@ -1597,7 +1587,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			body := parser.Parse(t, tt.config)
 
 			dec := &hcldecoder.Decoder{
-				Resources: resource.RegistryFromResources(tt.resources),
+				Resources: &resource.Registry{Types: tt.types},
 				Validator: tt.validator,
 			}
 			_, _, diags := dec.DecodeBody(body, g)

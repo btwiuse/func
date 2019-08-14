@@ -434,7 +434,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 
 			rec := &reconciler.Reconciler{
 				Resources: store,
-				Registry:  resource.RegistryFromResources(tt.defs),
+				Registry:  resource.RegistryFromDefinitions(tt.defs),
 				Logger:    zaptest.NewLogger(t),
 			}
 

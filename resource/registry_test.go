@@ -27,13 +27,13 @@ func TestRegistry_Type(t *testing.T) {
 	}
 }
 
-func TestRegistry_Types(t *testing.T) {
+func TestRegistry_Typenames(t *testing.T) {
 	r := &resource.Registry{}
 	r.Register("aws:lambda_function", &mockDef{})
 	r.Register("aws:iam_role", &mockDef{})
 	r.Register("aws:iam_policy", &mockDef{})
 
-	got := r.Types()
+	got := r.Typenames()
 	want := []string{
 		"aws:iam_policy",
 		"aws:iam_role",

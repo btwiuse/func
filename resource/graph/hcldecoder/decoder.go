@@ -23,7 +23,7 @@ import (
 // implementations.
 type ResourceRegistry interface {
 	Type(typename string) reflect.Type
-	Types() []string
+	Typenames() []string
 }
 
 // A Validator validates user input.
@@ -245,7 +245,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 			Summary:  "Resource not supported",
 			Subject:  rng.Ptr(),
 		}
-		availableTypes := d.Resources.Types()
+		availableTypes := d.Resources.Typenames()
 		if s := suggest.String(resConfig.Type, availableTypes); s != "" {
 			diag.Detail = fmt.Sprintf("Did you mean %q?", s)
 		}
@@ -254,7 +254,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	def := reflect.New(t).Interface().(resource.Definition)
+	def := reflect.New(t).Interface()
 	res.Type = resConfig.Type
 
 	cfgType := reflect.TypeOf(def)
