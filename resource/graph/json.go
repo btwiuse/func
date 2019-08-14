@@ -3,6 +3,7 @@ package graph
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/func/func/resource"
 	"github.com/pkg/errors"
@@ -10,100 +11,114 @@ import (
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
-// MarshalJSON marshals the graph into a json encoded byte slice.
-//
-// To save space, the dependencies of the graph are encoded inline with the
-// resources.
-func (g Graph) MarshalJSON() ([]byte, error) {
-	r := jsonRoot{
-		Resources: make(map[string]jsonResource, len(g.Resources)),
-	}
-	for name, res := range g.Resources {
-		x := jsonResource{
-			Type:    res.Type,
-			Sources: res.Sources,
-			Deps:    res.Deps,
-		}
-		if !res.Input.IsNull() {
-			x.Input = &jsonData{Value: res.Input}
-		}
-		deps := g.Dependencies[name]
-		x.Edges = make([]jsonDep, len(deps))
-		for i, d := range deps {
-			x.Edges[i] = jsonDep{
-				Field:      jsonPath{Path: d.Field},
-				Expression: jsonExpression{Expression: d.Expression},
-			}
-		}
-		r.Resources[name] = x
-	}
-	return json.Marshal(r)
+// The ResourceCodec encodes resources.
+type ResourceCodec interface {
+	MarshalResource(resource.Resource) ([]byte, error)
+	UnmarshalResource(b []byte) (resource.Resource, error)
 }
 
-// UnmarshalJSON decodes a json encoded graph.
-func (g *Graph) UnmarshalJSON(b []byte) error {
-	var r jsonRoot
-	if err := json.Unmarshal(b, &r); err != nil {
-		return errors.WithStack(err)
+// JSONEncoder encodes and decodes graphs to/from json.
+type JSONEncoder struct {
+	Codec ResourceCodec
+}
+
+// Prevent accidentally using json.Marshal on graph.
+
+// MarshalJSON panics.
+// Instead, use JSONEncoder.Marshal() to marshal a graph.
+func (g Graph) MarshalJSON() ([]byte, error) { panic("Use JSONEncoder.Marshal() to marshal graph") }
+
+// UnmarshalJSON panics.
+// Instead, use JSONEncoder.Unmarshal() to unmarshal a graph.
+func (g *Graph) UnmarshalJSON([]byte) error { panic("Use JSONEncoder.Unmarshal() to unmarshal graph") }
+
+// Marshal marshals the graph into a json encoded byte slice.
+func (enc JSONEncoder) Marshal(g *Graph) ([]byte, error) {
+	out := jsonGraph{
+		Resources:    make([]jsonResource, 0, len(g.Resources)),
+		Dependencies: make(map[string][]jsonDep, len(g.Dependencies)),
 	}
-	g.Resources = make(map[string]*resource.Resource, len(r.Resources))
-	edges := make(map[string][]Dependency)
-	for name, res := range r.Resources {
-		x := &resource.Resource{
-			Name:    name,
-			Type:    res.Type,
-			Sources: res.Sources,
-			Deps:    res.Deps,
+	// Ensure deterministic order
+	names := make([]string, 0, len(g.Resources))
+	for name := range g.Resources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		res := g.Resources[name]
+		b, err := enc.Codec.MarshalResource(*res)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal resource")
 		}
-		if res.Input != nil {
-			x.Input = res.Input.Value
-		}
-		for _, e := range res.Edges {
-			edges[name] = append(edges[name], Dependency{
-				Field:      e.Field.Path,
-				Expression: e.Expression.Expression,
+		out.Resources = append(out.Resources, b)
+
+		for _, d := range g.Dependencies[name] {
+			out.Dependencies[name] = append(out.Dependencies[name], jsonDep{
+				Field:      jsonPath{Path: d.Field},
+				Expression: jsonExpression{Expression: d.Expression},
 			})
 		}
-		g.AddResource(x)
 	}
-	if len(edges) > 0 {
-		g.Dependencies = make(map[string][]Dependency)
-		for name, dd := range edges {
-			for _, d := range dd {
-				g.AddDependency(name, d)
-			}
+	return json.Marshal(out)
+}
+
+// Unmarshal decodes a json encoded graph.
+func (enc JSONEncoder) Unmarshal(b []byte, g *Graph) error {
+	var in jsonGraph
+	if err := json.Unmarshal(b, &in); err != nil {
+		return errors.Wrap(err, "unmarshal input")
+	}
+
+	// Reset
+	g.Resources = make(map[string]*resource.Resource, len(in.Resources))
+	g.Dependencies = make(map[string][]Dependency, len(in.Dependencies))
+
+	for _, resData := range in.Resources {
+		res, err := enc.Codec.UnmarshalResource(resData)
+		if err != nil {
+			return err
+		}
+		g.AddResource(&res)
+	}
+	for name, deps := range in.Dependencies {
+		for _, dep := range deps {
+			g.AddDependency(name, Dependency{
+				Field:      dep.Field.Path,
+				Expression: dep.Expression.Expression,
+			})
 		}
 	}
 	return nil
 }
 
-type jsonRoot struct {
-	Resources map[string]jsonResource `json:"res"`
+type jsonGraph struct {
+	Resources    []jsonResource       `json:"res"`
+	Dependencies map[string][]jsonDep `json:"deps,omitempty"`
 }
 
-type jsonResource struct {
-	Type    string    `json:"type"`
-	Sources []string  `json:"srcs,omitempty"`
-	Input   *jsonData `json:"input,omitempty"`
-	Deps    []string  `json:"deps,omitempty"`  // Parent resource names.
-	Edges   []jsonDep `json:"edges,omitempty"` // Dependency expressions.
-}
+type jsonResource []byte
 
-type jsonData struct{ cty.Value }
-
-func (d jsonData) MarshalJSON() ([]byte, error) {
-	if d.IsNull() {
-		return []byte("null"), nil
+func (res jsonResource) MarshalJSON() ([]byte, error) {
+	// Prevent encoding already json encoded resource data to base64
+	if json.Valid(res) {
+		// Already JSON encoded
+		return res, nil
 	}
-	return ctyjson.Marshal(d.Value, d.Value.Type())
+	return json.Marshal([]byte(res))
 }
 
-func (d *jsonData) UnmarshalJSON(b []byte) error {
-	var v ctyjson.SimpleJSONValue
-	if err := v.UnmarshalJSON(b); err != nil {
+func (res *jsonResource) UnmarshalJSON(b []byte) error {
+	if json.Valid(b) {
+		// Not base64 encoded []byte
+		*res = b
+		return nil
+	}
+	// Unmarshal base64 bytes
+	var tmp []byte
+	if err := json.Unmarshal(b, &tmp); err != nil {
 		return err
 	}
-	d.Value = v.Value
+	*res = tmp
 	return nil
 }
 

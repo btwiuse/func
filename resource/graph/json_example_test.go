@@ -1,19 +1,23 @@
 package graph_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/func/func/resource"
+	resjson "github.com/func/func/resource/encoding/json"
 	"github.com/func/func/resource/graph"
 	"github.com/zclconf/go-cty/cty"
 )
 
 func ExampleGraph_MarshalJSON() {
-	g := graph.Graph{
+	g := &graph.Graph{
 		Resources: map[string]*resource.Resource{
 			"alice": {
+				Name:    "alice",
 				Type:    "person",
 				Sources: []string{"abc"},
 				Input: cty.ObjectVal(map[string]cty.Value{
@@ -22,12 +26,12 @@ func ExampleGraph_MarshalJSON() {
 				}),
 			},
 			"bob": {
+				Name:    "bob",
 				Type:    "person",
 				Sources: []string{"abc"},
 				Input: cty.ObjectVal(map[string]cty.Value{
-					"name":    cty.StringVal("bob"),
-					"age":     cty.NumberIntVal(30),
-					"friends": cty.ListValEmpty(cty.String),
+					"name": cty.StringVal("bob"),
+					"age":  cty.NumberIntVal(30),
 				}),
 				Deps: []string{"alice", "carol"},
 			},
@@ -47,15 +51,38 @@ func ExampleGraph_MarshalJSON() {
 		},
 	}
 
-	out, err := json.MarshalIndent(g, "", "    ")
-	if err != nil {
-		log.Fatalf("Marshal graph: %v", err)
+	// Note: Do NOT use json.Marshal on graph.
+
+	types := map[string]reflect.Type{
+		"person": reflect.TypeOf(struct {
+			Name string `func:"input"`
+			Age  int    `func:"input"`
+		}{}),
 	}
-	fmt.Println(string(out))
+
+	enc := graph.JSONEncoder{
+		Codec: &resjson.Encoder{
+			Registry: &resource.Registry{
+				Types: types,
+			},
+		},
+	}
+
+	j, err := enc.Marshal(g)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if err = json.Indent(&buf, j, "", "    "); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(buf.String())
 	// Output:
 	// {
-	//     "res": {
-	//         "alice": {
+	//     "res": [
+	//         {
+	//             "name": "alice",
 	//             "type": "person",
 	//             "srcs": [
 	//                 "abc"
@@ -65,37 +92,39 @@ func ExampleGraph_MarshalJSON() {
 	//                 "name": "alice"
 	//             }
 	//         },
-	//         "bob": {
+	//         {
+	//             "name": "bob",
 	//             "type": "person",
+	//             "deps": [
+	//                 "alice",
+	//                 "carol"
+	//             ],
 	//             "srcs": [
 	//                 "abc"
 	//             ],
 	//             "input": {
 	//                 "age": 30,
-	//                 "friends": [],
 	//                 "name": "bob"
-	//             },
-	//             "deps": [
-	//                 "alice",
-	//                 "carol"
-	//             ],
-	//             "edges": [
-	//                 {
-	//                     "field": [
-	//                         "friends"
-	//                     ],
-	//                     "expr": [
-	//                         {
-	//                             "ref": [
-	//                                 "alice",
-	//                                 "friends",
-	//                                 0
-	//                             ]
-	//                         }
-	//                     ]
-	//                 }
-	//             ]
+	//             }
 	//         }
+	//     ],
+	//     "deps": {
+	//         "bob": [
+	//             {
+	//                 "field": [
+	//                     "friends"
+	//                 ],
+	//                 "expr": [
+	//                     {
+	//                         "ref": [
+	//                             "alice",
+	//                             "friends",
+	//                             0
+	//                         ]
+	//                     }
+	//                 ]
+	//             }
+	//         ]
 	//     }
 	// }
 }

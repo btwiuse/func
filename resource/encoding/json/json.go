@@ -8,6 +8,7 @@ import (
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/schema"
 	"github.com/pkg/errors"
+	"github.com/zclconf/go-cty/cty"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
@@ -26,20 +27,36 @@ type jsonResource struct {
 	Type    string          `json:"type"`
 	Deps    []string        `json:"deps,omitempty"`
 	Sources []string        `json:"srcs,omitempty"`
-	Input   json.RawMessage `json:"input"`
-	Output  json.RawMessage `json:"output"`
+	Input   json.RawMessage `json:"input,omitempty"`
+	Output  json.RawMessage `json:"output,omitempty"`
 }
 
 // MarshalResource marshals a resource to json.
-func (enc *Encoder) MarshalResource(res resource.Resource) ([]byte, error) {
-	input, err := ctyjson.Marshal(res.Input, res.Input.Type())
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal data")
+func (enc Encoder) MarshalResource(res resource.Resource) ([]byte, error) {
+	typ := enc.Registry.Type(res.Type)
+	if typ == nil {
+		return nil, fmt.Errorf("type not registered")
 	}
-	output, err := ctyjson.Marshal(res.Output, res.Output.Type())
-	if err != nil {
-		return nil, errors.Wrap(err, "marshal data")
+	fields := schema.Fields(typ)
+
+	var input json.RawMessage
+	if !res.Input.IsNull() {
+		v, err := ctyjson.Marshal(cty.UnknownAsNull(res.Input), fields.Inputs().CtyType())
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal input")
+		}
+		input = v
 	}
+
+	var output json.RawMessage
+	if !res.Output.IsNull() {
+		v, err := ctyjson.Marshal(res.Output, fields.Outputs().CtyType())
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal output")
+		}
+		output = v
+	}
+
 	return json.Marshal(jsonResource{
 		Name:    res.Name,
 		Type:    res.Type,
@@ -54,31 +71,34 @@ func (enc *Encoder) MarshalResource(res resource.Resource) ([]byte, error) {
 //
 // The type embedded in the resource byte slice must be available in the
 // registry.
-func (enc *Encoder) UnmarshalResource(b []byte) (resource.Resource, error) {
+func (enc Encoder) UnmarshalResource(b []byte) (resource.Resource, error) {
 	var res jsonResource
 	if err := json.Unmarshal(b, &res); err != nil {
 		return resource.Resource{}, errors.Wrap(err, "unmarshal")
 	}
-	t := enc.Registry.Type(res.Type)
-	if t == nil {
-		return resource.Resource{}, fmt.Errorf("type not registered: %q", res.Type)
+
+	typ := enc.Registry.Type(res.Type)
+	if typ == nil {
+		return resource.Resource{}, fmt.Errorf("type not registered")
 	}
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
+	fields := schema.Fields(typ)
+
+	input := cty.EmptyObjectVal
+	if len(res.Input) > 0 {
+		v, err := ctyjson.Unmarshal(res.Input, fields.Inputs().CtyType())
+		if err != nil {
+			return resource.Resource{}, errors.Wrap(err, "unmarshal input")
+		}
+		input = v
 	}
 
-	fields := schema.Fields(t)
-
-	it := fields.Inputs().CtyType()
-	input, err := ctyjson.Unmarshal(res.Input, it)
-	if err != nil {
-		return resource.Resource{}, errors.Wrap(err, "unmarshal input")
-	}
-
-	ot := fields.Outputs().CtyType()
-	output, err := ctyjson.Unmarshal(res.Output, ot)
-	if err != nil {
-		return resource.Resource{}, errors.Wrap(err, "unmarshal output")
+	var output cty.Value
+	if len(res.Output) > 0 {
+		v, err := ctyjson.Unmarshal(res.Output, fields.Outputs().CtyType())
+		if err != nil {
+			return resource.Resource{}, errors.Wrap(err, "unmarshal output")
+		}
+		output = v
 	}
 
 	return resource.Resource{
