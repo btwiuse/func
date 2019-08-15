@@ -14,7 +14,6 @@ import (
 	"github.com/func/func/client"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/encoding/json"
 	"github.com/func/func/resource/reconciler"
 	"github.com/func/func/resource/validation"
 	"github.com/func/func/source"
@@ -58,10 +57,7 @@ var applyCommand = &cobra.Command{
 			if err != nil {
 				log.Fatalf("Get bolt file: %v", err)
 			}
-			jsonCodec := &json.Encoder{
-				Registry: reg,
-			}
-			bolt, err := bolt.New(boltfile, jsonCodec)
+			bolt, err := bolt.New(boltfile, reg)
 			if err != nil {
 				log.Fatalf("Open BoltDB: %v", err)
 			}
