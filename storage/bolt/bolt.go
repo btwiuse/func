@@ -2,6 +2,7 @@ package bolt
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/schema"
 	"github.com/pkg/errors"
 	"github.com/zclconf/go-cty/cty"
@@ -114,6 +116,52 @@ func (b *Bolt) ListResources(ctx context.Context, ns, project string) (map[strin
 		return nil, err
 	}
 	return out, nil
+}
+
+// PutGraph creates or updates a graph.
+func (b *Bolt) PutGraph(ctx context.Context, ns, project string, graph *graph.Graph) error {
+	return b.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := b.createBucketIfNotExists(tx, []string{ns, project, "graph"})
+		if err != nil {
+			return errors.Wrap(err, "ensure bucket")
+		}
+		data, err := json.Marshal(graph)
+		if err != nil {
+			return errors.Wrap(err, "marshal graph")
+		}
+		return bucket.Put([]byte("graph"), data)
+	})
+}
+
+// GetGraph returns a graph for a project. Returns nil if the project does not
+// have a graph.
+func (b *Bolt) GetGraph(ctx context.Context, ns, project string) (*graph.Graph, error) {
+	var g *graph.Graph
+	err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := b.getBucket(tx, []string{ns, project, "graph"})
+		if bucket == nil {
+			// Bucket does not exist
+			return nil
+		}
+		data := bucket.Get([]byte("graph"))
+		if len(data) == 0 {
+			// Key does not exist
+			return nil
+		}
+		dec := graph.JSONDecoder{
+			Target:   graph.New(),
+			Registry: b.registry,
+		}
+		if err := dec.UnmarshalJSON(data); err != nil {
+			return errors.Wrap(err, "unmarshal graph")
+		}
+		g = dec.Target
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 // createBucketIfNotExists creates any buckets on the given path that do not

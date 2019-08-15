@@ -7,12 +7,14 @@ import (
 	"sync"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/graph"
 )
 
 // Storage stores data in memory for tests.
 type Storage struct {
 	mu        sync.Mutex
 	resources map[string]resource.Resource
+	graphs    map[string]graph.Graph
 	Events    []Event
 }
 
@@ -27,6 +29,10 @@ type Event struct {
 // resourceKey computes the key to use for storage.
 func resourceKey(ns, project, name string) string {
 	return fmt.Sprintf("%s/%s/%s", ns, project, name)
+}
+
+func graphKey(ns, project string) string {
+	return fmt.Sprintf("%s/%s", ns, project)
 }
 
 // Seed seeds the storage for tests with existing data. Seed can be ran
@@ -81,4 +87,33 @@ func (s *Storage) ListResources(ctx context.Context, namespace, project string) 
 		out[res.Name] = res
 	}
 	return out, nil
+}
+
+// PutGraph creates or updates a resource.
+func (s *Storage) PutGraph(ctx context.Context, ns, project string, g *graph.Graph) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.graphs == nil {
+		s.graphs = make(map[string]graph.Graph)
+	}
+	k := graphKey(ns, project)
+	op := "create-graph"
+	if _, ok := s.graphs[k]; ok {
+		op = "update-graph"
+	}
+	s.graphs[k] = *g
+	s.Events = append(s.Events, Event{Op: op, NS: ns, Proj: project})
+	return nil
+}
+
+// GetGraph deletes a resource. No-op if the resource does not exist.
+func (s *Storage) GetGraph(ctx context.Context, namespace, project string) (*graph.Graph, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := graphKey(namespace, project)
+	g, ok := s.graphs[k]
+	if !ok {
+		return nil, nil
+	}
+	return &g, nil
 }
