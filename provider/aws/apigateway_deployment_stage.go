@@ -76,11 +76,11 @@ type APIGatewayStage struct {
 	// The identifier of a client certificate for an API stage.
 	ClientCertificateID string `func:"output"`
 
-	// The timestamp when the stage was created.
-	CreatedDate time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the stage was created.
+	CreatedDate string `func:"output"`
 
-	// The timestamp when the stage last updated.
-	LastUpdatedDate time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the stage last updated.
+	LastUpdatedDate string `func:"output"`
 
 	// A map that defines the method settings for a Stage resource. Keys (designated
 	// as /{method_setting_key below) are method paths defined as {resource_path}/{http_method}
@@ -231,8 +231,8 @@ func (p *APIGatewayStage) Create(ctx context.Context, r *resource.CreateRequest)
 			Format:         resp.AccessLogSettings.Format,
 		}
 	}
-	p.CreatedDate = *resp.CreatedDate
-	p.LastUpdatedDate = *resp.LastUpdatedDate
+	p.CreatedDate = resp.CreatedDate.Format(time.RFC3339)
+	p.LastUpdatedDate = resp.LastUpdatedDate.Format(time.RFC3339)
 	p.MethodSettings = make(map[string]MethodSetting)
 	for k, v := range resp.MethodSettings {
 		p.MethodSettings[k] = MethodSetting{
@@ -339,8 +339,8 @@ func (p *APIGatewayStage) Update(ctx context.Context, r *resource.UpdateRequest)
 			Format:         resp.AccessLogSettings.Format,
 		}
 	}
-	p.CreatedDate = *resp.CreatedDate
-	p.LastUpdatedDate = *resp.LastUpdatedDate
+	p.CreatedDate = resp.CreatedDate.Format(time.RFC3339)
+	p.LastUpdatedDate = resp.LastUpdatedDate.Format(time.RFC3339)
 	p.MethodSettings = make(map[string]MethodSetting)
 	for k, v := range resp.MethodSettings {
 		p.MethodSettings[k] = MethodSetting{

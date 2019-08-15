@@ -97,8 +97,8 @@ type IAMRole struct {
 	// The Amazon Resource Name (ARN) specifying the role.
 	ARN *string `func:"output"`
 
-	// The date and time when the role was created.
-	CreateDate *time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the role was created.
+	CreateDate string `func:"output"`
 
 	// The stable and unique string identifying the role.
 	RoleID *string `func:"output"`
@@ -131,7 +131,7 @@ func (p *IAMRole) Create(ctx context.Context, r *resource.CreateRequest) error {
 	}
 
 	p.ARN = resp.Role.Arn
-	p.CreateDate = resp.Role.CreateDate
+	p.CreateDate = resp.Role.CreateDate.Format(time.RFC3339)
 	p.RoleID = resp.Role.RoleId
 
 	return nil

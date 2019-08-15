@@ -64,8 +64,9 @@ type APIGatewayDeployment struct {
 	// was created.
 	APISummary map[string]map[string]APIGatewayMethodSnapshot `func:"output"`
 
-	// The date and time that the deployment resource was created.
-	CreatedDate *time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the deployment resource was
+	// created.
+	CreatedDate string `func:"output"`
 
 	// The identifier for the deployment resource.
 	ID *string `func:"output"`
@@ -165,7 +166,7 @@ func (p *APIGatewayDeployment) Create(ctx context.Context, r *resource.CreateReq
 		}
 	}
 
-	p.CreatedDate = resp.CreatedDate
+	p.CreatedDate = resp.CreatedDate.Format(time.RFC3339)
 	p.ID = resp.Id
 
 	return nil

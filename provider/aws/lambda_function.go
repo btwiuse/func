@@ -139,8 +139,8 @@ type LambdaFunction struct {
 	// The function's Amazon Resource Name.
 	FunctionARN *string `func:"output"`
 
-	// The date and time that the function was last updated.
-	LastModified time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the function was last updated.
+	LastModified string `func:"output"`
 
 	// The ARN of the master function.
 	MasterARN *string `func:"output"`
@@ -246,7 +246,7 @@ func (p *LambdaFunction) Create(ctx context.Context, r *resource.CreateRequest) 
 		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
 		t = time.Now()
 	}
-	p.LastModified = t
+	p.LastModified = t.Format(time.RFC3339)
 	p.MasterARN = resp.MasterArn
 	p.RevisionID = resp.RevisionId
 	p.Version = resp.Version
@@ -334,7 +334,7 @@ func (p *LambdaFunction) updateCode(ctx context.Context, svc lambdaiface.ClientA
 		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
 		t = time.Now()
 	}
-	p.LastModified = t
+	p.LastModified = t.Format(time.RFC3339)
 	p.MasterARN = resp.MasterArn
 	p.RevisionID = resp.RevisionId
 	p.Version = resp.Version
@@ -394,7 +394,7 @@ func (p *LambdaFunction) updateConfig(ctx context.Context, svc lambdaiface.Clien
 		log.Printf("Could not parse Lambda modified timestamp %q, falling back to current time", *resp.LastModified)
 		t = time.Now()
 	}
-	p.LastModified = t
+	p.LastModified = t.Format(time.RFC3339)
 	p.MasterARN = resp.MasterArn
 	p.RevisionID = resp.RevisionId
 	p.Version = resp.Version

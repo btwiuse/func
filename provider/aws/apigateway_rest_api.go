@@ -70,8 +70,8 @@ type APIGatewayRestAPI struct {
 
 	// Outputs
 
-	// A timestamp for when the API was created.
-	CreatedDate *time.Time `func:"output"`
+	// RFC3339 formatted date and time for when the API was created.
+	CreatedDate string `func:"output"`
 
 	// The API's identifier. This identifier is unique across all of your APIs in
 	// API Gateway.
@@ -122,7 +122,7 @@ func (p *APIGatewayRestAPI) Create(ctx context.Context, r *resource.CreateReques
 		return handlePutError(err)
 	}
 
-	p.CreatedDate = resp.CreatedDate
+	p.CreatedDate = resp.CreatedDate.Format(time.RFC3339)
 	p.ID = resp.Id
 
 	// Read root resource

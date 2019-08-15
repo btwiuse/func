@@ -61,8 +61,8 @@ type IAMPolicy struct {
 	// to.
 	AttachmentCount *int64 `func:"output"`
 
-	// The date and time when the policy was created.
-	CreateDate *time.Time `func:"output"`
+	// RFC3339 formatted date and time when the policy was created.
+	CreateDate string `func:"output"`
 
 	// The identifier for the version of the policy that is set as the default version.
 	DefaultVersionID *string `func:"output"`
@@ -92,7 +92,7 @@ type IAMPolicy struct {
 	// when the policy was created. When a policy has more than one version, this
 	// field contains the date and time when the most recent policy version was
 	// created.
-	UpdateDate *time.Time `func:"output"`
+	UpdateDate string `func:"output"`
 
 	iamService
 }
@@ -121,12 +121,12 @@ func (p *IAMPolicy) Create(ctx context.Context, r *resource.CreateRequest) error
 
 	p.ARN = resp.Policy.Arn
 	p.AttachmentCount = resp.Policy.AttachmentCount
-	p.CreateDate = resp.Policy.CreateDate
+	p.CreateDate = resp.Policy.CreateDate.Format(time.RFC3339)
 	p.DefaultVersionID = resp.Policy.DefaultVersionId
 	p.IsAttachable = resp.Policy.IsAttachable
 	p.PermissionsBoundaryUsageCount = resp.Policy.PermissionsBoundaryUsageCount
 	p.PolicyID = resp.Policy.PolicyId
-	p.UpdateDate = resp.Policy.UpdateDate
+	p.UpdateDate = resp.Policy.UpdateDate.Format(time.RFC3339)
 
 	return nil
 }
