@@ -1,14 +1,11 @@
 package graph_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
 
 	"github.com/func/func/resource"
-	resjson "github.com/func/func/resource/encoding/json"
 	"github.com/func/func/resource/graph"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -51,76 +48,48 @@ func ExampleGraph_MarshalJSON() {
 		},
 	}
 
-	// Note: Do NOT use json.Marshal on graph.
-
-	types := map[string]reflect.Type{
-		"person": reflect.TypeOf(struct {
-			Name string `func:"input"`
-			Age  int    `func:"input"`
-		}{}),
-	}
-
-	enc := graph.JSONEncoder{
-		Codec: &resjson.Encoder{
-			Registry: &resource.Registry{
-				Types: types,
-			},
-		},
-	}
-
-	j, err := enc.Marshal(g)
+	j, err := json.MarshalIndent(g, "", "    ")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	var buf bytes.Buffer
-	if err = json.Indent(&buf, j, "", "    "); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(buf.String())
+	fmt.Println(string(j))
 	// Output:
 	// {
 	//     "res": [
 	//         {
 	//             "name": "alice",
 	//             "type": "person",
-	//             "srcs": [
-	//                 "abc"
-	//             ],
 	//             "input": {
 	//                 "age": 20,
 	//                 "name": "alice"
-	//             }
+	//             },
+	//             "src": [
+	//                 "abc"
+	//             ]
 	//         },
 	//         {
 	//             "name": "bob",
 	//             "type": "person",
+	//             "input": {
+	//                 "age": 30,
+	//                 "name": "bob"
+	//             },
 	//             "deps": [
 	//                 "alice",
 	//                 "carol"
 	//             ],
-	//             "srcs": [
+	//             "src": [
 	//                 "abc"
-	//             ],
-	//             "input": {
-	//                 "age": 30,
-	//                 "name": "bob"
-	//             }
+	//             ]
 	//         }
 	//     ],
 	//     "deps": {
 	//         "bob": [
 	//             {
-	//                 "field": [
-	//                     "friends"
-	//                 ],
+	//                 "field": "friends",
 	//                 "expr": [
 	//                     {
-	//                         "ref": [
-	//                             "alice",
-	//                             "friends",
-	//                             0
-	//                         ]
+	//                         "ref": "alice.friends[0]"
 	//                     }
 	//                 ]
 	//             }

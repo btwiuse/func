@@ -1,7 +1,9 @@
 package graph_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/func/func/resource/graph"
@@ -214,4 +216,82 @@ func TestExpression_MergeLiterals(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExpression_JSONRoundtrip(t *testing.T) {
+	tests := []struct {
+		name string
+		expr graph.Expression
+	}{
+		{
+			"Simple",
+			graph.Expression{
+				graph.ExprLiteral{Value: cty.StringVal("foo")},
+				graph.ExprLiteral{Value: cty.StringVal("bar")},
+				graph.ExprReference{Path: cty.GetAttrPath("abc")},
+				graph.ExprLiteral{Value: cty.StringVal("baz")},
+				graph.ExprLiteral{Value: cty.StringVal("qux")},
+			},
+		},
+		{
+			"Complex",
+			graph.Expression{
+				graph.ExprLiteral{Value: cty.StringVal("foo")},
+				graph.ExprReference{Path: cty.GetAttrPath("abc").Index(cty.NumberIntVal(1)).Index(cty.StringVal("def"))},
+				graph.ExprLiteral{Value: cty.StringVal("qux")},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := json.Marshal(tt.expr)
+			if err != nil {
+				t.Fatalf("Marshal() err = %v", err)
+			}
+
+			t.Log(string(b))
+
+			var got graph.Expression
+			if err := json.Unmarshal(b, &got); err != nil {
+				t.Fatalf("Unmarshal() err = %v", err)
+			}
+
+			opts := []cmp.Option{
+				cmp.Comparer(func(a, b graph.Expression) bool {
+					return a.Equals(b)
+				}),
+			}
+			if diff := cmp.Diff(got, tt.expr, opts...); diff != "" {
+				t.Errorf("Diff (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func ExampleExpression_MarshalJSON() {
+	expr := graph.Expression{
+		graph.ExprLiteral{Value: cty.StringVal("a")},
+		graph.ExprReference{Path: cty.GetAttrPath("b").Index(cty.NumberIntVal(1)).Index(cty.StringVal("c"))},
+		graph.ExprLiteral{Value: cty.StringVal("d")},
+	}
+
+	b, err := json.MarshalIndent(expr, "", "    ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(string(b))
+	// Output:
+	// [
+	//     {
+	//         "lit": "a"
+	//     },
+	//     {
+	//         "ref": "b[1][\"c\"]"
+	//     },
+	//     {
+	//         "lit": "d"
+	//     }
+	// ]
 }

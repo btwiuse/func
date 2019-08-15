@@ -2,6 +2,7 @@ package testsuite
 
 import (
 	"context"
+	"reflect"
 	"runtime/debug"
 	"testing"
 
@@ -24,32 +25,30 @@ type Config struct {
 	//
 	// The returned done function is called on test completion, allowing
 	// cleanup to be performed.
-	New func(t *testing.T) (target Target, done func())
+	New func(t *testing.T, types map[string]reflect.Type) (target Target, done func())
 }
 
 // Run executes the test suite for the given configuration.
 func Run(t *testing.T, cfg Config) {
-	run(t, "IO", cfg, io)
-	run(t, "List/OtherNS", cfg, listResourcesOtherNS)
-	run(t, "List/OtherProject", cfg, listResourcesOtherProject)
+	run(t, "ResourceIO", cfg, resourceIO)
+	run(t, "ResourceList/OtherNS", cfg, listResourcesOtherNS)
+	run(t, "ResourceList/OtherProject", cfg, listResourcesOtherProject)
 }
 
-func run(t *testing.T, name string, cfg Config, testFunc func(*testing.T, Target)) {
+func run(t *testing.T, name string, cfg Config, testFunc func(*testing.T, Config)) {
 	t.Run(name, func(t *testing.T) {
 		defer checkPanic(t)
-		store, done := cfg.New(t)
-		defer done()
-		testFunc(t, store)
+		testFunc(t, cfg)
 	})
 }
 
-func io(t *testing.T, s Target) {
+func resourceIO(t *testing.T, cfg Config) {
 	ctx := context.Background()
 	ns, proj := "ns", "proj"
 
 	a := resource.Resource{
 		Name: "a",
-		Type: "atype",
+		Type: "t",
 		Input: cty.ObjectVal(map[string]cty.Value{
 			"input": cty.StringVal("foo"),
 		}),
@@ -60,7 +59,7 @@ func io(t *testing.T, s Target) {
 	}
 	b := resource.Resource{
 		Name: "b",
-		Type: "btype",
+		Type: "t",
 		Input: cty.ObjectVal(map[string]cty.Value{
 			"input": cty.StringVal("bar"),
 		}),
@@ -71,7 +70,7 @@ func io(t *testing.T, s Target) {
 	}
 	c := resource.Resource{
 		Name: "c",
-		Type: "ctype",
+		Type: "t",
 		Input: cty.ObjectVal(map[string]cty.Value{
 			"input": cty.StringVal("baz"),
 		}),
@@ -79,6 +78,16 @@ func io(t *testing.T, s Target) {
 			"output": cty.StringVal("qux"),
 		}),
 	}
+
+	types := map[string]reflect.Type{
+		"t": reflect.TypeOf(struct {
+			Input  string `func:"input"`
+			Output string `func:"output"`
+		}{}),
+	}
+
+	s, done := cfg.New(t, types)
+	defer done()
 
 	// Add some resources
 	if err := s.Put(ctx, ns, proj, a); err != nil {
@@ -113,7 +122,7 @@ func io(t *testing.T, s Target) {
 	// Update a resource
 	updateA := resource.Resource{
 		Name: "a",
-		Type: "atype",
+		Type: "t",
 		Input: cty.ObjectVal(map[string]cty.Value{
 			"input": cty.StringVal("FOO"),
 		}),
@@ -135,10 +144,17 @@ func io(t *testing.T, s Target) {
 	}
 }
 
-func listResourcesOtherNS(t *testing.T, s Target) {
+func listResourcesOtherNS(t *testing.T, cfg Config) {
 	ctx := context.Background()
 
-	a := resource.Resource{Name: "a", Type: "atype", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
+	types := map[string]reflect.Type{
+		"t": reflect.TypeOf(struct{}{}),
+	}
+
+	s, done := cfg.New(t, types)
+	defer done()
+
+	a := resource.Resource{Name: "a", Type: "t", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
 	if err := s.Put(ctx, "ns", "proj", a); err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +169,15 @@ func listResourcesOtherNS(t *testing.T, s Target) {
 	}
 }
 
-func listResourcesOtherProject(t *testing.T, s Target) {
+func listResourcesOtherProject(t *testing.T, cfg Config) {
 	ctx := context.Background()
+
+	types := map[string]reflect.Type{
+		"t": reflect.TypeOf(struct{}{}),
+	}
+
+	s, done := cfg.New(t, types)
+	defer done()
 
 	a := resource.Resource{Name: "a", Type: "atype", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
 	if err := s.Put(ctx, "ns", "proj", a); err != nil {

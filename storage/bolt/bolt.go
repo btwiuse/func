@@ -2,25 +2,28 @@ package bolt
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/schema"
 	"github.com/pkg/errors"
+	"github.com/zclconf/go-cty/cty"
 	bolt "go.etcd.io/bbolt"
 )
 
-// The ResourceCodec encodes resources for storage.
-type ResourceCodec interface {
-	MarshalResource(resource.Resource) ([]byte, error)
-	UnmarshalResource(b []byte) (resource.Resource, error)
+// The Registry returns types for unmarshalling resource inputs/outputs.
+type Registry interface {
+	Type(typename string) reflect.Type
 }
 
 // Bolt stores key-value pairs in bolt db.
 type Bolt struct {
-	db    *bolt.DB
-	codec ResourceCodec
+	db       *bolt.DB
+	registry Registry
 }
 
 // DefaultFile returns the default file to use for the file on disk.
@@ -34,7 +37,7 @@ func DefaultFile() (string, error) {
 
 // New creates and opens a database at the given file.
 // If the file or directory does not exist, it is created.
-func New(file string, codec ResourceCodec) (*Bolt, error) {
+func New(file string, registry Registry) (*Bolt, error) {
 	if err := os.MkdirAll(filepath.Dir(file), 0750); err != nil {
 		return nil, errors.Wrapf(err, "ensure dir exists: %s", filepath.Dir(file))
 	}
@@ -42,7 +45,7 @@ func New(file string, codec ResourceCodec) (*Bolt, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "open bolt db")
 	}
-	return &Bolt{db: db, codec: codec}, nil
+	return &Bolt{db: db, registry: registry}, nil
 }
 
 // Close closes the Bolt DB store and releases all resources.
@@ -58,7 +61,7 @@ func (b *Bolt) Put(ctx context.Context, ns, project string, resource resource.Re
 			return errors.Wrap(err, "ensure bucket")
 		}
 		k := []byte(resource.Name)
-		data, err := b.codec.MarshalResource(resource)
+		data, err := resource.MarshalJSON()
 		if err != nil {
 			return errors.Wrap(err, "marshal resource")
 		}
@@ -86,12 +89,24 @@ func (b *Bolt) List(ctx context.Context, ns, project string) (map[string]resourc
 			return nil
 		}
 		return bucket.ForEach(func(k, v []byte) error {
-			res, err := b.codec.UnmarshalResource(v)
+			typename, err := resource.UnmarshalJSONType(v)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "get type name")
+			}
+			typ := b.registry.Type(typename)
+			if typ == nil {
+				return fmt.Errorf("type %q not registered", typename)
+			}
+			fields := schema.Fields(typ)
+			res := &resource.Resource{
+				Input:  cty.UnknownVal(fields.Inputs().CtyType()),
+				Output: cty.UnknownVal(fields.Outputs().CtyType()),
+			}
+			if err := res.UnmarshalJSON(v); err != nil {
+				return errors.Wrap(err, "resource")
 			}
 			name := string(k)
-			out[name] = res
+			out[name] = *res
 			return nil
 		})
 	})
