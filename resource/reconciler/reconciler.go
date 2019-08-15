@@ -33,14 +33,9 @@ var DefaultConcurrency = 10
 
 // ResourceStorage persists resources.
 type ResourceStorage interface {
-	// Put creates or updates a resource.
-	Put(ctx context.Context, namespace, project string, resource resource.Resource) error
-
-	// Delete removes a resource.
-	Delete(ctx context.Context, namespace, project, name string) error
-
-	// List returns all resources for a given project.
-	List(ctx context.Context, namespace, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, namespace, project string, resource resource.Resource) error
+	DeleteResource(ctx context.Context, namespace, project, name string) error
+	ListResources(ctx context.Context, namespace, project string) (map[string]resource.Resource, error)
 }
 
 // SourceStorage provides resource source code.
@@ -155,7 +150,7 @@ type run struct {
 
 func (r *run) GetExisting(ctx context.Context) error {
 	r.Logger.Debug("Get existing")
-	ex, err := r.Resources.List(ctx, r.Namespace, r.Project)
+	ex, err := r.Resources.ListResources(ctx, r.Namespace, r.Project)
 	if err != nil {
 		return errors.Wrap(err, "list")
 	}
@@ -338,7 +333,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		defer cancel()
 
 		logger.Debug("Storing data")
-		if err := r.Resources.Put(pctx, r.Namespace, r.Project, *res); err != nil {
+		if err := r.Resources.PutResource(pctx, r.Namespace, r.Project, *res); err != nil {
 			return errors.Wrap(err, "store resource")
 		}
 
@@ -501,7 +496,7 @@ func (r *run) removeResource(ctx context.Context, res resource.Resource) error {
 	defer cancel()
 
 	logger.Debug("Deleting data")
-	if err := r.Resources.Delete(pctx, r.Namespace, r.Project, res.Name); err != nil {
+	if err := r.Resources.DeleteResource(pctx, r.Namespace, r.Project, res.Name); err != nil {
 		return errors.Wrap(err, "delete resource")
 	}
 

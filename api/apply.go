@@ -70,6 +70,10 @@ func (f *Func) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, er
 		return &ApplyResponse{SourcesRequired: sr}, nil
 	}
 
+	if err := f.Storage.PutGraph(ctx, req.Namespace, proj.Name, g); err != nil {
+		return nil, errors.Wrap(err, "store graph")
+	}
+
 	if f.Reconciler != nil {
 		id := ksuid.New().String()
 		if err := f.Reconciler.Reconcile(ctx, id, req.Namespace, proj.Name, g); err != nil {

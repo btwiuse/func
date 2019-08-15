@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/func/func/resource"
+	"github.com/func/func/resource/graph"
 	"github.com/go-stack/stack"
 	"github.com/google/go-cmp/cmp"
 	"github.com/zclconf/go-cty/cty"
@@ -14,9 +15,11 @@ import (
 
 // The Target interface is implemented by stores that persist data.
 type Target interface {
-	Put(ctx context.Context, ns, project string, resource resource.Resource) error
-	Delete(ctx context.Context, ns, project, name string) error
-	List(ctx context.Context, ns, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, ns, project string, resource resource.Resource) error
+	DeleteResource(ctx context.Context, ns, project, name string) error
+	ListResources(ctx context.Context, ns, project string) (map[string]resource.Resource, error)
+	PutGraph(ctx context.Context, ns, project string, graph *graph.Graph) error
+	GetGraph(ctx context.Context, ns, project string) (*graph.Graph, error)
 }
 
 // Config provides configuration options for the test suite.
@@ -33,6 +36,9 @@ func Run(t *testing.T, cfg Config) {
 	run(t, "ResourceIO", cfg, resourceIO)
 	run(t, "ResourceList/OtherNS", cfg, listResourcesOtherNS)
 	run(t, "ResourceList/OtherProject", cfg, listResourcesOtherProject)
+	run(t, "GraphIO", cfg, graphIO)
+	run(t, "ListResources/OtherNS", cfg, listResourcesOtherNS)
+	run(t, "ListResources/OtherProject", cfg, listResourcesOtherProject)
 }
 
 func run(t *testing.T, name string, cfg Config, testFunc func(*testing.T, Config)) {
@@ -90,24 +96,24 @@ func resourceIO(t *testing.T, cfg Config) {
 	defer done()
 
 	// Add some resources
-	if err := s.Put(ctx, ns, proj, a); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, a); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
-	if err := s.Put(ctx, ns, proj, b); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, b); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
-	if err := s.Put(ctx, ns, proj, c); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, c); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
 
 	opts := []cmp.Option{
 		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 
-	// List
-	got, err := s.List(ctx, ns, proj)
+	// List resources
+	got, err := s.ListResources(ctx, ns, proj)
 	if err != nil {
-		t.Fatalf("List() err = %+v", err)
+		t.Fatalf("ListResources() err = %+v", err)
 	}
 	want := map[string]resource.Resource{"a": a, "b": b, "c": c}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
@@ -115,7 +121,7 @@ func resourceIO(t *testing.T, cfg Config) {
 	}
 
 	// Delete a resource
-	if err := s.Delete(ctx, "ns", proj, "b"); err != nil {
+	if err := s.DeleteResource(ctx, "ns", proj, "b"); err != nil {
 		t.Fatalf("DeleteResource() err = %+v", err)
 	}
 
@@ -130,13 +136,13 @@ func resourceIO(t *testing.T, cfg Config) {
 			"output": cty.StringVal("QUX"),
 		}),
 	}
-	if err := s.Put(ctx, ns, proj, updateA); err != nil {
-		t.Fatalf("Put() err = %+v", err)
+	if err := s.PutResource(ctx, ns, proj, updateA); err != nil {
+		t.Fatalf("PutResource() err = %+v", err)
 	}
 
-	got, err = s.List(ctx, ns, proj)
+	got, err = s.ListResources(ctx, ns, proj)
 	if err != nil {
-		t.Fatalf("List() err = %+v", err)
+		t.Fatalf("ListResources() err = %+v", err)
 	}
 	want = map[string]resource.Resource{"a": updateA, "c": c}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
@@ -155,11 +161,11 @@ func listResourcesOtherNS(t *testing.T, cfg Config) {
 	defer done()
 
 	a := resource.Resource{Name: "a", Type: "t", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
-	if err := s.Put(ctx, "ns", "proj", a); err != nil {
+	if err := s.PutResource(ctx, "ns", "proj", a); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := s.List(ctx, "other", "proj")
+	got, err := s.ListResources(ctx, "other", "proj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,17 +186,103 @@ func listResourcesOtherProject(t *testing.T, cfg Config) {
 	defer done()
 
 	a := resource.Resource{Name: "a", Type: "atype", Input: cty.EmptyObjectVal, Output: cty.EmptyObjectVal}
-	if err := s.Put(ctx, "ns", "proj", a); err != nil {
+	if err := s.PutResource(ctx, "ns", "proj", a); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := s.List(ctx, "ns", "other")
+	got, err := s.ListResources(ctx, "ns", "other")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(got) != 0 {
 		t.Errorf("Got %d resources, want 0", len(got))
+	}
+}
+
+func graphIO(t *testing.T, cfg Config) {
+	types := map[string]reflect.Type{
+		"person": reflect.TypeOf(struct {
+			Name string `func:"input"`
+			Age  int    `func:"input"`
+		}{}),
+	}
+
+	s, done := cfg.New(t, types)
+	defer done()
+
+	ctx := context.Background()
+	ns, proj := "ns", "proj"
+
+	g := &graph.Graph{
+		Resources: map[string]*resource.Resource{
+			"alice": {
+				Name:    "alice",
+				Type:    "person",
+				Sources: []string{"abc"},
+				Input: cty.ObjectVal(map[string]cty.Value{
+					"name": cty.StringVal("alice"),
+					"age":  cty.NumberIntVal(20),
+				}),
+			},
+			"bob": {
+				Name:    "bob",
+				Type:    "person",
+				Sources: []string{"abc"},
+				Input: cty.ObjectVal(map[string]cty.Value{
+					"name": cty.StringVal("bob"),
+					"age":  cty.NumberIntVal(30),
+				}),
+				Deps: []string{"alice", "carol"},
+			},
+		},
+		Dependencies: map[string][]graph.Dependency{
+			"bob": {{
+				Field: cty.GetAttrPath("friends"),
+				Expression: graph.Expression{
+					graph.ExprReference{
+						Path: cty.
+							GetAttrPath("alice").
+							GetAttr("friends").
+							Index(cty.NumberIntVal(0)),
+					},
+				},
+			}},
+		},
+	}
+
+	// Get before put
+	got, err := s.GetGraph(ctx, ns, proj)
+	if err != nil {
+		t.Fatalf("Get() err = %v", err)
+	}
+	if got != nil {
+		t.Errorf("Did not get nil graph")
+	}
+
+	// Add graph
+	if err := s.PutGraph(ctx, ns, proj, g); err != nil {
+		t.Fatalf("PutGraph() err = %+v", err)
+	}
+
+	got, err = s.GetGraph(ctx, ns, proj)
+	if err != nil {
+		t.Fatalf("Get() err = %v", err)
+	}
+	if got == nil {
+		t.Fatalf("Graph is <nil>")
+	}
+
+	opts := []cmp.Option{
+		cmp.Comparer(func(a, b cty.Value) bool {
+			return a.Equals(b).True()
+		}),
+		cmp.Comparer(func(a, b cty.Path) bool {
+			return a.Equals(b)
+		}),
+	}
+	if diff := cmp.Diff(got, g, opts...); diff != "" {
+		t.Errorf("(-got +want)\n%s", diff)
 	}
 }
 
