@@ -19,6 +19,11 @@ type Reconciler interface {
 	Reconcile(ctx context.Context, id, ns, project string, graph *graph.Graph) error
 }
 
+// Storage persists resolved graphs.
+type Storage interface {
+	PutGraph(ctx context.Context, ns, project string, g *graph.Graph) error
+}
+
 // A ResourceRegistry is used for matching resource type names to resource
 // implementations.
 type ResourceRegistry interface {
@@ -37,5 +42,6 @@ type Func struct {
 	Source     source.Storage
 	Resources  ResourceRegistry
 	Validator  Validator
+	Storage    Storage
 	Reconciler Reconciler
 }

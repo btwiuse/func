@@ -79,6 +79,7 @@ var applyCommand = &cobra.Command{
 				Source:     src,
 				Resources:  reg,
 				Validator:  validator,
+				Storage:    bolt,
 				Reconciler: reco,
 			}
 		} else {
