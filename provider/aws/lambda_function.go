@@ -63,7 +63,7 @@ type LambdaFunction struct {
 	//
 	// The length constraint applies only to the full ARN. If you specify only
 	// the function name, it is limited to 64 characters in length.
-	FunctionName string `func:"input" validation:"min=1,max=64"`
+	FunctionName string `func:"input" validate:"min=1,max=64"`
 
 	// The name of the method within your code that Lambda calls to execute
 	// your function. For more information, see
