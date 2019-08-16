@@ -413,6 +413,11 @@ func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map
 		blocks := blocksByType[name]
 		if f.Type.Kind() == reflect.Slice {
 			// Multiple blocks
+			if len(blocks) == 0 {
+				// No blocks to set in target slice
+				in[name] = cty.ListValEmpty(schema.ImpliedType(f.Type.Elem()))
+				continue
+			}
 			list := make([]cty.Value, len(blocks))
 			for i, b := range blocks {
 				fields := schema.Fields(f.Type.Elem()) // Do not limit to inputs -- only top level input required

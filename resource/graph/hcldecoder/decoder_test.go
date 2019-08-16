@@ -431,6 +431,34 @@ func TestDecodeBody(t *testing.T) {
 			},
 		},
 		{
+			name: "BlockSliceEmpty",
+			config: `
+				resource "foo" {
+					type = "bar"
+				}
+			`,
+			types: map[string]reflect.Type{
+				"bar": reflect.TypeOf(struct {
+					Sub []struct {
+						Val string
+					} `func:"input"`
+				}{}),
+			},
+			want: &graph.Graph{
+				Resources: map[string]*resource.Resource{
+					"foo": {
+						Type: "bar",
+						Name: "foo",
+						Input: cty.ObjectVal(map[string]cty.Value{
+							"sub": cty.ListValEmpty(cty.Object(map[string]cty.Type{
+								"val": cty.String,
+							})),
+						}),
+					},
+				},
+			},
+		},
+		{
 			name: "StructPointer",
 			config: `
 				resource "foo" {
