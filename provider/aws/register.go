@@ -25,6 +25,7 @@ func Register(reg registry) {
 	reg.Register("aws_iam_role", &IAMRole{})
 	reg.Register("aws_iam_role_policy", &IAMRolePolicy{})
 	reg.Register("aws_iam_role_policy_attachment", &IAMRolePolicyAttachment{})
+	reg.Register("aws_lambda_event_source_mapping", &LambdaEventSourceMapping{})
 	reg.Register("aws_lambda_function", &LambdaFunction{})
 	reg.Register("aws_lambda_invoke_permission", &LambdaInvokePermission{})
 	reg.Register("aws_sqs_queue", &SQSQueue{})
