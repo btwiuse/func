@@ -20,6 +20,7 @@ func Register(reg registry) {
 	reg.Register("aws_apigateway_resource", &APIGatewayResource{})
 	reg.Register("aws_apigateway_rest_api", &APIGatewayRestAPI{})
 	reg.Register("aws_apigateway_stage", &APIGatewayStage{})
+	reg.Register("aws_dynamodb_table", &DynamoDBTable{})
 	reg.Register("aws_iam_policy", &IAMPolicy{})
 	reg.Register("aws_iam_policy_document", &IAMPolicyDocument{})
 	reg.Register("aws_iam_role", &IAMRole{})
