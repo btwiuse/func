@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -445,7 +446,7 @@ func sourceInfoStr(t *testing.T, b []byte) string {
 	}
 	src := config.SourceInfo{
 		Len: len(b),
-		MD5: hex.EncodeToString(md5.Sum(nil)),
+		MD5: base64.StdEncoding.EncodeToString(md5.Sum(nil)),
 		Key: hex.EncodeToString(sha.Sum(nil)),
 	}
 	return src.EncodeToString()

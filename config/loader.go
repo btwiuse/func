@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -243,7 +244,7 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 
 		srcInfo := SourceInfo{
 			Len: buf.Len(),
-			MD5: hex.EncodeToString(md5.Sum(nil)),
+			MD5: base64.StdEncoding.EncodeToString(md5.Sum(nil)),
 			Key: key,
 		}
 

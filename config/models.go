@@ -45,7 +45,7 @@ type Resource struct {
 // SourceInfo contains information about the resource source code.
 type SourceInfo struct {
 	Key string // Unique key for source based on content digest.
-	MD5 string // Hex encoded MD5 checksum of compressed source.
+	MD5 string // Base64 encoded MD5 checksum of compressed source.
 	Len int    // Source archive size in Bytes.
 }
 
