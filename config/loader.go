@@ -169,23 +169,6 @@ func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
 	return mergeBodies(bodies), nil
 }
 
-// Files returns the configuration files that were loaded.
-//
-// The resulting map can be passed as files to hcl.NewDiagnosticTextWriter for
-// matching the diagnostics to original source files.
-//
-// The result is only valid if Load() has been executed without error.
-func (l *Loader) Files() map[string]*hcl.File {
-	list := make(map[string]*hcl.File, len(l.files))
-	for name, f := range l.files {
-		list[name] = &hcl.File{
-			Bytes: f.bytes,
-			Body:  f.body,
-		}
-	}
-	return list
-}
-
 // Source returns the compressed source for a given digest.
 //
 // The digests are encoded into the body returned from Load. When source files

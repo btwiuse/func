@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/func/func/config"
@@ -247,43 +246,6 @@ func TestLoader_Load(t *testing.T) {
 			bytesAsString := cmp.Transformer("string", func(b []byte) string { return string(b) })
 			if diff := cmp.Diff(got, tt.want, bytesAsString); diff != "" {
 				t.Errorf("Load() (-got, +want)\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestLoader_Files(t *testing.T) {
-	tests := []struct {
-		name string
-		root string
-		want []string
-	}{
-		{
-			"Project",
-			"testdata/project",
-			[]string{
-				"testdata/project/func.hcl",
-				"testdata/project/proj.hcl",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{
-				Compressor: &mockCompressor{},
-			}
-			_, diags := l.Load(tt.root)
-			if diags.HasErrors() {
-				t.Fatalf("Load() error = %v", diags)
-			}
-			var got []string
-			for name := range l.Files() {
-				got = append(got, name)
-			}
-			sort.Strings(got)
-
-			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("Files() (-want, +got)\n%s", diff)
 			}
 		})
 	}

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
-	"github.com/func/func/client"
+	"github.com/func/func/config"
 	"github.com/spf13/cobra"
 )
 
@@ -16,10 +18,15 @@ var rootCommand = &cobra.Command{
 			args = []string{"."}
 		}
 
-		cli := &client.Client{}
-		root, err := cli.FindRoot(args[0])
+		loader := &config.Loader{}
+
+		root, err := loader.Root(args[0])
 		if err != nil {
-			fatal(err)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if abs, err := filepath.Abs(root); err == nil {
+			root = abs
 		}
 		fmt.Println(root)
 	},
