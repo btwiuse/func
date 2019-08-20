@@ -383,6 +383,21 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 
 var args = []string{"testdata/project"}
 
+func ExampleLoader_WriteDiagnostics() {
+	l := &config.Loader{}
+	_, diags := l.Load("testdata/invalid") // File contains syntax errors
+	l.WriteDiagnostics(os.Stdout, diags)
+	// Output:
+	// Error: Missing newline after block definition
+	//
+	//   on testdata/invalid/invalid.hcl line 6:
+	//    4: resource "invalid" "syntax" {
+	//    5:   # too many closing braces
+	//    6: } }
+	//
+	// A block definition must end with a newline.
+}
+
 func Example_clientServer() {
 	// Client
 
