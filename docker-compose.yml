@@ -11,3 +11,8 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_HTTP_TRACE: /dev/stderr
     command: server /data
+  dynamodb:
+    image: amazon/dynamodb-local
+    container_name: dynamodb_test
+    ports:
+      - ${DYNAMODB_PORT}:8000

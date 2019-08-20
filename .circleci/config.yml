@@ -4,12 +4,13 @@ jobs:
   build:
     docker:
       - image: golang:1.12.7
-      - image: minio/minio	
+      - image: minio/minio
         environment:
           MINIO_ACCESS_KEY: miniotest
           MINIO_SECRET_KEY: miniotest
           MINIO_HTTP_TRACE: /dev/stderr
         command: server /data
+      - image: amazon/dynamodb-local
     working_directory: /src
     steps:
       - checkout
@@ -26,6 +27,7 @@ jobs:
             TEST_S3_SECRET_KEY: miniotest
             TEST_S3_REGION: us-east-1
             TEST_S3_ENDPOINT: "http://localhost:9000"
+            TEST_DYNAMODB_ENDPOINT: "http://localhost:8000"
           command: |
             go test -cover -race -tags integration ./... 
       - run:
