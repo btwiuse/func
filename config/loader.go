@@ -59,7 +59,7 @@ type Loader struct {
 //
 // Root will do the minimum necessary work to find the project. This means the
 // directory may contain multiple projects, even if that is not allowed.
-func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
+func (l *Loader) Root(dir string) (string, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return "", diagErr(err)
@@ -84,7 +84,7 @@ func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", hcl.Diagnostics{{Severity: hcl.DiagError, Summary: "Project not found"}}
+		return "", fmt.Errorf("project not found")
 	}
 
 	return l.Root(parent)

@@ -390,9 +390,9 @@ func Example_clientServer() {
 	l := &config.Loader{}
 
 	// Find root, given user input
-	rootDir, diags := l.Root(args[0])
-	if diags.HasErrors() {
-		log.Fatal(diags)
+	rootDir, err := l.Root(args[0])
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Load config files from root
