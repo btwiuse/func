@@ -21,16 +21,17 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestServer_Apply_NoNamespace(t *testing.T) {
+func TestServer_Apply_NoProject(t *testing.T) {
 	s := &Server{
 		Logger: zaptest.NewLogger(t),
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: "",
+		Project: "",
+		Config:  []byte("{}"),
 	}
 	_, err := s.Apply(context.Background(), req)
-	wantErr := twirp.NewError(twirp.InvalidArgument, "Namespace not set")
+	wantErr := twirp.NewError(twirp.InvalidArgument, "Project not set")
 	if diff := cmp.Diff(err, wantErr, cmperropts...); diff != "" {
 		t.Errorf("Error (-got +want)\n%s", diff)
 	}
@@ -43,8 +44,8 @@ func TestServer_Apply_InvalidConfig(t *testing.T) {
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: "ns",
-		Config:    []byte("{"), // missing }
+		Project: "testproject",
+		Config:  []byte("{"), // missing }
 	}
 	_, err := s.Apply(context.Background(), req)
 	wantErr := twirp.NewError(twirp.InvalidArgument, "parse config: unexpected end of JSON input")
@@ -61,7 +62,7 @@ func TestServer_Apply_Diagnostics(t *testing.T) {
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: "ns",
+		Project: "testproject",
 		Config: configJSON(t, "file.hcl", `
 			resource "foo" {
 				type = "notsupported" # Not registered in registry
@@ -101,9 +102,8 @@ func TestServer_Apply_RequestSource(t *testing.T) {
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: "ns",
+		Project: "testproject",
 		Config: configJSON(t, "file.hcl", `
-			project "foo" {}
 			resource "bar" {
 				type   = "bar"
 				source = "80:md5:sha"
@@ -148,9 +148,8 @@ func TestServer_Apply_OK(t *testing.T) {
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: "ns",
+		Project: "testproject",
 		Config: configJSON(t, "file.hcl", `
-			project "foo" {}
 			resource "bar" {
 				type   = "bar"
 				source = "80:md5:foo"
@@ -162,7 +161,7 @@ func TestServer_Apply_OK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	g, err := mockStorage.GetGraph(context.Background(), "ns", "foo")
+	g, err := mockStorage.GetGraph(context.Background(), "testproject")
 	if err != nil {
 		log.Fatal(err)
 	}

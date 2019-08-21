@@ -76,42 +76,34 @@ func (l *Loader) WriteDiagnostics(w io.Writer, diags hcl.Diagnostics) {
 	}
 }
 
-// Root finds the root directory of a project.
+// Root finds the root directory of a project. The returned string is the
+// absolute path to the project on disk.
 //
-// The root directory is determined by a directory containing a config file
-// with a project definition.
+// The root directory is determined by the file .func/root existing. The
+// contents of the file are not significant. If the given dir does not contain
+// a project, parent directories are traversed until a project is found.
 //
-// If the given dir does not contain a project, parent directories are
-// traversed until a project is found.
-//
-// Root will do the minimum necessary work to find the project. This means the
-// directory may contain multiple projects, even if that is not allowed.
+// An error is returned if the dir cannot be opened. An empty string is
+// returned if no project root was found.
 func (l *Loader) Root(dir string) (string, error) {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return "", diagErr(err)
+	// Check that dir itself exists
+	if _, err := os.Stat(dir); err != nil {
+		return "", err
 	}
-
-	for _, f := range files {
-		if !isConfigFile(f.Name()) {
-			continue
+	rootfile := filepath.Join(dir, ".func", "root")
+	stat, err := os.Stat(rootfile)
+	if err == nil && !stat.IsDir() {
+		// Match
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			return "", err
 		}
-		filename := filepath.Join(dir, f.Name())
-		f, diags := l.loadFile(filename)
-		if diags.HasErrors() {
-			return "", diags
-		}
-
-		for _, block := range f.body.ChildBlocks {
-			if block.Type == "project" {
-				return dir, nil
-			}
-		}
+		return abs, nil
 	}
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", fmt.Errorf("project not found")
+		return "", nil
 	}
 
 	return l.Root(parent)
@@ -276,6 +268,9 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 //
 // The missing range is arbitrarily set to the first file.
 func mergeBodies(bodies []*hclpack.Body) *hclpack.Body {
+	if len(bodies) == 0 {
+		return &hclpack.Body{}
+	}
 	ret := &hclpack.Body{}
 	for _, b := range bodies {
 		for name, attr := range b.Attributes {

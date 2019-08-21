@@ -878,7 +878,7 @@ func TestDecodeBody(t *testing.T) {
 				Resources: &resource.Registry{Types: tt.types},
 				Validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			}
-			_, srcs, diags := dec.DecodeBody(body, g)
+			srcs, diags := dec.DecodeBody(body, g)
 			parser.CheckDiags(t, diags)
 
 			opts := []cmp.Option{
@@ -903,24 +903,6 @@ func TestDecodeBody(t *testing.T) {
 	}
 }
 
-func TestDecodeBody_project(t *testing.T) {
-	parser := &testParser{}
-	body := parser.Parse(t, `
-		project "test" {}
-	`)
-
-	dec := &hcldecoder.Decoder{}
-	got, _, diags := dec.DecodeBody(body, graph.New())
-	parser.CheckDiags(t, diags)
-
-	want := &config.Project{
-		Name: "test",
-	}
-	if diff := cmp.Diff(got, want); diff != "" {
-		t.Errorf("Project does not match (-got +want)\n%s", diff)
-	}
-}
-
 func TestDecodeBody_Diagnostics(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -932,23 +914,23 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 		{
 			name: "ExtraLabel",
 			config: `
-				project "foo" "bar" {}
+				resource "foo" "bar" {}
 			`,
 			types:     map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			validator: ValidateFunc(func(interface{}, string) error { return nil }),
 			diags: hcl.Diagnostics{{
 				Severity: hcl.DiagError,
-				Summary:  "Extraneous label for project",
-				Detail:   "Only 1 labels (name) are expected for project blocks.",
+				Summary:  "Extraneous label for resource",
+				Detail:   "Only 1 labels (name) are expected for resource blocks.",
 				Subject: &hcl.Range{
 					Filename: "file.hcl",
-					Start:    hcl.Pos{Line: 1, Column: 15, Byte: 14},
-					End:      hcl.Pos{Line: 1, Column: 20, Byte: 19},
+					Start:    hcl.Pos{Line: 1, Column: 16, Byte: 15},
+					End:      hcl.Pos{Line: 1, Column: 21, Byte: 20},
 				},
 				Context: &hcl.Range{
 					Filename: "file.hcl",
 					Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-					End:      hcl.Pos{Line: 1, Column: 22, Byte: 21},
+					End:      hcl.Pos{Line: 1, Column: 23, Byte: 22},
 				},
 			}},
 		},
@@ -1309,27 +1291,6 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 			}},
 		},
 		{
-			name: "NoProjectName",
-			config: `
-				project "" {
-				}
-			`,
-			diags: hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  "Project name not set",
-				Subject: &hcl.Range{
-					Filename: "file.hcl",
-					Start:    hcl.Pos{Line: 1, Column: 9, Byte: 8},
-					End:      hcl.Pos{Line: 1, Column: 11, Byte: 10},
-				},
-				Context: &hcl.Range{
-					Filename: "file.hcl",
-					Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-					End:      hcl.Pos{Line: 1, Column: 11, Byte: 10},
-				},
-			}},
-		},
-		{
 			name: "NoResourceName",
 			config: `
 				resource "" {
@@ -1618,7 +1579,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 				Resources: &resource.Registry{Types: tt.types},
 				Validator: tt.validator,
 			}
-			_, _, diags := dec.DecodeBody(body, g)
+			_, diags := dec.DecodeBody(body, g)
 
 			opts := []cmp.Option{
 				cmpopts.SortSlices(func(a, b hcl.Diagnostic) bool { return a.Error() < b.Error() }),

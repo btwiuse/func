@@ -33,9 +33,9 @@ var DefaultConcurrency = 10
 
 // ResourceStorage persists resources.
 type ResourceStorage interface {
-	PutResource(ctx context.Context, namespace, project string, resource resource.Resource) error
-	DeleteResource(ctx context.Context, namespace, project, name string) error
-	ListResources(ctx context.Context, namespace, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, project string, resource resource.Resource) error
+	DeleteResource(ctx context.Context, project, name string) error
+	ListResources(ctx context.Context, project string) (map[string]resource.Resource, error)
 }
 
 // SourceStorage provides resource source code.
@@ -68,7 +68,7 @@ type Reconciler struct {
 }
 
 // Reconcile reconciles changes to the graph.
-func (r *Reconciler) Reconcile(ctx context.Context, id, ns, proj string, graph *graph.Graph) error {
+func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph *graph.Graph) error {
 	logger := r.Logger
 	if logger == nil {
 		logger = zap.NewNop()
@@ -85,7 +85,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, ns, proj string, graph *
 		logger = logger.With(zap.String("id", id))
 	}
 
-	logger.Info("Reconcile", zap.String("ns", ns), zap.String("project", proj))
+	logger.Info("Reconcile", zap.String("project", proj))
 
 	c := r.Concurrency
 	if c == 0 {
@@ -94,7 +94,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, ns, proj string, graph *
 
 	run := run{
 		ID:        id,
-		Namespace: ns,
 		Project:   proj,
 		Graph:     graph,
 		Resources: r.Resources,
@@ -128,10 +127,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, ns, proj string, graph *
 }
 
 type run struct {
-	ID        string
-	Namespace string
-	Project   string
-	Graph     *graph.Graph
+	ID      string
+	Project string
+	Graph   *graph.Graph
 
 	Resources ResourceStorage
 	Source    SourceStorage
@@ -150,7 +148,7 @@ type run struct {
 
 func (r *run) GetExisting(ctx context.Context) error {
 	r.Logger.Debug("Get existing")
-	ex, err := r.Resources.ListResources(ctx, r.Namespace, r.Project)
+	ex, err := r.Resources.ListResources(ctx, r.Project)
 	if err != nil {
 		return errors.Wrap(err, "list")
 	}
@@ -333,7 +331,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		defer cancel()
 
 		logger.Debug("Storing data")
-		if err := r.Resources.PutResource(pctx, r.Namespace, r.Project, *res); err != nil {
+		if err := r.Resources.PutResource(pctx, r.Project, *res); err != nil {
 			return errors.Wrap(err, "store resource")
 		}
 
@@ -496,7 +494,7 @@ func (r *run) removeResource(ctx context.Context, res resource.Resource) error {
 	defer cancel()
 
 	logger.Debug("Deleting data")
-	if err := r.Resources.DeleteResource(pctx, r.Namespace, r.Project, res.Name); err != nil {
+	if err := r.Resources.DeleteResource(pctx, r.Project, res.Name); err != nil {
 		return errors.Wrap(err, "delete resource")
 	}
 

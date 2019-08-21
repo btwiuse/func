@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/func/func/config"
@@ -21,15 +22,20 @@ import (
 )
 
 func TestLoader_Root(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name    string
 		dir     string
 		want    string
 		wantErr bool
 	}{
-		{"Exact", "testdata/project", "testdata/project", false},
-		{"Subdir", "testdata/project/src", "testdata/project", false},
-		{"NoProject", os.TempDir(), "", true},
+		{"Exact", "testdata/project", filepath.Join(cwd, "testdata/project"), false},
+		{"Subdir", "testdata/project/src", filepath.Join(cwd, "testdata/project"), false},
+		{"NoProject", os.TempDir(), "", false},
 		{"NotFound", "nonexisting", "", true},
 	}
 	for _, tt := range tests {
@@ -37,11 +43,11 @@ func TestLoader_Root(t *testing.T) {
 			l := &config.Loader{}
 			got, err := l.Root(tt.dir)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Loader.Root() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Loader.Root() error = %v, wantErr %t", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("Loader.Root() = %v, want %v", got, tt.want)
+				t.Errorf("Loader.Root() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -54,6 +60,12 @@ func TestLoader_Load(t *testing.T) {
 		compressor config.SourceCompressor
 		want       *hclpack.Body
 	}{
+		{
+			"Empty",
+			"testdata/empty",
+			nil,
+			&hclpack.Body{},
+		},
 		{
 			"Project",
 			"testdata/project",
@@ -193,34 +205,6 @@ func TestLoader_Load(t *testing.T) {
 								Filename: "testdata/project/func.hcl",
 								Start:    hcl.Pos{Line: 1, Column: 10, Byte: 9},
 								End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
-							},
-						},
-					},
-					{
-						Type:   "project",
-						Labels: []string{"test"},
-						Body: hclpack.Body{
-							MissingItemRange_: hcl.Range{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 18, Byte: 17},
-								End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
-							},
-						},
-						DefRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 15, Byte: 14},
-						},
-						TypeRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 8, Byte: 7},
-						},
-						LabelRanges: []hcl.Range{
-							{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 9, Byte: 8},
-								End:      hcl.Pos{Line: 1, Column: 15, Byte: 14},
 							},
 						},
 					},

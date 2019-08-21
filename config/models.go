@@ -12,14 +12,7 @@ import (
 // A Root is the root structure of a project's configuration, including all
 // resources that are part of the project.
 type Root struct {
-	Project   Project    `hcl:"project,block"`
 	Resources []Resource `hcl:"resource,block"`
-}
-
-// A Project is the root object of a func project.
-type Project struct {
-	// Name uniquely identifies a project.
-	Name string `hcl:"name,label"`
 }
 
 // Resource is a user specified resource specification.
