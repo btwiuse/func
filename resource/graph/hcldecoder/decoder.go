@@ -60,7 +60,7 @@ type Decoder struct {
 // The returned Sources contains all source information that was decoded from
 // the body. The resources added to the graph will only have the key attached
 // to them.
-func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) (*config.Project, []*config.SourceInfo, hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) ([]*config.SourceInfo, hcl.Diagnostics) {
 	var hclSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 
 	if d.resources != nil {
@@ -70,24 +70,12 @@ func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) (*config.Projec
 
 	cont, diags := body.Content(hclSchema)
 	if diags.HasErrors() {
-		return nil, nil, diags
+		return nil, diags
 	}
 
-	var project *config.Project
 	for _, b := range cont.Blocks {
-		switch b.Type {
-		case "project":
-			if b.Labels[0] == "" {
-				diags = append(diags, &hcl.Diagnostic{
-					Severity: hcl.DiagError,
-					Summary:  "Project name not set",
-					Subject:  b.LabelRanges[0].Ptr(),
-					Context:  b.DefRange.Ptr(),
-				})
-			}
-			project = &config.Project{}
-			diags = append(diags, gohcl.DecodeBody(b.Body, nil, project)...)
-			project.Name = b.Labels[0]
+		// Keep switch for future reference, in case other blocks are added.
+		switch b.Type { // nolint: gocritic
 		case "resource":
 			if b.Labels[0] == "" {
 				diags = append(diags, &hcl.Diagnostic{
@@ -104,7 +92,7 @@ func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) (*config.Projec
 	diags = append(diags, d.resolveValues()...)
 
 	if diags.HasErrors() {
-		return project, d.sources, diags
+		return d.sources, diags
 	}
 
 	if err := d.addResources(target); err != nil {
@@ -116,7 +104,7 @@ func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) (*config.Projec
 		})
 	}
 
-	return project, d.sources, diags
+	return d.sources, diags
 }
 
 func (d *Decoder) addResources(g *graph.Graph) error {
