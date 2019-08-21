@@ -14,21 +14,30 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Storage stores data in an AWS S3 bucket.
-type Storage struct {
-	Bucket          string        // S3 Bucket is the bucket to use.
-	UploadURLExpiry time.Duration // Expiry time for signed upload URLs.
-	Client          s3iface.ClientAPI
+// S3 stores data in an AWS S3 bucket.
+type S3 struct {
+	bucket          string        // S3 Bucket is the bucket to use.
+	uploadURLExpiry time.Duration // Expiry time for signed upload URLs.
+	cli             s3iface.ClientAPI
+}
+
+// New creates a new S3 storage client.
+func New(cfg aws.Config, bucket string, uploadExpiry time.Duration) *S3 {
+	return &S3{
+		bucket:          bucket,
+		uploadURLExpiry: uploadExpiry,
+		cli:             s3.New(cfg),
+	}
 }
 
 // Has returns true if the given filename exists in the bucket.
-func (s *Storage) Has(ctx context.Context, filename string) (bool, error) {
+func (s *S3) Has(ctx context.Context, filename string) (bool, error) {
 	input := &s3.HeadObjectInput{
-		Bucket: aws.String(s.Bucket),
+		Bucket: aws.String(s.bucket),
 		Key:    aws.String(filename),
 	}
 
-	req := s.Client.HeadObjectRequest(input)
+	req := s.cli.HeadObjectRequest(input)
 	_, err := req.Send(ctx)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -43,9 +52,9 @@ func (s *Storage) Has(ctx context.Context, filename string) (bool, error) {
 }
 
 // Get returns a reader for a file in the bucket.
-func (s *Storage) Get(ctx context.Context, filename string) (io.ReadCloser, error) {
-	req := s.Client.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(s.Bucket),
+func (s *S3) Get(ctx context.Context, filename string) (io.ReadCloser, error) {
+	req := s.cli.GetObjectRequest(&s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
 		Key:    aws.String(filename),
 	})
 	res, err := req.Send(ctx)
@@ -59,15 +68,15 @@ func (s *Storage) Get(ctx context.Context, filename string) (io.ReadCloser, erro
 // the bucket.
 //
 // The uploaded file must match the provided ContentMD5.
-func (s *Storage) NewUpload(config source.UploadConfig) (*source.UploadURL, error) {
-	req := s.Client.PutObjectRequest(&s3.PutObjectInput{
-		Bucket:        aws.String(s.Bucket),
+func (s *S3) NewUpload(config source.UploadConfig) (*source.UploadURL, error) {
+	req := s.cli.PutObjectRequest(&s3.PutObjectInput{
+		Bucket:        aws.String(s.bucket),
 		Key:           aws.String(config.Filename),
 		ContentLength: aws.Int64(int64(config.ContentLength)),
 		ContentMD5:    aws.String(config.ContentMD5),
 	})
 
-	presigned, err := req.Presign(s.UploadURLExpiry)
+	presigned, err := req.Presign(s.uploadURLExpiry)
 	if err != nil {
 		return nil, errors.Wrap(err, "presign upload url")
 	}
@@ -82,5 +91,3 @@ func (s *Storage) NewUpload(config source.UploadConfig) (*source.UploadURL, erro
 
 	return url, nil
 }
-
-var _ source.Storage = (*Storage)(nil)

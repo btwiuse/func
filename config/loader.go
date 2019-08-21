@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type file struct {
@@ -49,6 +50,32 @@ type Loader struct {
 	sources map[string]*bytes.Buffer
 }
 
+// WriteDiagnostics writes diagnostics as a human readable string to w. It
+// should only be used for diagnostics that originate from files loaded by
+// Loader.
+//
+// If a TTY is attached, the output will be colorized and wrap at the terminal
+// width. Otherwise, wrap will occur at 78 characters and output won't contain
+// ANSI escape characters.
+func (l *Loader) WriteDiagnostics(w io.Writer, diags hcl.Diagnostics) {
+	files := make(map[string]*hcl.File, len(l.files))
+	for name, f := range l.files {
+		files[name] = &hcl.File{
+			Bytes: f.bytes,
+			Body:  f.body,
+		}
+	}
+	cols, _, err := terminal.GetSize(0)
+	if err != nil {
+		cols = 78
+	}
+	color := terminal.IsTerminal(0)
+	wr := hcl.NewDiagnosticTextWriter(w, files, uint(cols), color)
+	if err := wr.WriteDiagnostics(diags); err != nil {
+		fmt.Fprintln(w, err)
+	}
+}
+
 // Root finds the root directory of a project.
 //
 // The root directory is determined by a directory containing a config file
@@ -59,7 +86,7 @@ type Loader struct {
 //
 // Root will do the minimum necessary work to find the project. This means the
 // directory may contain multiple projects, even if that is not allowed.
-func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
+func (l *Loader) Root(dir string) (string, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return "", diagErr(err)
@@ -84,7 +111,7 @@ func (l *Loader) Root(dir string) (string, hcl.Diagnostics) {
 
 	parent := filepath.Dir(dir)
 	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", hcl.Diagnostics{{Severity: hcl.DiagError, Summary: "Project not found"}}
+		return "", fmt.Errorf("project not found")
 	}
 
 	return l.Root(parent)
@@ -140,23 +167,6 @@ func (l *Loader) Load(root string) (*hclpack.Body, hcl.Diagnostics) {
 		return nil, diagErr(err)
 	}
 	return mergeBodies(bodies), nil
-}
-
-// Files returns the configuration files that were loaded.
-//
-// The resulting map can be passed as files to hcl.NewDiagnosticTextWriter for
-// matching the diagnostics to original source files.
-//
-// The result is only valid if Load() has been executed without error.
-func (l *Loader) Files() map[string]*hcl.File {
-	list := make(map[string]*hcl.File, len(l.files))
-	for name, f := range l.files {
-		list[name] = &hcl.File{
-			Bytes: f.bytes,
-			Body:  f.body,
-		}
-	}
-	return list
 }
 
 // Source returns the compressed source for a given digest.

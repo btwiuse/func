@@ -29,10 +29,10 @@ func TestStorage(t *testing.T) {
 	cleanup := makeBucket(t, cli, bucket)
 	defer cleanup()
 
-	s := &Storage{
-		Bucket:          bucket,
-		UploadURLExpiry: 5 * time.Minute,
-		Client:          cli,
+	s := &S3{
+		bucket:          bucket,
+		uploadURLExpiry: 5 * time.Minute,
+		cli:             cli,
 	}
 
 	ctx := context.Background()

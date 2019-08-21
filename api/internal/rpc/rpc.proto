@@ -4,7 +4,7 @@ package io.func;
 
 option go_package = "rpc";
 
-service Func {
+service RPC {
   // Apply applies resources changes.
   rpc Apply(ApplyRequest) returns (ApplyResponse);
 }
@@ -28,6 +28,7 @@ message ApplyRequest {
 message ApplyResponse {
   // SourcesRequired is set if source code uploads are required.
   repeated SourceRequest sources_required = 1;
+  repeated Diagnostic diagnostics = 2;
 }
 
 // An SourceRequest describes a single upload request.
@@ -42,4 +43,24 @@ message SourceRequest {
 
   // Headers include the additional headers that must be set on the upload.
   map<string, string> headers = 3;
+}
+
+message Diagnostic {
+  bool error = 1;
+  string summary = 2;
+  string detail = 3;
+  Range subject = 4;
+  Range context = 5;
+}
+
+message Range {
+  string filename = 1;
+  Pos start = 2;
+  Pos end = 3;
+}
+
+message Pos {
+  int64 line = 1;
+  int64 column = 2;
+  int64 byte = 3;
 }

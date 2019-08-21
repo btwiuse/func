@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/func/func/config"
@@ -252,43 +251,6 @@ func TestLoader_Load(t *testing.T) {
 	}
 }
 
-func TestLoader_Files(t *testing.T) {
-	tests := []struct {
-		name string
-		root string
-		want []string
-	}{
-		{
-			"Project",
-			"testdata/project",
-			[]string{
-				"testdata/project/func.hcl",
-				"testdata/project/proj.hcl",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{
-				Compressor: &mockCompressor{},
-			}
-			_, diags := l.Load(tt.root)
-			if diags.HasErrors() {
-				t.Fatalf("Load() error = %v", diags)
-			}
-			var got []string
-			for name := range l.Files() {
-				got = append(got, name)
-			}
-			sort.Strings(got)
-
-			if diff := cmp.Diff(got, tt.want); diff != "" {
-				t.Errorf("Files() (-want, +got)\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestLoader_Source(t *testing.T) {
 	tests := []struct {
 		name string
@@ -383,6 +345,21 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 
 var args = []string{"testdata/project"}
 
+func ExampleLoader_WriteDiagnostics() {
+	l := &config.Loader{}
+	_, diags := l.Load("testdata/invalid") // File contains syntax errors
+	l.WriteDiagnostics(os.Stdout, diags)
+	// Output:
+	// Error: Missing newline after block definition
+	//
+	//   on testdata/invalid/invalid.hcl line 6:
+	//    4: resource "invalid" "syntax" {
+	//    5:   # too many closing braces
+	//    6: } }
+	//
+	// A block definition must end with a newline.
+}
+
 func Example_clientServer() {
 	// Client
 
@@ -390,9 +367,9 @@ func Example_clientServer() {
 	l := &config.Loader{}
 
 	// Find root, given user input
-	rootDir, diags := l.Root(args[0])
-	if diags.HasErrors() {
-		log.Fatal(diags)
+	rootDir, err := l.Root(args[0])
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Load config files from root
