@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/func/func/config"
 	"github.com/spf13/cobra"
@@ -20,15 +19,16 @@ var rootCommand = &cobra.Command{
 
 		loader := &config.Loader{}
 
-		root, err := loader.Root(args[0])
+		rootDir, err := loader.Root(args[0])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if abs, err := filepath.Abs(root); err == nil {
-			root = abs
+		if rootDir == "" {
+			fmt.Fprintln(os.Stderr, "Project not found")
+			os.Exit(2)
 		}
-		fmt.Println(root)
+		fmt.Println(rootDir)
 	},
 }
 

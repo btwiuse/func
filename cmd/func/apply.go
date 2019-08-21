@@ -69,8 +69,12 @@ var applyCommand = &cobra.Command{
 
 		rootDir, err := loader.Root(args[0])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not find root: %v", err)
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
+		}
+		if rootDir == "" {
+			fmt.Fprintln(os.Stderr, "Project not found")
+			os.Exit(2)
 		}
 
 		logger.Debug("Load config files")
