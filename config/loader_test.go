@@ -61,6 +61,12 @@ func TestLoader_Load(t *testing.T) {
 		want       *hclpack.Body
 	}{
 		{
+			"Empty",
+			"testdata/empty",
+			nil,
+			&hclpack.Body{},
+		},
+		{
 			"Project",
 			"testdata/project",
 			&mockCompressor{

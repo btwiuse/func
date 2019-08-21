@@ -268,6 +268,9 @@ func (l *Loader) processResource(block hclpack.Block, filename string) (hclpack.
 //
 // The missing range is arbitrarily set to the first file.
 func mergeBodies(bodies []*hclpack.Body) *hclpack.Body {
+	if len(bodies) == 0 {
+		return &hclpack.Body{}
+	}
 	ret := &hclpack.Body{}
 	for _, b := range bodies {
 		for name, attr := range b.Attributes {
