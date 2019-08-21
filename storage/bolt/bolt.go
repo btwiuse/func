@@ -56,9 +56,9 @@ func (b *Bolt) Close() error {
 }
 
 // PutResource creates or updates a resource.
-func (b *Bolt) PutResource(ctx context.Context, ns, project string, resource resource.Resource) error {
+func (b *Bolt) PutResource(ctx context.Context, project string, resource resource.Resource) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := b.createBucketIfNotExists(tx, []string{ns, project, "resources"})
+		bucket, err := b.createBucketIfNotExists(tx, []string{project, "resources"})
 		if err != nil {
 			return errors.Wrap(err, "ensure bucket")
 		}
@@ -72,9 +72,9 @@ func (b *Bolt) PutResource(ctx context.Context, ns, project string, resource res
 }
 
 // DeleteResource deletes a resource. No-op if the resource does not exist.
-func (b *Bolt) DeleteResource(ctx context.Context, ns, project, name string) error {
+func (b *Bolt) DeleteResource(ctx context.Context, project, name string) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket := b.getBucket(tx, []string{ns, project, "resources"})
+		bucket := b.getBucket(tx, []string{project, "resources"})
 		if bucket == nil {
 			return nil
 		}
@@ -83,10 +83,10 @@ func (b *Bolt) DeleteResource(ctx context.Context, ns, project, name string) err
 }
 
 // ListResources lists all resources in a project.
-func (b *Bolt) ListResources(ctx context.Context, ns, project string) (map[string]resource.Resource, error) {
+func (b *Bolt) ListResources(ctx context.Context, project string) (map[string]resource.Resource, error) {
 	out := make(map[string]resource.Resource)
 	err := b.db.View(func(tx *bolt.Tx) error {
-		bucket := b.getBucket(tx, []string{ns, project, "resources"})
+		bucket := b.getBucket(tx, []string{project, "resources"})
 		if bucket == nil {
 			return nil
 		}
@@ -119,9 +119,9 @@ func (b *Bolt) ListResources(ctx context.Context, ns, project string) (map[strin
 }
 
 // PutGraph creates or updates a graph.
-func (b *Bolt) PutGraph(ctx context.Context, ns, project string, graph *graph.Graph) error {
+func (b *Bolt) PutGraph(ctx context.Context, project string, graph *graph.Graph) error {
 	return b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := b.createBucketIfNotExists(tx, []string{ns, project, "graph"})
+		bucket, err := b.createBucketIfNotExists(tx, []string{project, "graph"})
 		if err != nil {
 			return errors.Wrap(err, "ensure bucket")
 		}
@@ -135,10 +135,10 @@ func (b *Bolt) PutGraph(ctx context.Context, ns, project string, graph *graph.Gr
 
 // GetGraph returns a graph for a project. Returns nil if the project does not
 // have a graph.
-func (b *Bolt) GetGraph(ctx context.Context, ns, project string) (*graph.Graph, error) {
+func (b *Bolt) GetGraph(ctx context.Context, project string) (*graph.Graph, error) {
 	var g *graph.Graph
 	err := b.db.View(func(tx *bolt.Tx) error {
-		bucket := b.getBucket(tx, []string{ns, project, "graph"})
+		bucket := b.getBucket(tx, []string{project, "graph"})
 		if bucket == nil {
 			// Bucket does not exist
 			return nil

@@ -41,11 +41,11 @@ func (d *DynamoDB) CreateTable(ctx context.Context, rcu, wcu int64) error {
 	_, err := d.Client.CreateTableRequest(&dynamodb.CreateTableInput{
 		TableName: aws.String(d.TableName),
 		AttributeDefinitions: []dynamodb.AttributeDefinition{
-			{AttributeName: aws.String("Owner"), AttributeType: dynamodb.ScalarAttributeTypeS},
+			{AttributeName: aws.String("Project"), AttributeType: dynamodb.ScalarAttributeTypeS},
 			{AttributeName: aws.String("ID"), AttributeType: dynamodb.ScalarAttributeTypeS},
 		},
 		KeySchema: []dynamodb.KeySchemaElement{
-			{AttributeName: aws.String("Owner"), KeyType: dynamodb.KeyTypeHash},
+			{AttributeName: aws.String("Project"), KeyType: dynamodb.KeyTypeHash},
 			{AttributeName: aws.String("ID"), KeyType: dynamodb.KeyTypeRange},
 		},
 		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
@@ -60,7 +60,7 @@ func (d *DynamoDB) CreateTable(ctx context.Context, rcu, wcu int64) error {
 }
 
 // PutResource creates or updates a resource.
-func (d *DynamoDB) PutResource(ctx context.Context, ns, project string, resource resource.Resource) error {
+func (d *DynamoDB) PutResource(ctx context.Context, project string, resource resource.Resource) error {
 	in, err := ctyjson.Marshal(resource.Input, resource.Input.Type())
 	if err != nil {
 		return errors.Wrap(err, "marshal input")
@@ -72,12 +72,12 @@ func (d *DynamoDB) PutResource(ctx context.Context, ns, project string, resource
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
-			"Owner":  {S: aws.String(fmt.Sprintf("%s-%s", ns, project))},
-			"ID":     {S: aws.String(fmt.Sprintf("resource-%s", resource.Name))},
-			"Type":   {S: aws.String(resource.Type)},
-			"Name":   {S: aws.String(resource.Name)},
-			"Input":  {S: aws.String(string(in))},
-			"Output": {S: aws.String(string(out))},
+			"Project": {S: aws.String(project)},
+			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", resource.Name))},
+			"Type":    {S: aws.String(resource.Type)},
+			"Name":    {S: aws.String(resource.Name)},
+			"Input":   {S: aws.String(string(in))},
+			"Output":  {S: aws.String(string(out))},
 		},
 	}
 	if len(resource.Deps) > 0 {
@@ -99,12 +99,12 @@ func (d *DynamoDB) PutResource(ctx context.Context, ns, project string, resource
 }
 
 // DeleteResource deletes a resource. No-op if the resource does not exist.
-func (d *DynamoDB) DeleteResource(ctx context.Context, ns, project, name string) error {
+func (d *DynamoDB) DeleteResource(ctx context.Context, project, name string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
-			"Owner": {S: aws.String(fmt.Sprintf("%s-%s", ns, project))},
-			"ID":    {S: aws.String(fmt.Sprintf("resource-%s", name))},
+			"Project": {S: aws.String(project)},
+			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", name))},
 		},
 	}
 	_, err := d.Client.DeleteItemRequest(input).Send(ctx)
@@ -115,17 +115,17 @@ func (d *DynamoDB) DeleteResource(ctx context.Context, ns, project, name string)
 }
 
 // ListResources lists all resources in a project.
-func (d *DynamoDB) ListResources(ctx context.Context, ns, project string) (map[string]resource.Resource, error) {
+func (d *DynamoDB) ListResources(ctx context.Context, project string) (map[string]resource.Resource, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(d.TableName),
-		KeyConditionExpression: aws.String("#owner = :owner AND begins_with(#id, :prefix)"),
+		KeyConditionExpression: aws.String("#project = :project AND begins_with(#id, :prefix)"),
 		ExpressionAttributeNames: map[string]string{
-			"#owner": "Owner",
-			"#id":    "ID",
+			"#project": "Project",
+			"#id":      "ID",
 		},
 		ExpressionAttributeValues: map[string]dynamodb.AttributeValue{
-			":owner":  {S: aws.String(fmt.Sprintf("%s-%s", ns, project))},
-			":prefix": {S: aws.String("resource-")},
+			":project": {S: aws.String(project)},
+			":prefix":  {S: aws.String("resource-")},
 		},
 	}
 	resp, err := d.Client.QueryRequest(input).Send(ctx)
@@ -166,7 +166,7 @@ func (d *DynamoDB) ListResources(ctx context.Context, ns, project string) (map[s
 }
 
 // PutGraph creates or updates a graph.
-func (d *DynamoDB) PutGraph(ctx context.Context, ns, project string, graph *graph.Graph) error {
+func (d *DynamoDB) PutGraph(ctx context.Context, project string, graph *graph.Graph) error {
 	data, err := graph.MarshalJSON()
 	if err != nil {
 		return errors.Wrap(err, "marshal graph")
@@ -174,9 +174,9 @@ func (d *DynamoDB) PutGraph(ctx context.Context, ns, project string, graph *grap
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
-			"Owner": {S: aws.String(fmt.Sprintf("%s-%s", ns, project))},
-			"ID":    {S: aws.String("graph")},
-			"Data":  {S: aws.String(string(data))},
+			"Project": {S: aws.String(project)},
+			"ID":      {S: aws.String("graph")},
+			"Data":    {S: aws.String(string(data))},
 		},
 	}
 	resp, err := d.Client.PutItemRequest(input).Send(ctx)
@@ -189,12 +189,12 @@ func (d *DynamoDB) PutGraph(ctx context.Context, ns, project string, graph *grap
 
 // GetGraph returns a graph for a project. Returns nil if the project does not
 // have a graph.
-func (d *DynamoDB) GetGraph(ctx context.Context, ns, project string) (*graph.Graph, error) {
+func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
-			"Owner": {S: aws.String(fmt.Sprintf("%s-%s", ns, project))},
-			"ID":    {S: aws.String("graph")},
+			"Project": {S: aws.String(project)},
+			"ID":      {S: aws.String("graph")},
 		},
 	}
 	resp, err := d.Client.GetItemRequest(input).Send(ctx)
