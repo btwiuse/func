@@ -23,12 +23,12 @@ import (
 
 // A Reconciler reconciles changes to the graph.
 type Reconciler interface {
-	Reconcile(ctx context.Context, id, ns, project string, graph *graph.Graph) error
+	Reconcile(ctx context.Context, id, project string, graph *graph.Graph) error
 }
 
 // Storage persists resolved graphs.
 type Storage interface {
-	PutGraph(ctx context.Context, ns, project string, g *graph.Graph) error
+	PutGraph(ctx context.Context, project string, g *graph.Graph) error
 }
 
 // A Registry is used for matching resource type names to resource
@@ -66,11 +66,11 @@ func (s *Server) Handler() http.Handler {
 // requests. Once the sources have been uploaded, Apply should be retried.
 func (s *Server) Apply(ctx context.Context, req *rpc.ApplyRequest) (*rpc.ApplyResponse, error) {
 	logger := s.Logger
-	logger.Info("Apply", zap.String("ns", req.Namespace))
+	logger.Info("Apply", zap.String("project", req.Project))
 
-	if req.Namespace == "" {
-		logger.Debug("Namespace not set")
-		return nil, twirp.NewError(twirp.InvalidArgument, "Namespace not set")
+	if req.Project == "" {
+		logger.Debug("Project not set")
+		return nil, twirp.NewError(twirp.InvalidArgument, "Project not set")
 	}
 
 	config := &hclpack.Body{}
@@ -88,23 +88,13 @@ func (s *Server) Apply(ctx context.Context, req *rpc.ApplyRequest) (*rpc.ApplyRe
 		Validator: s.Validator,
 	}
 
-	proj, srcs, diags := dec.DecodeBody(config, g)
+	srcs, diags := dec.DecodeBody(config, g)
 	if diags.HasErrors() {
 		logger.Info("Config contains diagnostics errors", zap.Error(diags))
 		resp.Diagnostics = rpc.DiagsFromHCL(diags)
 		return resp, nil
 	}
 
-	if proj == nil {
-		resp.Diagnostics = append(resp.Diagnostics, &rpc.Diagnostic{
-			Error:   true,
-			Summary: "No project set",
-			Subject: rpc.RangeFromHCL(config.MissingItemRange().Ptr()),
-		})
-		return resp, nil
-	}
-
-	logger = logger.With(zap.String("project", proj.Name))
 	logger.Debug("Payload decoded", zap.Int("Resources", len(g.Resources)))
 
 	// Check missing source files
@@ -132,14 +122,14 @@ func (s *Server) Apply(ctx context.Context, req *rpc.ApplyRequest) (*rpc.ApplyRe
 		return &rpc.ApplyResponse{SourcesRequired: sr}, nil
 	}
 
-	if err := s.Storage.PutGraph(ctx, req.Namespace, proj.Name, g); err != nil {
+	if err := s.Storage.PutGraph(ctx, req.Project, g); err != nil {
 		logger.Error("Could not store graph", zap.Error(err))
 		return nil, twirp.NewError(twirp.Unavailable, "Could not store graph")
 	}
 
 	if s.Reconciler != nil {
 		id := ksuid.New().String()
-		if err := s.Reconciler.Reconcile(ctx, id, req.Namespace, proj.Name, g); err != nil {
+		if err := s.Reconciler.Reconcile(ctx, id, req.Project, g); err != nil {
 			logger.Error("Reconciler error", zap.Error(err))
 			return nil, twirp.NewError(twirp.Unavailable, "Reconciling resource graph failed")
 		}

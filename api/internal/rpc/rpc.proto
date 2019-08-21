@@ -11,8 +11,8 @@ service RPC {
 
 // ApplyRequest is the request to send to Apply.
 message ApplyRequest {
-  // Namespace is the namespace to apply resource changes to.
-  string namespace = 1;
+  // Project is the project to apply changes to.
+  string project = 1;
 
   // Config is the configuration to apply.
   //

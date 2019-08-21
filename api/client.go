@@ -43,7 +43,7 @@ func NewClient(address string, logger *zap.Logger, sourceProvider SourceProvider
 //
 // If source code is needed, source is uploaded. After upload, apply is
 // retried.
-func (c *Client) Apply(ctx context.Context, namespace string, body *hclpack.Body) error {
+func (c *Client) Apply(ctx context.Context, project string, body *hclpack.Body) error {
 	logger := c.Logger
 
 	config, err := json.Marshal(body)
@@ -52,8 +52,8 @@ func (c *Client) Apply(ctx context.Context, namespace string, body *hclpack.Body
 	}
 
 	req := &rpc.ApplyRequest{
-		Namespace: namespace,
-		Config:    config,
+		Project: project,
+		Config:  config,
 	}
 
 	logger.Info("Apply")

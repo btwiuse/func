@@ -18,7 +18,7 @@ import (
 )
 
 func TestClient_Apply_request(t *testing.T) {
-	ns := "ns"
+	project := "testproject"
 
 	config := []byte(`
 		resource "foo" {
@@ -32,8 +32,8 @@ func TestClient_Apply_request(t *testing.T) {
 
 	mock := mockRPC{
 		apply: func(ctx context.Context, req *rpc.ApplyRequest) (*rpc.ApplyResponse, error) {
-			if diff := cmp.Diff(req.Namespace, ns); diff != "" {
-				t.Errorf("Namespace (-got +want)\n%s", diff)
+			if diff := cmp.Diff(req.Project, project); diff != "" {
+				t.Errorf("Project (-got +want)\n%s", diff)
 			}
 
 			got := &hclpack.Body{}
@@ -51,7 +51,7 @@ func TestClient_Apply_request(t *testing.T) {
 
 	cli := NewClient(ts.URL, zaptest.NewLogger(t), nil)
 
-	if err := cli.Apply(context.Background(), ns, body); err != nil {
+	if err := cli.Apply(context.Background(), project, body); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -72,7 +72,7 @@ func TestClient_Apply_diagnostics(t *testing.T) {
 
 	cli := NewClient(ts.URL, zaptest.NewLogger(t), nil)
 
-	err := cli.Apply(context.Background(), "ns", &hclpack.Body{})
+	err := cli.Apply(context.Background(), "testproject", &hclpack.Body{})
 	if err == nil {
 		t.Fatalf("Error is nil")
 	}
@@ -143,7 +143,7 @@ func TestClient_Apply_uploadSources(t *testing.T) {
 
 	cli := NewClient(ts.URL, zaptest.NewLogger(t), sources)
 
-	err := cli.Apply(context.Background(), "ns", &hclpack.Body{})
+	err := cli.Apply(context.Background(), "testproject", &hclpack.Body{})
 	if err != nil {
 		t.Fatal(err)
 	}
