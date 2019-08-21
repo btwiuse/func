@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/func/func/api"
@@ -58,11 +59,6 @@ var applyCommand = &cobra.Command{
 			logger = l
 		}
 
-		ns, err := cmd.Flags().GetString("namespace")
-		if err != nil {
-			panic(err)
-		}
-
 		loader := &config.Loader{
 			Compressor: source.TarGZ{},
 		}
@@ -94,7 +90,9 @@ var applyCommand = &cobra.Command{
 		cli := api.NewClient(addr, logger, loader)
 		ctx := signalContext(context.Background())
 
-		if err := cli.Apply(ctx, ns, cfg); err != nil {
+		project := filepath.Base(rootDir)
+
+		if err := cli.Apply(ctx, project, cfg); err != nil {
 			if diags, ok := err.(hcl.Diagnostics); ok {
 				loader.WriteDiagnostics(os.Stderr, diags)
 				os.Exit(2)
@@ -109,7 +107,6 @@ var applyCommand = &cobra.Command{
 }
 
 func init() {
-	applyCommand.Flags().String("namespace", "default", "Namespace to use")
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
 	applyCommand.Flags().String("server", "http://"+defaultAddress, "Server endpoint") // TODO: https
 
