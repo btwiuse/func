@@ -202,34 +202,6 @@ func TestLoader_Load(t *testing.T) {
 							},
 						},
 					},
-					{
-						Type:   "project",
-						Labels: []string{"test"},
-						Body: hclpack.Body{
-							MissingItemRange_: hcl.Range{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 18, Byte: 17},
-								End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
-							},
-						},
-						DefRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 15, Byte: 14},
-						},
-						TypeRange: hcl.Range{
-							Filename: "testdata/project/proj.hcl",
-							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
-							End:      hcl.Pos{Line: 1, Column: 8, Byte: 7},
-						},
-						LabelRanges: []hcl.Range{
-							{
-								Filename: "testdata/project/proj.hcl",
-								Start:    hcl.Pos{Line: 1, Column: 9, Byte: 8},
-								End:      hcl.Pos{Line: 1, Column: 15, Byte: 14},
-							},
-						},
-					},
 				},
 				MissingItemRange_: hcl.Range{
 					Filename: "testdata/project/func.hcl",
