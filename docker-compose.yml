@@ -3,7 +3,7 @@ version: '3'
 services:
   minio:
     image: minio/minio:latest
-    container_name: minio_test
+    container_name: minio
     ports:
       - ${MINIO_PORT}:9000
     environment:
@@ -13,6 +13,20 @@ services:
     command: server /data
   dynamodb:
     image: amazon/dynamodb-local
-    container_name: dynamodb_test
+    container_name: dynamodb
+    environment:
+      AWS_ACCESS_KEY_ID: ${DYNAMODB_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${DYNAMODB_SECRET_KEY}
+      AWS_REGION: ${DYNAMODB_REGION}
     ports:
       - ${DYNAMODB_PORT}:8000
+  dynamodb_ui:
+    image: aaronshaf/dynamodb-admin
+    container_name: dynamodb_ui
+    environment:
+      AWS_ACCESS_KEY_ID: ${DYNAMODB_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${DYNAMODB_SECRET_KEY}
+      AWS_REGION: ${DYNAMODB_REGION}
+      DYNAMO_ENDPOINT: http://dynamodb:8000
+    ports:
+      - 8001:8001
