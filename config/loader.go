@@ -76,39 +76,6 @@ func (l *Loader) WriteDiagnostics(w io.Writer, diags hcl.Diagnostics) {
 	}
 }
 
-// Root finds the root directory of a project. The returned string is the
-// absolute path to the project on disk.
-//
-// The root directory is determined by the file .func/root existing. The
-// contents of the file are not significant. If the given dir does not contain
-// a project, parent directories are traversed until a project is found.
-//
-// An error is returned if the dir cannot be opened. An empty string is
-// returned if no project root was found.
-func (l *Loader) Root(dir string) (string, error) {
-	// Check that dir itself exists
-	if _, err := os.Stat(dir); err != nil {
-		return "", err
-	}
-	rootfile := filepath.Join(dir, ".func", "root")
-	stat, err := os.Stat(rootfile)
-	if err == nil && !stat.IsDir() {
-		// Match
-		abs, err := filepath.Abs(dir)
-		if err != nil {
-			return "", err
-		}
-		return abs, nil
-	}
-
-	parent := filepath.Dir(dir)
-	if parent == dir || parent[len(parent)-1] == filepath.Separator {
-		return "", nil
-	}
-
-	return l.Root(parent)
-}
-
 // Load loads all the config files from the given root directory, traversing
 // into sub directories.
 //

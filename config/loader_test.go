@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/func/func/config"
@@ -20,38 +19,6 @@ import (
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
 )
-
-func TestLoader_Root(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tests := []struct {
-		name    string
-		dir     string
-		want    string
-		wantErr bool
-	}{
-		{"Exact", "testdata/project", filepath.Join(cwd, "testdata/project"), false},
-		{"Subdir", "testdata/project/src", filepath.Join(cwd, "testdata/project"), false},
-		{"NoProject", os.TempDir(), "", false},
-		{"NotFound", "nonexisting", "", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := &config.Loader{}
-			got, err := l.Root(tt.dir)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Loader.Root() error = %v, wantErr %t", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("Loader.Root() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestLoader_Load(t *testing.T) {
 	tests := []struct {
@@ -67,8 +34,8 @@ func TestLoader_Load(t *testing.T) {
 			&hclpack.Body{},
 		},
 		{
-			"Project",
-			"testdata/project",
+			"ValidConfig",
+			"testdata/config",
 			&mockCompressor{
 				data: []byte("targz data"),
 			},
@@ -84,23 +51,23 @@ func TestLoader_Load(t *testing.T) {
 										Source:     []byte(`"aws:lambda_function"`),
 										SourceType: hclpack.ExprNative,
 										Range_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 2, Column: 12, Byte: 31},
 											End:      hcl.Pos{Line: 2, Column: 33, Byte: 52},
 										},
 										StartRange_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 2, Column: 13, Byte: 32},
 											End:      hcl.Pos{Line: 2, Column: 32, Byte: 51},
 										},
 									},
 									Range: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 22},
 										End:      hcl.Pos{Line: 2, Column: 33, Byte: 52},
 									},
 									NameRange: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 2, Column: 3, Byte: 22},
 										End:      hcl.Pos{Line: 2, Column: 7, Byte: 26},
 									},
@@ -110,23 +77,23 @@ func TestLoader_Load(t *testing.T) {
 										Source:     []byte(`"` + sourceInfoStr(t, []byte("targz data")) + `"`),
 										SourceType: hclpack.ExprLiteralJSON,
 										Range_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 4, Column: 12, Byte: 65},
 											End:      hcl.Pos{Line: 4, Column: 19, Byte: 72},
 										},
 										StartRange_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 4, Column: 13, Byte: 66},
 											End:      hcl.Pos{Line: 4, Column: 18, Byte: 71},
 										},
 									},
 									Range: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 56},
 										End:      hcl.Pos{Line: 4, Column: 19, Byte: 72},
 									},
 									NameRange: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 4, Column: 3, Byte: 56},
 										End:      hcl.Pos{Line: 4, Column: 9, Byte: 62},
 									},
@@ -136,23 +103,23 @@ func TestLoader_Load(t *testing.T) {
 										Source:     []byte(`"index.handler"`),
 										SourceType: hclpack.ExprNative,
 										Range_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 6, Column: 13, Byte: 86},
 											End:      hcl.Pos{Line: 6, Column: 28, Byte: 101},
 										},
 										StartRange_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 6, Column: 14, Byte: 87},
 											End:      hcl.Pos{Line: 6, Column: 27, Byte: 100},
 										},
 									},
 									Range: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 6, Column: 3, Byte: 76},
 										End:      hcl.Pos{Line: 6, Column: 28, Byte: 101},
 									},
 									NameRange: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 6, Column: 3, Byte: 76},
 										End:      hcl.Pos{Line: 6, Column: 10, Byte: 83},
 									},
@@ -162,47 +129,47 @@ func TestLoader_Load(t *testing.T) {
 										Source:     []byte("512"),
 										SourceType: hclpack.ExprNative,
 										Range_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 7, Column: 13, Byte: 114},
 											End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 										},
 										StartRange_: hcl.Range{
-											Filename: "testdata/project/func.hcl",
+											Filename: "testdata/config/func.hcl",
 											Start:    hcl.Pos{Line: 7, Column: 13, Byte: 114},
 											End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 										},
 									},
 									Range: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 7, Column: 3, Byte: 104},
 										End:      hcl.Pos{Line: 7, Column: 16, Byte: 117},
 									},
 									NameRange: hcl.Range{
-										Filename: "testdata/project/func.hcl",
+										Filename: "testdata/config/func.hcl",
 										Start:    hcl.Pos{Line: 7, Column: 3, Byte: 104},
 										End:      hcl.Pos{Line: 7, Column: 9, Byte: 110},
 									},
 								},
 							},
 							MissingItemRange_: hcl.Range{
-								Filename: "testdata/project/func.hcl",
+								Filename: "testdata/config/func.hcl",
 								Start:    hcl.Pos{Line: 8, Column: 2, Byte: 119},
 								End:      hcl.Pos{Line: 8, Column: 2, Byte: 119},
 							},
 						},
 						DefRange: hcl.Range{
-							Filename: "testdata/project/func.hcl",
+							Filename: "testdata/config/func.hcl",
 							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
 							End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
 						},
 						TypeRange: hcl.Range{
-							Filename: "testdata/project/func.hcl",
+							Filename: "testdata/config/func.hcl",
 							Start:    hcl.Pos{Line: 1, Column: 1, Byte: 0},
 							End:      hcl.Pos{Line: 1, Column: 9, Byte: 8},
 						},
 						LabelRanges: []hcl.Range{
 							{
-								Filename: "testdata/project/func.hcl",
+								Filename: "testdata/config/func.hcl",
 								Start:    hcl.Pos{Line: 1, Column: 10, Byte: 9},
 								End:      hcl.Pos{Line: 1, Column: 18, Byte: 17},
 							},
@@ -210,7 +177,7 @@ func TestLoader_Load(t *testing.T) {
 					},
 				},
 				MissingItemRange_: hcl.Range{
-					Filename: "testdata/project/func.hcl",
+					Filename: "testdata/config/func.hcl",
 					Start:    hcl.Pos{Line: 9, Column: 1, Byte: 120},
 					End:      hcl.Pos{Line: 9, Column: 1, Byte: 120},
 				},
@@ -242,7 +209,7 @@ func TestLoader_Source(t *testing.T) {
 	}{
 		{
 			"Project",
-			"testdata/project",
+			"testdata/config",
 		},
 	}
 	for _, tt := range tests {
@@ -304,7 +271,7 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 			data: []byte("targz data"),
 		},
 	}
-	before, diags := l.Load("testdata/project")
+	before, diags := l.Load("testdata/config")
 	if diags.HasErrors() {
 		t.Fatalf("Load() error = %v", diags)
 	}
@@ -327,7 +294,7 @@ func TestLoader_jsonRoundTrip(t *testing.T) {
 	}
 }
 
-var args = []string{"testdata/project"}
+var args = []string{"testdata/config"}
 
 func ExampleLoader_WriteDiagnostics() {
 	l := &config.Loader{}
@@ -347,17 +314,17 @@ func ExampleLoader_WriteDiagnostics() {
 func Example_clientServer() {
 	// Client
 
-	// Create a loader
-	l := &config.Loader{}
-
 	// Find root, given user input
-	rootDir, err := l.Root(args[0])
+	project, err := config.FindProject(args[0])
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// Create a loader
+	l := &config.Loader{}
+
 	// Load config files from root
-	cfg, diags := l.Load(rootDir)
+	cfg, diags := l.Load(project.RootDir)
 	if diags.HasErrors() {
 		log.Fatal(diags)
 	}
