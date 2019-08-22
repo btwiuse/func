@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/func/func/api"
@@ -63,18 +62,24 @@ var applyCommand = &cobra.Command{
 			Compressor: source.TarGZ{},
 		}
 
-		rootDir, err := loader.Root(args[0])
+		project, err := config.FindProject(args[0])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if rootDir == "" {
-			fmt.Fprintln(os.Stderr, "Project not found")
-			os.Exit(2)
+		if project == nil {
+			projectNewCommand.Run(cmd, args)
+			// Load created project
+			proj, err := config.FindProject(args[0])
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			project = proj
 		}
 
 		logger.Debug("Load config files")
-		cfg, diags := loader.Load(rootDir)
+		cfg, diags := loader.Load(project.RootDir)
 		if len(diags) > 0 {
 			loader.WriteDiagnostics(os.Stderr, diags)
 			if diags.HasErrors() {
@@ -90,9 +95,7 @@ var applyCommand = &cobra.Command{
 		cli := api.NewClient(addr, logger, loader)
 		ctx := signalContext(context.Background())
 
-		project := filepath.Base(rootDir)
-
-		if err := cli.Apply(ctx, project, cfg); err != nil {
+		if err := cli.Apply(ctx, project.Name, cfg); err != nil {
 			if diags, ok := err.(hcl.Diagnostics); ok {
 				loader.WriteDiagnostics(os.Stderr, diags)
 				os.Exit(2)

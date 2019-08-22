@@ -17,18 +17,16 @@ var rootCommand = &cobra.Command{
 			args = []string{"."}
 		}
 
-		loader := &config.Loader{}
-
-		rootDir, err := loader.Root(args[0])
+		p, err := config.FindProject(args[0])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if rootDir == "" {
+		if p == nil {
 			fmt.Fprintln(os.Stderr, "Project not found")
 			os.Exit(2)
 		}
-		fmt.Println(rootDir)
+		fmt.Println(p.RootDir)
 	},
 }
 
