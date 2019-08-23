@@ -7,7 +7,7 @@ import (
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/reconciler"
-	"github.com/func/func/storage/mock"
+	"github.com/func/func/storage/teststore"
 	"github.com/google/go-cmp/cmp"
 	"github.com/zclconf/go-cty/cty"
 	"go.uber.org/zap/zaptest"
@@ -20,7 +20,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 		defs       map[string]resource.Definition
 		existing   []resource.Resource
 		graph      *graph.Graph
-		wantEvents []mock.Event
+		wantEvents teststore.Events
 	}{
 		{
 			name:     "Empty",
@@ -28,7 +28,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			graph: &graph.Graph{
 				Resources: nil,
 			},
-			wantEvents: nil,
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+			},
 		},
 		{
 			name: "Nop",
@@ -55,7 +57,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: nil,
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+			},
 		},
 		{
 			name: "Create",
@@ -74,8 +78,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "create", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:    "foo",
 					Type:    "nop",
 					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
@@ -113,14 +118,15 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					}},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "create", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "foo",
 					Type:   "passthrough",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("bar")}),
 				}},
-				{Op: "create", Proj: "proj", Value: resource.Resource{
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "bar",
 					Type:   "passthrough",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
@@ -129,7 +135,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 		},
 		{
-			name: "NopDependency",
+			name: "NopWithDependency",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
 			existing: []resource.Resource{
 				{
@@ -171,7 +177,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					}},
 				},
 			},
-			wantEvents: nil,
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+			},
 		},
 		{
 			name: "UpdateConfig",
@@ -194,8 +202,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "update", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "foo",
 					Type:   "nop",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("after")}), // Updated
@@ -226,8 +235,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "update", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:    "foo",
 					Type:    "nop",
 					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}), // Same
@@ -275,11 +285,12 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					}},
 				},
 			},
-			wantEvents: []mock.Event{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
 				// Parent not updated
-				{Op: "update", Proj: "proj", Value: resource.Resource{
-					Name:   "child",
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Type:   "passthrough",
+					Name:   "child",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello there")}),
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello there")}),
 				}},
@@ -324,14 +335,15 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					}},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "update", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "parent",
 					Type:   "passthrough",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi")}),
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hi")}),
 				}},
-				{Op: "update", Proj: "proj", Value: resource.Resource{
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "child",
 					Type:   "passthrough",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi world")}),
@@ -361,14 +373,15 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "create", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name:   "bar",
 					Type:   "nop",
 					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					Output: cty.EmptyObjectVal,
 				}},
-				{Op: "delete", Proj: "proj", Value: "foo"},
+				{Method: "DeleteResource", Project: "proj", Data: "foo"},
 			},
 		},
 		{
@@ -393,8 +406,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					},
 				},
 			},
-			wantEvents: []mock.Event{
-				{Op: "create", Proj: "proj", Value: resource.Resource{
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "PutResource", Project: "proj", Data: resource.Resource{
 					Name: "bar",
 					Type: "nop",
 					Input: cty.ObjectVal(map[string]cty.Value{
@@ -416,44 +430,43 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				{Name: "qux", Type: "nop", Deps: []string{"baz"}},
 			},
 			graph: &graph.Graph{},
-			wantEvents: []mock.Event{
-				{Op: "delete", Proj: "proj", Value: "qux"},
-				{Op: "delete", Proj: "proj", Value: "baz"},
-				{Op: "delete", Proj: "proj", Value: "bar"},
-				{Op: "delete", Proj: "proj", Value: "foo"},
+			wantEvents: teststore.Events{
+				{Method: "ListResources", Project: "proj"},
+				{Method: "DeleteResource", Project: "proj", Data: "qux"},
+				{Method: "DeleteResource", Project: "proj", Data: "baz"},
+				{Method: "DeleteResource", Project: "proj", Data: "bar"},
+				{Method: "DeleteResource", Project: "proj", Data: "foo"},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := &mock.Storage{}
-			store.Seed("proj", tt.existing)
+			store := &teststore.Store{}
+			store.SeedResources("proj", tt.existing)
+			rec := &teststore.Recorder{Store: store}
 
-			rec := &reconciler.Reconciler{
-				Resources: store,
+			reco := &reconciler.Reconciler{
+				Resources: rec,
 				Registry:  resource.RegistryFromDefinitions(tt.defs),
 				Logger:    zaptest.NewLogger(t),
 			}
 
 			ctx := context.Background()
-			err := rec.Reconcile(ctx, tt.name, "proj", tt.graph)
+			err := reco.Reconcile(ctx, tt.name, "proj", tt.graph)
 			if err != nil {
 				t.Fatalf("Reconcile() error = %v", err)
 			}
 
-			assertEvents(t, store, tt.wantEvents)
+			opts := []cmp.Option{
+				cmp.Comparer(func(a, b cty.Value) bool {
+					return a.Equals(b).True()
+				}),
+			}
+			if diff := cmp.Diff(rec.Events, tt.wantEvents, opts...); diff != "" {
+				t.Errorf("Events (-got +want)\n%s", diff)
+			}
 		})
-	}
-}
-
-func assertEvents(t *testing.T, store *mock.Storage, want []mock.Event) {
-	t.Helper()
-	opts := []cmp.Option{
-		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
-	}
-	if diff := cmp.Diff(store.Events, want, opts...); diff != "" {
-		t.Errorf("Events do not match (-got %d +want %d)\n%s", len(store.Events), len(want), diff)
 	}
 }
 
