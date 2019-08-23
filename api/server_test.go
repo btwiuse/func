@@ -13,7 +13,7 @@ import (
 	"github.com/func/func/api/internal/rpc"
 	"github.com/func/func/resource"
 	"github.com/func/func/source"
-	"github.com/func/func/storage/mock"
+	"github.com/func/func/storage/teststore"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -136,7 +136,7 @@ func TestServer_Apply_OK(t *testing.T) {
 		},
 	}
 
-	mockStorage := &mock.Storage{}
+	store := &teststore.Store{}
 
 	s := &Server{
 		Logger: zaptest.NewLogger(t),
@@ -144,7 +144,7 @@ func TestServer_Apply_OK(t *testing.T) {
 			Types: map[string]reflect.Type{"bar": reflect.TypeOf(struct{}{})},
 		},
 		Source:  src,
-		Storage: mockStorage,
+		Storage: store,
 	}
 
 	req := &rpc.ApplyRequest{
@@ -161,7 +161,7 @@ func TestServer_Apply_OK(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	g, err := mockStorage.GetGraph(context.Background(), "testproject")
+	g, err := store.GetGraph(context.Background(), "testproject")
 	if err != nil {
 		log.Fatal(err)
 	}
