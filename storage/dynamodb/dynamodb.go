@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -11,8 +12,9 @@ import (
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/schema"
+	"github.com/func/func/storage/dynamodb/internal/attr"
 	"github.com/pkg/errors"
-	ctyjson "github.com/zclconf/go-cty/cty/json"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // The Registry returns types for unmarshalling resource inputs/outputs.
@@ -60,46 +62,35 @@ func (d *DynamoDB) CreateTable(ctx context.Context, rcu, wcu int64) error {
 }
 
 // PutResource creates or updates a resource.
-func (d *DynamoDB) PutResource(ctx context.Context, project string, resource resource.Resource) error {
-	in, err := ctyjson.Marshal(resource.Input, resource.Input.Type())
-	if err != nil {
-		return errors.Wrap(err, "marshal input")
-	}
-	out, err := ctyjson.Marshal(resource.Output, resource.Output.Type())
-	if err != nil {
-		return errors.Wrap(err, "marshal output")
-	}
+func (d *DynamoDB) PutResource(ctx context.Context, project string, res resource.Resource) error {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
-			"Project": {S: aws.String(project)},
-			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", resource.Name))},
-			"Type":    {S: aws.String(resource.Type)},
-			"Name":    {S: aws.String(resource.Name)},
-			"Input":   {S: aws.String(string(in))},
-			"Output":  {S: aws.String(string(out))},
+			"Project": attr.FromString(project),
+			"ID":      attr.FromString(fmt.Sprintf("resource-%s", res.Name)),
+			"Type":    attr.FromString(res.Type),
+			"Name":    attr.FromString(res.Name),
+			"Input":   attr.FromCtyValue(res.Input),
+			"Output":  attr.FromCtyValue(res.Output),
 		},
 	}
-	if len(resource.Deps) > 0 {
-		input.Item["Deps"] = dynamodb.AttributeValue{
-			SS: resource.Deps,
-		}
+
+	if len(res.Deps) > 0 {
+		input.Item["Deps"] = attr.FromStringSet(res.Deps)
 	}
-	if len(resource.Sources) > 0 {
-		input.Item["Sources"] = dynamodb.AttributeValue{
-			SS: resource.Sources,
-		}
+	if len(res.Sources) > 0 {
+		input.Item["Sources"] = attr.FromStringSet(res.Sources)
 	}
-	resp, err := d.Client.PutItemRequest(input).Send(ctx)
-	if err != nil {
+
+	if _, err := d.Client.PutItemRequest(input).Send(ctx); err != nil {
 		return errors.Wrap(err, "dynamodb put")
 	}
-	_ = resp
+
 	return nil
 }
 
 // DeleteResource deletes a resource. No-op if the resource does not exist.
-func (d *DynamoDB) DeleteResource(ctx context.Context, project, name string) error {
+func (d *DynamoDB) DeleteResource(ctx context.Context, project string, name string) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
@@ -133,52 +124,107 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) (map[strin
 		return nil, errors.Wrap(err, "query dynamodb")
 	}
 	out := make(map[string]resource.Resource, int(*resp.Count))
-	for _, item := range resp.QueryOutput.Items {
-		typename := *item["Type"].S
-		typ := d.Registry.Type(typename)
-		if typ == nil {
-			return nil, fmt.Errorf("type %q not registered", typename)
+	for i, item := range resp.QueryOutput.Items {
+		var res resource.Resource
+		if err := d.decodeResource(item, &res); err != nil {
+			return nil, fmt.Errorf("parse %d: %v", i, err)
 		}
-		fields := schema.Fields(typ)
-
-		input, err := ctyjson.Unmarshal([]byte(*item["Input"].S), fields.Inputs().CtyType())
-		if err != nil {
-			return nil, errors.Wrap(err, "unmarshal input")
-		}
-
-		output, err := ctyjson.Unmarshal([]byte(*item["Output"].S), fields.Outputs().CtyType())
-		if err != nil {
-			return nil, errors.Wrap(err, "unmarshal output")
-		}
-
-		res := resource.Resource{
-			Name:    *item["Name"].S,
-			Type:    typename,
-			Input:   input,
-			Output:  output,
-			Deps:    item["Deps"].SS,
-			Sources: item["Sources"].SS,
-		}
-
 		out[res.Name] = res
 	}
 	return out, nil
 }
 
-// PutGraph creates or updates a graph.
-func (d *DynamoDB) PutGraph(ctx context.Context, project string, graph *graph.Graph) error {
-	data, err := graph.MarshalJSON()
-	if err != nil {
-		return errors.Wrap(err, "marshal graph")
+func (d *DynamoDB) encodeResource(res *resource.Resource, item map[string]dynamodb.AttributeValue) {
+	item["Type"] = attr.FromString(res.Type)
+	item["Name"] = attr.FromString(res.Name)
+	item["Input"] = attr.FromCtyValue(cty.UnknownAsNull(res.Input))
+	item["Output"] = attr.FromCtyValue(cty.UnknownAsNull(res.Output))
+	if len(res.Deps) > 0 {
+		item["Deps"] = attr.FromStringSet(res.Deps)
 	}
+	if len(res.Sources) > 0 {
+		item["Sources"] = attr.FromStringSet(res.Sources)
+	}
+}
+
+func (d *DynamoDB) decodeResource(item map[string]dynamodb.AttributeValue, res *resource.Resource) error {
+	name, err := attr.ToString(item["Name"])
+	if err != nil {
+		return fmt.Errorf("field Name: %v", err)
+	}
+	res.Name = name
+
+	typename, err := attr.ToString(item["Type"])
+	if err != nil {
+		return fmt.Errorf("field Type: %v", err)
+	}
+	res.Type = typename
+
+	res.Deps = attr.ToStringSet(item["Deps"])
+	res.Sources = attr.ToStringSet(item["Sources"])
+
+	typ := d.Registry.Type(typename)
+	if typ == nil {
+		return fmt.Errorf("type %q not registered", typename)
+	}
+	fields := schema.Fields(typ)
+
+	input, err := attr.ToCtyValue(item["Input"], fields.Inputs().CtyType())
+	if err != nil {
+		return fmt.Errorf("convert input: %v", err)
+	}
+	res.Input = input
+
+	output, err := attr.ToCtyValue(item["Output"], fields.Outputs().CtyType())
+	if err != nil {
+		return fmt.Errorf("convert output: %v", err)
+	}
+	res.Output = output
+
+	return nil
+}
+
+// PutGraph creates or updates a graph.
+func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph) error {
+	names := make([]string, 0, len(g.Resources))
+	for name := range g.Resources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	resources := make([]dynamodb.AttributeValue, len(names))
+	for i, name := range names {
+		item := make(map[string]dynamodb.AttributeValue, 6)
+		d.encodeResource(g.Resources[name], item)
+		resources[i] = dynamodb.AttributeValue{M: item}
+	}
+	deps := make(map[string]dynamodb.AttributeValue, len(g.Dependencies))
+	for name, dd := range g.Dependencies {
+		depVals := make([]dynamodb.AttributeValue, len(dd))
+		for i, d := range dd {
+			dep := map[string]dynamodb.AttributeValue{
+				"Field":      attr.FromCtyPath(d.Field),
+				"Expression": attr.FromGraphExpression(d.Expression),
+			}
+			depVals[i] = dynamodb.AttributeValue{M: dep}
+		}
+		deps[name] = dynamodb.AttributeValue{L: depVals}
+	}
+
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
 			"Project": {S: aws.String(project)},
 			"ID":      {S: aws.String("graph")},
-			"Data":    {S: aws.String(string(data))},
 		},
 	}
+
+	if len(resources) > 0 {
+		input.Item["Resources"] = dynamodb.AttributeValue{L: resources}
+	}
+	if len(deps) > 0 {
+		input.Item["Dependencies"] = dynamodb.AttributeValue{M: deps}
+	}
+
 	resp, err := d.Client.PutItemRequest(input).Send(ctx)
 	if err != nil {
 		return errors.Wrap(err, "dynamodb put")
@@ -205,13 +251,33 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, 
 		// Not found
 		return nil, nil
 	}
-	dec := graph.JSONDecoder{
-		Target:   graph.New(),
-		Registry: d.Registry,
+
+	g := graph.New()
+
+	for i, r := range resp.Item["Resources"].L {
+		res := &resource.Resource{}
+		if err := d.decodeResource(r.M, res); err != nil {
+			return nil, fmt.Errorf("decode resource %d: %v", i, err)
+		}
+		g.AddResource(res)
 	}
-	data := *resp.Item["Data"].S
-	if err := dec.UnmarshalJSON([]byte(data)); err != nil {
-		return nil, errors.Wrap(err, "unmarshal graph")
+	for name, deps := range resp.Item["Dependencies"].M {
+		for i, d := range deps.L {
+			field, err := attr.ToCtyPath(d.M["Field"])
+			if err != nil {
+				return nil, fmt.Errorf("decode dependency field %s/%d: %v", name, i, err)
+			}
+			expr, err := attr.ToGraphExpression(d.M["Expression"])
+			if err != nil {
+				return nil, fmt.Errorf("decode dependency expression %s/%d: %v", name, i, err)
+			}
+			dep := graph.Dependency{
+				Field:      field,
+				Expression: expr,
+			}
+			g.AddDependency(name, dep)
+		}
 	}
-	return dec.Target, nil
+
+	return g, nil
 }

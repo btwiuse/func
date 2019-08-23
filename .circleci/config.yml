@@ -27,6 +27,9 @@ jobs:
             TEST_S3_SECRET_KEY: miniotest
             TEST_S3_REGION: us-east-1
             TEST_S3_ENDPOINT: "http://localhost:9000"
+            TEST_DYNAMODB_REGION: local
+            TEST_DYNAMODB_ACCESS_KEY: local
+            TEST_DYNAMODB_SECRET_KEY: local
             TEST_DYNAMODB_ENDPOINT: "http://localhost:8000"
           command: |
             go test -cover -race -tags integration ./... 
