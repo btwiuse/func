@@ -23,7 +23,6 @@ require (
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/twitchtv/twirp v5.8.0+incompatible
 	github.com/zclconf/go-cty v1.1.0
-	go.etcd.io/bbolt v1.3.3
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0
 	go.uber.org/zap v1.10.0
