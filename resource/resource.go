@@ -8,7 +8,8 @@ import (
 type Desired struct {
 	// Name used in resource config.
 	//
-	// The Name uniquely identifies the resource.
+	// The Name uniquely identifies the resource within the user's desired
+	// resource graph.
 	Name string
 
 	// Type used in resource config.
@@ -31,6 +32,10 @@ type Desired struct {
 type Deployed struct {
 	// Desired state that resulted in the deployed resource.
 	*Desired
+
+	// ID is a unique id that is assigned to the resource when it has been
+	// deployed. The ID uniquely identifies the resource.
+	ID string
 
 	// Output contains the outputs from the resource. The value is set after
 	// the resource has been provisioned.
