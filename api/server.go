@@ -10,8 +10,9 @@ import (
 
 	"github.com/func/func/api/internal/rpc"
 	"github.com/func/func/config"
-	"github.com/func/func/resource/graph"
-	"github.com/func/func/resource/graph/hcldecoder"
+	"github.com/func/func/resource"
+	"github.com/func/func/resource/hcldecoder"
+	"github.com/func/func/resource/reconciler"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
@@ -23,12 +24,12 @@ import (
 
 // A Reconciler reconciles changes to the graph.
 type Reconciler interface {
-	Reconcile(ctx context.Context, id, project string, graph *graph.Graph) error
+	Reconcile(ctx context.Context, id, project string, graph reconciler.Graph) error
 }
 
 // Storage persists resolved graphs.
 type Storage interface {
-	PutGraph(ctx context.Context, project string, g *graph.Graph) error
+	PutGraph(ctx context.Context, project string, g *resource.Graph) error
 }
 
 // A Registry is used for matching resource type names to resource
@@ -82,7 +83,7 @@ func (s *Server) Apply(ctx context.Context, req *rpc.ApplyRequest) (*rpc.ApplyRe
 	resp := &rpc.ApplyResponse{}
 
 	// Resolve graph and validate resource input
-	g := graph.New()
+	g := &resource.Graph{}
 	dec := &hcldecoder.Decoder{
 		Resources: s.Registry,
 		Validator: s.Validator,
