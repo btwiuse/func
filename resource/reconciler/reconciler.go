@@ -14,7 +14,6 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/func/func/ctyext"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/reconciler/internal/task"
 	"github.com/func/func/resource/schema"
 	"github.com/google/go-cmp/cmp"
@@ -48,6 +47,13 @@ type Registry interface {
 	Type(typename string) reflect.Type
 }
 
+// A Graph contains the desired graph to reconcile.
+type Graph interface {
+	LeafResources() []*resource.Resource
+	ParentResources(child string) []*resource.Resource
+	DependenciesOf(child string) []*resource.Dependency
+}
+
 // A Reconciler reconciles changes to a graph.
 //
 // See package doc for details.
@@ -68,7 +74,7 @@ type Reconciler struct {
 }
 
 // Reconcile reconciles changes to the graph.
-func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph *graph.Graph) error {
+func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph Graph) error {
 	logger := r.Logger
 	if logger == nil {
 		logger = zap.NewNop()
@@ -129,7 +135,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph *grap
 type run struct {
 	ID      string
 	Project string
-	Graph   *graph.Graph
+	Graph   Graph
 
 	Resources ResourceStorage
 	Source    SourceStorage
@@ -164,9 +170,9 @@ func (r *run) CreateUpdate(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	leaves := r.Graph.LeafResources()
-	r.Logger.Debug("Leaf nodes", zap.Strings("names", leaves))
-	for _, name := range leaves {
-		res := r.Graph.Resources[name]
+	r.Logger.Debug("Leaf nodes", zap.Int("count", len(leaves)))
+	for _, res := range leaves {
+		res := res
 		g.Go(func() error {
 			return r.processResource(ctx, res)
 		})
@@ -358,39 +364,32 @@ func setOutput(res *resource.Resource, def resource.Definition) error {
 
 func (r *run) processDependencies(ctx context.Context, childName string, logger *zap.Logger) error {
 	g, ctx := errgroup.WithContext(ctx)
-	for _, dep := range r.Graph.Dependencies[childName] {
-		for _, parent := range dep.Parents() {
-			res, ok := r.Graph.Resources[parent]
-			if !ok {
-				return fmt.Errorf("dependency on non-existing resource %q", parent)
-			}
-			logger.Debug("Waiting on dependency", zap.String("parent", parent))
-			g.Go(func() error {
-				err := r.processResource(ctx, res)
-				logger.Debug("Dependency done", zap.String("parent", parent), zap.Bool("error", err != nil))
-				return err
-			})
-		}
+	parents := r.Graph.ParentResources(childName)
+	for _, res := range parents {
+		res := res
+		logger.Debug("Waiting on dependency", zap.String("parent", res.Name), zap.String("child", childName))
+		g.Go(func() error {
+			err := r.processResource(ctx, res)
+			logger.Debug("Dependency done", zap.String("parent", res.Name), zap.Bool("error", err != nil))
+			return err
+		})
 	}
 	return g.Wait()
 }
 
 func (r *run) resolveDependencies(res *resource.Resource) error {
-	deps := r.Graph.Dependencies[res.Name]
-
-	if len(deps) == 0 {
+	parents := r.Graph.ParentResources(res.Name)
+	if len(parents) == 0 {
 		return nil
 	}
 
 	vars := make(map[string]cty.Value)
-	for _, dep := range deps {
-		for _, p := range dep.Parents() {
-			vars[p] = r.Graph.Resources[p].Output
-		}
+	for _, p := range parents {
+		vars[p.Name] = p.Output
 	}
 
-	ctx := &graph.EvalContext{Variables: vars}
-	for _, dep := range deps {
+	ctx := &resource.EvalContext{Variables: vars}
+	for _, dep := range r.Graph.DependenciesOf(res.Name) {
 		processed := false
 		cfg, err := cty.Transform(res.Input, func(path cty.Path, val cty.Value) (cty.Value, error) {
 			if !path.Equals(dep.Field) {
