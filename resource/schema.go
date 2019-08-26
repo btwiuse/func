@@ -1,4 +1,4 @@
-package schema
+package resource
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ func (ff FieldSet) CtyType() cty.Type {
 		if v.Type.Kind() == reflect.Interface {
 			continue
 		}
-		obj[k] = ImpliedType(v.Type)
+		obj[k] = CtyType(v.Type)
 	}
 	return cty.Object(obj)
 }

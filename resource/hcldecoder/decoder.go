@@ -9,7 +9,6 @@ import (
 	"github.com/func/func/ctyext"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/hcldecoder/internal/expr"
-	"github.com/func/func/resource/schema"
 	"github.com/func/func/suggest"
 	"github.com/hashicorp/hcl2/gohcl"
 	"github.com/hashicorp/hcl2/hcl"
@@ -171,7 +170,7 @@ type res struct {
 
 // expression wraps a graph expression with the source range.
 type expression struct {
-	field     schema.Field
+	field     resource.Field
 	inputType cty.Type
 	resource.Expression
 	hcl.Range
@@ -247,7 +246,7 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 		return hcl.Diagnostics{diag}
 	}
 
-	fields := schema.Fields(t)
+	fields := resource.Fields(t)
 
 	// Decode inputs
 	inputs, deps, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())
@@ -284,7 +283,7 @@ func uniqueStringSlice(ss []string) []string {
 //
 // The returned diagnostics may contain warnings, which should be displayed to
 // the user but still result in valid inputs.
-func (d *Decoder) decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty.Value, deps []string, diags hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) decodeInputs(body hcl.Body, fields resource.FieldSet) (input cty.Value, deps []string, diags hcl.Diagnostics) { // nolint: lll
 	schema := d.bodySchema(fields)
 
 	cont, diags := body.Content(schema)
@@ -311,7 +310,7 @@ func (d *Decoder) decodeInputs(body hcl.Body, fields schema.FieldSet) (input cty
 	return cty.ObjectVal(inputs), deps, diags
 }
 
-func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
 	var parents []string
 	var diags hcl.Diagnostics
 	for name, f := range ff {
@@ -319,7 +318,7 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in
 			continue
 		}
 
-		typ := schema.ImpliedType(f.Type)
+		typ := resource.CtyType(f.Type)
 
 		attr, ok := cont.Attributes[name]
 		if !ok {
@@ -367,7 +366,7 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff schema.FieldSet, in
 	return parents, diags
 }
 
-func (d *Decoder) validate(val cty.Value, field schema.Field, exprRange hcl.Range) hcl.Diagnostics {
+func (d *Decoder) validate(val cty.Value, field resource.Field, exprRange hcl.Range) hcl.Diagnostics {
 	rule := field.Tags["validate"]
 	if rule == "" {
 		// No validation rule
@@ -394,7 +393,7 @@ func (d *Decoder) validate(val cty.Value, field schema.Field, exprRange hcl.Rang
 	return diags
 }
 
-func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
 	var deps []string // nolint: prealloc
 	var diags hcl.Diagnostics
 
@@ -409,12 +408,12 @@ func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map
 			// Multiple blocks
 			if len(blocks) == 0 {
 				// No blocks to set in target slice
-				in[name] = cty.ListValEmpty(schema.ImpliedType(f.Type.Elem()))
+				in[name] = cty.ListValEmpty(resource.CtyType(f.Type.Elem()))
 				continue
 			}
 			list := make([]cty.Value, len(blocks))
 			for i, b := range blocks {
-				fields := schema.Fields(f.Type.Elem()) // Do not limit to inputs -- only top level input required
+				fields := resource.Fields(f.Type.Elem()) // Do not limit to inputs -- only top level input required
 				v, moredeps, morediags := d.decodeInputs(b.Body, fields)
 				deps = append(deps, moredeps...)
 				diags = append(diags, morediags...)
@@ -454,13 +453,13 @@ func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff schema.FieldSet, in map
 
 		if len(blocks) == 0 {
 			// Optional block was not set
-			in[name] = cty.NullVal(schema.ImpliedType(f.Type))
+			in[name] = cty.NullVal(resource.CtyType(f.Type))
 			continue
 		}
 
 		// Single block
 		b := blocks[0]
-		fields := schema.Fields(f.Type) // Do not limit to inputs -- only top level input required
+		fields := resource.Fields(f.Type) // Do not limit to inputs -- only top level input required
 		v, moredeps, morediags := d.decodeInputs(b.Body, fields)
 		deps = append(deps, moredeps...)
 		diags = append(diags, morediags...)
@@ -669,7 +668,7 @@ func (d *Decoder) convertVal(input cty.Value, want cty.Type, rng *hcl.Range) (ct
 	return converted, diags
 }
 
-func (d *Decoder) bodySchema(fields schema.FieldSet) *hcl.BodySchema {
+func (d *Decoder) bodySchema(fields resource.FieldSet) *hcl.BodySchema {
 	s := &hcl.BodySchema{}
 	for name, f := range fields {
 		if d.isBlock(f.Type) {

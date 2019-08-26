@@ -1,4 +1,4 @@
-package schema
+package resource
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-// ImpliedType converts a reflect type to the cty type system.
+// CtyType converts a reflect type to the cty type system.
 //
 // The function is essentially the same as gocty.ImpliedType, except nested
 // structs do not require a cty struct tag. Instead, Fields() is used to get
@@ -15,7 +15,7 @@ import (
 //
 // Panics if the type cannot be converted. In practice this only applies to
 // more complex types, such as functions and slices.
-func ImpliedType(t reflect.Type) cty.Type {
+func CtyType(t reflect.Type) cty.Type {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -23,9 +23,9 @@ func ImpliedType(t reflect.Type) cty.Type {
 	case reflect.Struct:
 		return Fields(t).CtyType()
 	case reflect.Slice, reflect.Array:
-		return cty.List(ImpliedType(t.Elem()))
+		return cty.List(CtyType(t.Elem()))
 	case reflect.Map:
-		return cty.Map(ImpliedType(t.Elem()))
+		return cty.Map(CtyType(t.Elem()))
 	case reflect.Bool:
 		return cty.Bool
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:

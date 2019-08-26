@@ -15,7 +15,6 @@ import (
 	"github.com/func/func/ctyext"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/reconciler/internal/task"
-	"github.com/func/func/resource/schema"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
@@ -218,7 +217,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		// Insert config into definition.
 		val := reflect.New(defType)
-		if err := ctyext.FromCtyValue(res.Input, val.Interface(), schema.FieldName); err != nil {
+		if err := ctyext.FromCtyValue(res.Input, val.Interface(), resource.FieldName); err != nil {
 			return errors.Wrap(err, "set input")
 		}
 		def := val.Elem().Interface().(resource.Definition)
@@ -283,10 +282,10 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 			// Create previous definition.
 			val := reflect.New(r.Registry.Type(res.Type))
-			if err := ctyext.FromCtyValue(existing.Output, val.Interface(), schema.FieldName); err != nil {
+			if err := ctyext.FromCtyValue(existing.Output, val.Interface(), resource.FieldName); err != nil {
 				return errors.Wrap(err, "set existing output")
 			}
-			if err := ctyext.FromCtyValue(existing.Input, val.Interface(), schema.FieldName); err != nil {
+			if err := ctyext.FromCtyValue(existing.Input, val.Interface(), resource.FieldName); err != nil {
 				return errors.Wrap(err, "set config")
 			}
 			prev := val.Elem().Interface().(resource.Definition)
@@ -353,8 +352,8 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 func setOutput(res *resource.Resource, def resource.Definition) error {
 	ty := reflect.TypeOf(def)
-	outputType := schema.Fields(ty).Outputs().CtyType()
-	outputs, err := ctyext.ToCtyValue(def, outputType, schema.FieldName)
+	outputType := resource.Fields(ty).Outputs().CtyType()
+	outputs, err := ctyext.ToCtyValue(def, outputType, resource.FieldName)
 	if err != nil {
 		return errors.Wrap(err, "convert output values")
 	}
@@ -464,10 +463,10 @@ func (r *run) removeResource(ctx context.Context, res *resource.Resource) error 
 
 	// Create previous definition.
 	val := reflect.New(r.Registry.Type(res.Type))
-	if err := ctyext.FromCtyValue(res.Output, val.Interface(), schema.FieldName); err != nil {
+	if err := ctyext.FromCtyValue(res.Output, val.Interface(), resource.FieldName); err != nil {
 		return errors.Wrap(err, "set existing output")
 	}
-	if err := ctyext.FromCtyValue(res.Input, val.Interface(), schema.FieldName); err != nil {
+	if err := ctyext.FromCtyValue(res.Input, val.Interface(), resource.FieldName); err != nil {
 		return errors.Wrap(err, "set config")
 	}
 	def := val.Elem().Interface().(resource.Definition)

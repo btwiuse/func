@@ -1,14 +1,14 @@
-package schema_test
+package resource_test
 
 import (
 	"reflect"
 	"testing"
 
-	"github.com/func/func/resource/schema"
+	"github.com/func/func/resource"
 	"github.com/zclconf/go-cty/cty"
 )
 
-func TestImpliedType(t *testing.T) {
+func TestCtyType(t *testing.T) {
 	tests := []struct {
 		input reflect.Type
 		want  cty.Type
@@ -49,7 +49,7 @@ func TestImpliedType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input.String(), func(t *testing.T) {
-			got := schema.ImpliedType(tt.input)
+			got := resource.CtyType(tt.input)
 			if !got.Equals(tt.want) {
 				t.Fatalf("ImpliedType()\ngot:   %#v\nwant:  %#v", got, tt.want)
 			}

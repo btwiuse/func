@@ -1,11 +1,11 @@
-package schema_test
+package resource_test
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/func/func/resource/schema"
+	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/zclconf/go-cty/cty"
@@ -15,15 +15,15 @@ func TestFields(t *testing.T) {
 	tests := []struct {
 		name        string
 		target      reflect.Type
-		wantInputs  schema.FieldSet
-		wantOutputs schema.FieldSet
+		wantInputs  resource.FieldSet
+		wantOutputs resource.FieldSet
 	}{
 		{
 			name: "Input",
 			target: reflect.TypeOf(struct {
 				Foo int `func:"input"`
 			}{}),
-			wantInputs: schema.FieldSet{
+			wantInputs: resource.FieldSet{
 				"foo": {
 					Index: 0,
 					Type:  reflect.TypeOf(123),
@@ -37,7 +37,7 @@ func TestFields(t *testing.T) {
 				Foo int `func:"output"`
 			}{}),
 			wantInputs: nil,
-			wantOutputs: schema.FieldSet{
+			wantOutputs: resource.FieldSet{
 				"foo": {
 					Index: 0,
 					Type:  reflect.TypeOf(123),
@@ -58,7 +58,7 @@ func TestFields(t *testing.T) {
 				Foo int    `func:"input" name:"bar"`
 				Bar string `func:"input" name:"baz"`
 			}{}),
-			wantInputs: map[string]schema.Field{
+			wantInputs: map[string]resource.Field{
 				"bar": {
 					Index: 0,
 					Type:  reflect.TypeOf(123),
@@ -74,7 +74,7 @@ func TestFields(t *testing.T) {
 			target: reflect.TypeOf(struct {
 				Foo int `func:"input" validate:"test"`
 			}{}),
-			wantInputs: map[string]schema.Field{
+			wantInputs: map[string]resource.Field{
 				"foo": {
 					Index: 0,
 					Type:  reflect.TypeOf(123),
@@ -89,7 +89,7 @@ func TestFields(t *testing.T) {
 			target: reflect.TypeOf(&struct {
 				Foo int `func:"input"`
 			}{}),
-			wantInputs: schema.FieldSet{
+			wantInputs: resource.FieldSet{
 				"foo": {
 					Index: 0,
 					Type:  reflect.TypeOf(123),
@@ -101,11 +101,11 @@ func TestFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := schema.Fields(tt.target)
+			got := resource.Fields(tt.target)
 			inputs := got.Inputs()
 			outputs := got.Outputs()
 			opts := []cmp.Option{
-				cmpopts.IgnoreUnexported(schema.Field{}),
+				cmpopts.IgnoreUnexported(resource.Field{}),
 				cmpopts.EquateEmpty(),
 				cmp.Comparer(func(a, b reflect.Type) bool {
 					return a == b
@@ -124,12 +124,12 @@ func TestFields(t *testing.T) {
 func TestFieldSet_CtyType(t *testing.T) {
 	tests := []struct {
 		name   string
-		fields schema.FieldSet
+		fields resource.FieldSet
 		want   cty.Type
 	}{
 		{
 			"Simple",
-			schema.FieldSet{
+			resource.FieldSet{
 				"foo": {
 					Index: 0,
 					Type:  reflect.TypeOf("string"),
@@ -141,7 +141,7 @@ func TestFieldSet_CtyType(t *testing.T) {
 		},
 		{
 			"Nested",
-			schema.FieldSet{
+			resource.FieldSet{
 				"foo": {
 					Index: 0,
 					Type: reflect.TypeOf(struct {
@@ -177,7 +177,7 @@ func ExampleFieldName_camel() {
 	field := reflect.StructField{
 		Name: "DeadLetterConfig",
 	}
-	got := schema.FieldName(field)
+	got := resource.FieldName(field)
 	fmt.Println(got)
 	// Output: dead_letter_config
 }
@@ -186,7 +186,7 @@ func ExampleFieldName_camel2() {
 	field := reflect.StructField{
 		Name: "KMSKeyArn",
 	}
-	got := schema.FieldName(field)
+	got := resource.FieldName(field)
 	fmt.Println(got)
 	// Output: kms_key_arn
 }
@@ -195,7 +195,7 @@ func ExampleFieldName_withoutCustom() {
 	field := reflect.StructField{
 		Name: "RestAPIID", // Will not split before ID
 	}
-	got := schema.FieldName(field)
+	got := resource.FieldName(field)
 	fmt.Println(got)
 	// Output: rest_apiid
 }
@@ -205,7 +205,7 @@ func ExampleFieldName_withCustom() {
 		Name: "RestAPIID",
 		Tag:  reflect.StructTag(`name:"rest_api_id"`),
 	}
-	got := schema.FieldName(field)
+	got := resource.FieldName(field)
 	fmt.Println(got)
 	// Output: rest_api_id
 }
