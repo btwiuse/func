@@ -63,19 +63,6 @@ type APIGatewayStage struct {
 	// Settings for logging access in this stage.
 	AccessLogSettings *AccessLogSettings `func:"output"`
 
-	// The status of the cache cluster for the stage, if enabled.
-	//
-	// Value will be one of:
-	//   - `CREATE_IN_PROGRESS`
-	//   - `AVAILABLE`
-	//   - `DELETE_IN_PROGRESS`
-	//   - `NOT_AVAILABLE`
-	//   - `FLUSH_IN_PROGRESS`
-	CacheClusterStatus string `func:"output"`
-
-	// The identifier of a client certificate for an API stage.
-	ClientCertificateID string `func:"output"`
-
 	// RFC3339 formatted date and time for when the stage was created.
 	CreatedDate string `func:"output"`
 
