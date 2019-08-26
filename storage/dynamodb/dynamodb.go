@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbiface"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/schema"
 	"github.com/func/func/storage/dynamodb/internal/attr"
 	"github.com/pkg/errors"
@@ -170,15 +168,9 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resour
 }
 
 // PutGraph creates or updates a graph.
-func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph) error {
-	names := make([]string, 0, len(g.Resources))
-	for name := range g.Resources {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	resources := make([]dynamodb.AttributeValue, len(names))
-	for i, name := range names {
-		res := g.Resources[name]
+func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *resource.Graph) error {
+	resources := make([]dynamodb.AttributeValue, len(g.Resources))
+	for i, res := range g.Resources {
 		item := map[string]dynamodb.AttributeValue{
 			"Type":   attr.FromString(res.Type),
 			"Name":   attr.FromString(res.Name),
@@ -195,17 +187,14 @@ func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph)
 
 		resources[i] = dynamodb.AttributeValue{M: item}
 	}
-	deps := make(map[string]dynamodb.AttributeValue, len(g.Dependencies))
-	for name, dd := range g.Dependencies {
-		depVals := make([]dynamodb.AttributeValue, len(dd))
-		for i, d := range dd {
-			dep := map[string]dynamodb.AttributeValue{
-				"Field":      attr.FromCtyPath(d.Field),
-				"Expression": attr.FromGraphExpression(d.Expression),
-			}
-			depVals[i] = dynamodb.AttributeValue{M: dep}
+	deps := make([]dynamodb.AttributeValue, len(g.Dependencies))
+	for i, d := range g.Dependencies {
+		dep := map[string]dynamodb.AttributeValue{
+			"Child":      attr.FromString(d.Child),
+			"Field":      attr.FromCtyPath(d.Field),
+			"Expression": attr.FromExpression(d.Expression),
 		}
-		deps[name] = dynamodb.AttributeValue{L: depVals}
+		deps[i] = dynamodb.AttributeValue{M: dep}
 	}
 
 	input := &dynamodb.PutItemInput{
@@ -220,7 +209,7 @@ func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph)
 		input.Item["Resources"] = dynamodb.AttributeValue{L: resources}
 	}
 	if len(deps) > 0 {
-		input.Item["Dependencies"] = dynamodb.AttributeValue{M: deps}
+		input.Item["Dependencies"] = dynamodb.AttributeValue{L: deps}
 	}
 
 	resp, err := d.Client.PutItemRequest(input).Send(ctx)
@@ -233,7 +222,7 @@ func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph)
 
 // GetGraph returns a graph for a project. Returns nil if the project does not
 // have a graph.
-func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, error) {
+func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*resource.Graph, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
@@ -250,7 +239,7 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, 
 		return nil, nil
 	}
 
-	g := graph.New()
+	g := &resource.Graph{}
 
 	for i, item := range resp.Item["Resources"].L {
 		res := &resource.Resource{}
@@ -288,23 +277,30 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, 
 		}
 		res.Output = output
 
-		g.AddResource(res)
+		if err := g.AddResource(res); err != nil {
+			return nil, fmt.Errorf("add resource: %v", err)
+		}
 	}
-	for name, deps := range resp.Item["Dependencies"].M {
-		for i, d := range deps.L {
-			field, err := attr.ToCtyPath(d.M["Field"])
-			if err != nil {
-				return nil, fmt.Errorf("decode dependency field %s/%d: %v", name, i, err)
-			}
-			expr, err := attr.ToGraphExpression(d.M["Expression"])
-			if err != nil {
-				return nil, fmt.Errorf("decode dependency expression %s/%d: %v", name, i, err)
-			}
-			dep := graph.Dependency{
-				Field:      field,
-				Expression: expr,
-			}
-			g.AddDependency(name, dep)
+	for i, dep := range resp.Item["Dependencies"].L {
+		child, err := attr.ToString(dep.M["Child"])
+		if err != nil {
+			return nil, fmt.Errorf("decode dependency %d: Child: %v", i, err)
+		}
+		field, err := attr.ToCtyPath(dep.M["Field"])
+		if err != nil {
+			return nil, fmt.Errorf("decode dependency %d: Field: %v", i, err)
+		}
+		expr, err := attr.ToExpression(dep.M["Expression"])
+		if err != nil {
+			return nil, fmt.Errorf("decode dependency: %d Expression:: %v", i, err)
+		}
+		dep := &resource.Dependency{
+			Child:      child,
+			Field:      field,
+			Expression: expr,
+		}
+		if err := g.AddDependency(dep); err != nil {
+			return nil, fmt.Errorf("add dependency: %v", err)
 		}
 	}
 

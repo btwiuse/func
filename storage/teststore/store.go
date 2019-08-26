@@ -7,14 +7,13 @@ import (
 	"sync"
 
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 )
 
 // Store is a store that's intended to be used in tests. All data is stored in memory.
 type Store struct {
 	mu        sync.RWMutex
 	resources map[string]map[string]*resource.Resource
-	graphs    map[string]*graph.Graph
+	graphs    map[string]*resource.Graph
 }
 
 // SeedResources seeds the store with resources for a given project. If the
@@ -42,9 +41,9 @@ func (s *Store) SeedResources(project string, resources []*resource.Resource) {
 //
 // The method may be called multiple times to set the graph for multiple
 // projects.
-func (s *Store) SeedGraph(project string, g *graph.Graph) {
+func (s *Store) SeedGraph(project string, g *resource.Graph) {
 	if s.graphs == nil {
-		s.graphs = make(map[string]*graph.Graph)
+		s.graphs = make(map[string]*resource.Graph)
 	}
 	s.graphs[project] = g
 }
@@ -90,11 +89,11 @@ func (s *Store) ListResources(ctx context.Context, project string) ([]*resource.
 }
 
 // PutGraph creates or updates a graph.
-func (s *Store) PutGraph(ctx context.Context, project string, g *graph.Graph) error {
+func (s *Store) PutGraph(ctx context.Context, project string, g *resource.Graph) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.graphs == nil {
-		s.graphs = make(map[string]*graph.Graph)
+		s.graphs = make(map[string]*resource.Graph)
 	}
 	s.graphs[project] = g
 	return nil
@@ -102,7 +101,7 @@ func (s *Store) PutGraph(ctx context.Context, project string, g *graph.Graph) er
 
 // GetGraph returns a graph for a project. Returns nil if the project does not
 // have a graph.
-func (s *Store) GetGraph(ctx context.Context, project string) (*graph.Graph, error) {
+func (s *Store) GetGraph(ctx context.Context, project string) (*resource.Graph, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	g, ok := s.graphs[project]

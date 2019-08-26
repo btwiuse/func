@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/defaults"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/zclconf/go-cty/cty"
@@ -139,9 +138,9 @@ func TestDynamoDB_Graphs(t *testing.T) {
 	ddb := New(cfg, table, registry)
 	ctx := context.Background()
 
-	g := &graph.Graph{
-		Resources: map[string]*resource.Resource{
-			"alice": {
+	g := &resource.Graph{
+		Resources: []*resource.Resource{
+			{
 				Name:    "alice",
 				Type:    "person",
 				Sources: []string{"abc"},
@@ -150,7 +149,7 @@ func TestDynamoDB_Graphs(t *testing.T) {
 					"age":  cty.NumberIntVal(20),
 				}),
 			},
-			"bob": {
+			{
 				Name:    "bob",
 				Type:    "person",
 				Sources: []string{"abc"},
@@ -161,18 +160,19 @@ func TestDynamoDB_Graphs(t *testing.T) {
 				Deps: []string{"alice", "carol"},
 			},
 		},
-		Dependencies: map[string][]graph.Dependency{
-			"bob": {{
+		Dependencies: []*resource.Dependency{
+			{
+				Child: "bob",
 				Field: cty.GetAttrPath("friends"),
-				Expression: graph.Expression{
-					graph.ExprReference{
+				Expression: resource.Expression{
+					resource.ExprReference{
 						Path: cty.
 							GetAttrPath("alice").
 							GetAttr("friends").
 							Index(cty.NumberIntVal(0)),
 					},
 				},
-			}},
+			},
 		},
 	}
 

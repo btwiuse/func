@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -15,8 +14,8 @@ type store interface {
 	PutResource(ctx context.Context, project string, res *resource.Resource) error
 	DeleteResource(ctx context.Context, project string, res *resource.Resource) error
 	ListResources(ctx context.Context, project string) ([]*resource.Resource, error)
-	PutGraph(ctx context.Context, project string, g *graph.Graph) error
-	GetGraph(ctx context.Context, project string) (*graph.Graph, error)
+	PutGraph(ctx context.Context, project string, g *resource.Graph) error
+	GetGraph(ctx context.Context, project string) (*resource.Graph, error)
 }
 
 // A Recorder acts as a wrapper to a store. It records all transactions with
@@ -166,7 +165,7 @@ func (r *Recorder) ListResources(ctx context.Context, project string) ([]*resour
 }
 
 // PutGraph calls the corresponding method on the underlying store and records the event.
-func (r *Recorder) PutGraph(ctx context.Context, project string, g *graph.Graph) error {
+func (r *Recorder) PutGraph(ctx context.Context, project string, g *resource.Graph) error {
 	ev := Event{
 		Method:  "PutGraph",
 		Project: project,
@@ -183,7 +182,7 @@ func (r *Recorder) PutGraph(ctx context.Context, project string, g *graph.Graph)
 }
 
 // GetGraph calls the corresponding method on the underlying store and records the event.
-func (r *Recorder) GetGraph(ctx context.Context, project string) (*graph.Graph, error) {
+func (r *Recorder) GetGraph(ctx context.Context, project string) (*resource.Graph, error) {
 	ev := Event{
 		Method:  "GetGraph",
 		Project: project,
