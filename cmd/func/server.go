@@ -14,6 +14,7 @@ import (
 	"github.com/func/func/resource/validation"
 	"github.com/func/func/source/s3"
 	"github.com/func/func/storage/dynamodb"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -67,13 +68,23 @@ var serverCommand = &cobra.Command{
 		}
 		dynamo := dynamodb.New(cfg, table, reg)
 
-		logger, err := zap.NewProduction()
-		if err != nil {
-			panic(err)
+		var logger *zap.Logger
+		if isatty.IsTerminal(os.Stdout.Fd()) {
+			l, err := zap.NewDevelopment()
+			if err != nil {
+				panic(err)
+			}
+			logger = l
+		} else {
+			l, err := zap.NewProduction()
+			if err != nil {
+				panic(err)
+			}
+			logger = l
+			defer func() {
+				_ = logger.Sync()
+			}()
 		}
-		defer func() {
-			_ = logger.Sync()
-		}()
 
 		server := &api.Server{
 			Logger:    logger.Named("server"),
