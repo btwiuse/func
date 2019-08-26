@@ -32,7 +32,7 @@ func (s *Store) SeedResources(project string, resources []*resource.Deployed) {
 		s.resources[project] = make(map[string]*resource.Deployed)
 	}
 	for _, res := range resources {
-		s.resources[project][res.Name] = res
+		s.resources[project][res.ID] = res
 	}
 }
 
@@ -58,7 +58,7 @@ func (s *Store) PutResource(ctx context.Context, project string, res *resource.D
 	if s.resources[project] == nil {
 		s.resources[project] = make(map[string]*resource.Deployed)
 	}
-	s.resources[project][res.Name] = res
+	s.resources[project][res.ID] = res
 	return nil
 }
 
@@ -66,10 +66,10 @@ func (s *Store) PutResource(ctx context.Context, project string, res *resource.D
 func (s *Store) DeleteResource(ctx context.Context, project string, res *resource.Deployed) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.resources[project][res.Name]; !ok {
-		return fmt.Errorf("resource %q does not exist in project %q", res.Name, project)
+	if _, ok := s.resources[project][res.ID]; !ok {
+		return fmt.Errorf("resource %q does not exist in project %q", res.ID, project)
 	}
-	delete(s.resources[project], res.Name)
+	delete(s.resources[project], res.ID)
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (s *Store) ListResources(ctx context.Context, project string) ([]*resource.
 		out = append(out, r)
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Name < out[j].Name
+		return out[i].ID < out[j].ID
 	})
 	return out, nil
 }

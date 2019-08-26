@@ -23,6 +23,7 @@ func TestStore_Resources(t *testing.T) {
 			Name:  "a",
 			Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("abc")}),
 		},
+		ID:     "a",
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("def")}),
 	}
 	resB := &resource.Deployed{
@@ -32,6 +33,7 @@ func TestStore_Resources(t *testing.T) {
 			Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("123")}),
 			Sources: []string{"x", "y", "z"},
 		},
+		ID:     "b",
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("456")}),
 		Deps:   []string{"foo", "bar"},
 	}
@@ -60,9 +62,10 @@ func TestStore_Resources(t *testing.T) {
 	update := &resource.Deployed{
 		Desired: &resource.Desired{
 			Type:  "foo",
-			Name:  "a", // Same name
+			Name:  "abcdef", // Different name
 			Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("ABC")}),
 		},
+		ID:     "a", // Same id
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("DEF")}),
 	}
 	if err := s.PutResource(ctx, project, update); err != nil {
