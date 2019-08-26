@@ -12,9 +12,9 @@ import (
 )
 
 type store interface {
-	PutResource(ctx context.Context, project string, res resource.Resource) error
-	DeleteResource(ctx context.Context, project string, name string) error
-	ListResources(ctx context.Context, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, project string, res *resource.Resource) error
+	DeleteResource(ctx context.Context, project string, res *resource.Resource) error
+	ListResources(ctx context.Context, project string) ([]*resource.Resource, error)
 	PutGraph(ctx context.Context, project string, g *graph.Graph) error
 	GetGraph(ctx context.Context, project string) (*graph.Graph, error)
 }
@@ -114,7 +114,7 @@ func (ev Event) String() string {
 // PutResource calls the corresponding method on the underlying store and records the event.
 //
 // Resource is set as event data.
-func (r *Recorder) PutResource(ctx context.Context, project string, res resource.Resource) error {
+func (r *Recorder) PutResource(ctx context.Context, project string, res *resource.Resource) error {
 	ev := Event{
 		Method:  "PutResource",
 		Project: project,
@@ -132,14 +132,14 @@ func (r *Recorder) PutResource(ctx context.Context, project string, res resource
 
 // DeleteResource calls the corresponding method on the underlying store and records the event.
 //
-// Name is recorded as id.
-func (r *Recorder) DeleteResource(ctx context.Context, project string, name string) error {
+// Resource is set as event data.
+func (r *Recorder) DeleteResource(ctx context.Context, project string, res *resource.Resource) error {
 	ev := Event{
 		Method:  "DeleteResource",
 		Project: project,
-		Data:    name,
+		Data:    res,
 	}
-	err := r.Store.DeleteResource(ctx, project, name)
+	err := r.Store.DeleteResource(ctx, project, res)
 	if err != nil {
 		ev.Err = err
 	}
@@ -150,7 +150,7 @@ func (r *Recorder) DeleteResource(ctx context.Context, project string, name stri
 }
 
 // ListResources calls the corresponding method on the underlying store and records the event.
-func (r *Recorder) ListResources(ctx context.Context, project string) (map[string]resource.Resource, error) {
+func (r *Recorder) ListResources(ctx context.Context, project string) ([]*resource.Resource, error) {
 	ev := Event{
 		Method:  "ListResources",
 		Project: project,
