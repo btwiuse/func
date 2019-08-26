@@ -31,9 +31,9 @@ var DefaultConcurrency = 10
 
 // ResourceStorage persists resources.
 type ResourceStorage interface {
-	PutResource(ctx context.Context, project string, resource *resource.Resource) error
-	DeleteResource(ctx context.Context, project string, resource *resource.Resource) error
-	ListResources(ctx context.Context, project string) ([]*resource.Resource, error)
+	PutResource(ctx context.Context, project string, resource *resource.Deployed) error
+	DeleteResource(ctx context.Context, project string, resource *resource.Deployed) error
+	ListResources(ctx context.Context, project string) ([]*resource.Deployed, error)
 }
 
 // SourceStorage provides resource source code.
@@ -48,8 +48,8 @@ type Registry interface {
 
 // A Graph contains the desired graph to reconcile.
 type Graph interface {
-	LeafResources() []*resource.Resource
-	ParentResources(child string) []*resource.Resource
+	LeafResources() []*resource.Desired
+	ParentResources(child string) []*resource.Desired
 	DependenciesOf(child string) []*resource.Dependency
 }
 
@@ -107,6 +107,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph Graph
 		Logger:    logger,
 		Backoff:   algo,
 		Sem:       semaphore.NewWeighted(int64(c)),
+		outputs:   make(map[string]cty.Value),
 	}
 
 	if err := run.GetExisting(ctx); err != nil {
@@ -144,7 +145,8 @@ type run struct {
 	Sem       *semaphore.Weighted
 
 	mu       sync.RWMutex
-	existing []*resource.Resource // Existing resource from a previous deployment.
+	existing []*resource.Deployed // Existing resource from a previous deployment.
+	outputs  map[string]cty.Value
 
 	tasks *task.Group // Maintains a list of actively processing resources.
 
@@ -180,10 +182,14 @@ func (r *run) CreateUpdate(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (r *run) processResource(ctx context.Context, res *resource.Resource) error {
+func (r *run) processResource(ctx context.Context, res *resource.Desired) error {
 	logger := r.Logger.With(zap.String("type", res.Type), zap.String("name", res.Name))
 
 	return r.tasks.Do(res.Name, func() error {
+		deployed := &resource.Deployed{
+			Desired: res,
+		}
+
 		// Wait for dependencies to resolve.
 		// Do this before acquiring a semaphore, as otherwise we can needlessly
 		// block on low concurrency limits, and end up in a deadlock with
@@ -237,7 +243,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		// Find existing.
 		r.mu.Lock()
-		var existing *resource.Resource
+		var existing *resource.Deployed
 		for i, ex := range r.existing {
 			if ex.Type == res.Type && ex.Name == res.Name {
 				existing = ex
@@ -269,7 +275,9 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 			}
 
 			if !updateConfig && !updateSource {
-				res.Output = existing.Output
+				r.mu.Lock()
+				r.outputs[res.Name] = existing.Output
+				r.mu.Unlock()
 				logger.Debug("No changes required")
 				return nil
 			}
@@ -327,8 +335,24 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		}
 
 		// Capture generated output values
-		if err := setOutput(res, def); err != nil {
-			return errors.Wrap(err, "set output")
+		outputType := resource.Fields(defType).Outputs().CtyType()
+		outputs, err := ctyext.ToCtyValue(def, outputType, resource.FieldName)
+		if err != nil {
+			return errors.Wrap(err, "convert output values")
+		}
+		deployed.Output = outputs
+
+		r.mu.Lock()
+		r.outputs[res.Name] = outputs
+		r.mu.Unlock()
+
+		// Capture resource parents
+		parents := r.Graph.ParentResources(res.Name)
+		if len(parents) > 0 {
+			deployed.Deps = make([]string, len(parents))
+			for i, p := range parents {
+				deployed.Deps[i] = p.Name
+			}
 		}
 
 		// Use new context so a cancelled context still stores the result.
@@ -336,7 +360,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		defer cancel()
 
 		logger.Debug("Storing data")
-		if err := r.Resources.PutResource(pctx, r.Project, res); err != nil {
+		if err := r.Resources.PutResource(pctx, r.Project, deployed); err != nil {
 			return errors.Wrap(err, "store resource")
 		}
 
@@ -348,17 +372,6 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		return nil
 	})
-}
-
-func setOutput(res *resource.Resource, def resource.Definition) error {
-	ty := reflect.TypeOf(def)
-	outputType := resource.Fields(ty).Outputs().CtyType()
-	outputs, err := ctyext.ToCtyValue(def, outputType, resource.FieldName)
-	if err != nil {
-		return errors.Wrap(err, "convert output values")
-	}
-	res.Output = outputs
-	return nil
 }
 
 func (r *run) processDependencies(ctx context.Context, childName string, logger *zap.Logger) error {
@@ -376,16 +389,18 @@ func (r *run) processDependencies(ctx context.Context, childName string, logger 
 	return g.Wait()
 }
 
-func (r *run) resolveDependencies(res *resource.Resource) error {
+func (r *run) resolveDependencies(res *resource.Desired) error {
 	parents := r.Graph.ParentResources(res.Name)
 	if len(parents) == 0 {
 		return nil
 	}
 
+	r.mu.Lock()
 	vars := make(map[string]cty.Value)
 	for _, p := range parents {
-		vars[p.Name] = p.Output
+		vars[p.Name] = r.outputs[p.Name]
 	}
+	r.mu.Unlock()
 
 	ctx := &resource.EvalContext{Variables: vars}
 	for _, dep := range r.Graph.DependenciesOf(res.Name) {
@@ -449,7 +464,7 @@ func (r *run) RemovePrevious(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (r *run) removeResource(ctx context.Context, res *resource.Resource) error {
+func (r *run) removeResource(ctx context.Context, res *resource.Deployed) error {
 	logger := r.Logger.With(zap.String("type", res.Type), zap.String("name", res.Name))
 
 	// Ready to process, wait for semaphore.

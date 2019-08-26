@@ -17,7 +17,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 	tests := []struct {
 		name       string
 		defs       map[string]resource.Definition
-		existing   []*resource.Resource
+		existing   []*resource.Deployed
 		graph      *resource.Graph
 		wantEvents teststore.Events
 	}{
@@ -37,23 +37,27 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				nop
 				Input string `func:"input"`
 			}{}},
-			existing: []*resource.Resource{
+			existing: []*resource.Deployed{
 				{
-					Name:    "foo",
-					Type:    "nop",
-					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-					Output:  cty.EmptyObjectVal,
-					Sources: []string{"abc"},
+					Desired: &resource.Desired{
+						Name:    "foo",
+						Type:    "nop",
+						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+						Sources: []string{"abc"},
+					},
+					Output: cty.EmptyObjectVal,
 				},
 			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{{
-					// Identical
-					Name:    "foo",
-					Type:    "nop",
-					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-					Sources: []string{"abc"},
-				}},
+				Resources: []*resource.Desired{
+					{
+						// Identical
+						Name:    "foo",
+						Type:    "nop",
+						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+						Sources: []string{"abc"},
+					},
+				},
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
@@ -67,7 +71,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			}{}},
 			existing: nil, // Nothing exists
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:    "foo",
 						Type:    "nop",
@@ -78,12 +82,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:    "foo",
-					Type:    "nop",
-					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
-					Output:  cty.EmptyObjectVal,
-					Sources: []string{"abc"},
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:    "foo",
+						Type:    "nop",
+						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
+						Sources: []string{"abc"},
+					},
+					Output: cty.EmptyObjectVal,
 				}},
 			},
 		},
@@ -91,7 +97,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			name: "CreateDependency",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "foo",
 						Type:  "passthrough",
@@ -119,39 +125,48 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "foo",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("bar")}),
 				}},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "bar",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "bar",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("bar")}),
+					Deps:   []string{"foo"},
 				}},
 			},
 		},
 		{
 			name: "NopWithDependency",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
-			existing: []*resource.Resource{
+			existing: []*resource.Deployed{
 				{
-					Name:   "foo",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				},
 				{
-					Name:   "bar",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					Desired: &resource.Desired{
+						Name:  "bar",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				},
 			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "foo",
 						Type:  "passthrough",
@@ -187,14 +202,18 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				nop
 				Input string `func:"input"`
 			}{}},
-			existing: []*resource.Resource{{
-				Name:   "foo",
-				Type:   "nop",
-				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("before")}),
-				Output: cty.EmptyObjectVal,
-			}},
+			existing: []*resource.Deployed{
+				{
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("before")}),
+					},
+					Output: cty.EmptyObjectVal,
+				},
+			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "foo",
 						Type:  "nop",
@@ -204,10 +223,12 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "foo",
-					Type:   "nop",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("after")}), // Updated
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("after")}), // Updated
+					},
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -218,15 +239,19 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				nop
 				Input string `func:"input"`
 			}{}},
-			existing: []*resource.Resource{{
-				Name:    "foo",
-				Type:    "nop",
-				Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-				Output:  cty.EmptyObjectVal,
-				Sources: []string{"abc"},
-			}},
+			existing: []*resource.Deployed{
+				{
+					Desired: &resource.Desired{
+						Name:    "foo",
+						Type:    "nop",
+						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+						Sources: []string{"abc"},
+					},
+					Output: cty.EmptyObjectVal,
+				},
+			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:    "foo",
 						Type:    "nop",
@@ -237,31 +262,39 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:    "foo",
-					Type:    "nop",
-					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}), // Same
-					Output:  cty.EmptyObjectVal,
-					Sources: []string{"xyz"}, // Updated
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:    "foo",
+						Type:    "nop",
+						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}), // Same
+						Sources: []string{"xyz"},                                                      // Updated
+					},
+					Output: cty.EmptyObjectVal,
 				}},
 			},
 		},
 		{
 			name: "UpdateChild",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
-			existing: []*resource.Resource{{
-				Name:   "parent",
-				Type:   "passthrough",
-				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
-			}, {
-				Name:   "child",
-				Type:   "passthrough",
-				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
-				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
-			}},
+			existing: []*resource.Deployed{
+				{
+					Desired: &resource.Desired{
+						Name:  "parent",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
+					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
+				}, {
+					Desired: &resource.Desired{
+						Name:  "child",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
+					},
+					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
+				},
+			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "parent",
 						Type:  "passthrough",
@@ -289,30 +322,39 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
 				// Parent not updated
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Type:   "passthrough",
-					Name:   "child",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello there")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Type:  "passthrough",
+						Name:  "child",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello there")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello there")}),
+					Deps:   []string{"parent"},
 				}},
 			},
 		},
 		{
 			name: "UpdateParent",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
-			existing: []*resource.Resource{{
-				Name:   "parent",
-				Type:   "passthrough",
-				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
-			}, {
-				Name:   "child",
-				Type:   "passthrough",
-				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
-				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
-			}},
+			existing: []*resource.Deployed{
+				{
+					Desired: &resource.Desired{
+						Name:  "parent",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
+					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
+				}, {
+					Desired: &resource.Desired{
+						Name:  "child",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
+					},
+					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
+				},
+			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "parent",
 						Type:  "passthrough",
@@ -339,17 +381,22 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "parent",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "parent",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hi")}),
 				}},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "child",
-					Type:   "passthrough",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi world")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "child",
+						Type:  "passthrough",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi world")}),
+					},
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hi world")}),
+					Deps:   []string{"parent"},
 				}},
 			},
 		},
@@ -359,15 +406,18 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				nop
 				Input string `func:"input"`
 			}{}},
-			existing: []*resource.Resource{
+			existing: []*resource.Deployed{
 				{
-					Name:  "foo",
-					Type:  "nop",
-					Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
+					Output: cty.EmptyObjectVal,
 				},
 			},
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name:  "bar",
 						Type:  "nop",
@@ -377,16 +427,21 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name:   "bar",
-					Type:   "nop",
-					Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "bar",
+						Type:  "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
 					Output: cty.EmptyObjectVal,
 				}},
-				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{
-					Name:  "foo",
-					Type:  "nop",
-					Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name:  "foo",
+						Type:  "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					},
+					Output: cty.EmptyObjectVal,
 				}},
 			},
 		},
@@ -400,7 +455,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			}{}},
 			existing: nil,
 			graph: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Name: "bar",
 						Type: "nop",
@@ -414,14 +469,16 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "PutResource", Project: "proj", Data: &resource.Resource{
-					Name: "bar",
-					Type: "nop",
-					Input: cty.ObjectVal(map[string]cty.Value{
-						"input": cty.NullVal(cty.Object(map[string]cty.Type{
-							"val": cty.String,
-						})),
-					}),
+				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{
+						Name: "bar",
+						Type: "nop",
+						Input: cty.ObjectVal(map[string]cty.Value{
+							"input": cty.NullVal(cty.Object(map[string]cty.Type{
+								"val": cty.String,
+							})),
+						}),
+					},
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -429,26 +486,26 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 		{
 			name: "DeleteOrder",
 			defs: map[string]resource.Definition{"nop": nop{}},
-			existing: []*resource.Resource{
-				{Name: "foo", Type: "nop"},
-				{Name: "bar", Type: "nop", Deps: []string{"foo"}},
-				{Name: "baz", Type: "nop", Deps: []string{"foo", "bar"}},
-				{Name: "qux", Type: "nop", Deps: []string{"baz"}},
+			existing: []*resource.Deployed{
+				{Desired: &resource.Desired{Name: "foo", Type: "nop"}},
+				{Desired: &resource.Desired{Name: "bar", Type: "nop"}, Deps: []string{"foo"}},
+				{Desired: &resource.Desired{Name: "baz", Type: "nop"}, Deps: []string{"foo", "bar"}},
+				{Desired: &resource.Desired{Name: "qux", Type: "nop"}, Deps: []string{"baz"}},
 			},
 			graph: &resource.Graph{},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
-				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{
-					Type: "nop", Name: "qux", Deps: []string{"baz"},
+				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{Type: "nop", Name: "qux"}, Deps: []string{"baz"},
 				}},
-				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{
-					Type: "nop", Name: "baz", Deps: []string{"foo", "bar"},
+				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{Type: "nop", Name: "baz"}, Deps: []string{"foo", "bar"},
 				}},
-				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{
-					Type: "nop", Name: "bar", Deps: []string{"foo"},
+				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{Type: "nop", Name: "bar"}, Deps: []string{"foo"},
 				}},
-				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{
-					Type: "nop", Name: "foo",
+				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
+					Desired: &resource.Desired{Type: "nop", Name: "foo"},
 				}},
 			},
 		},
