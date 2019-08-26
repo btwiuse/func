@@ -4,8 +4,8 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-// A Resource is an instance of a resource supplied by the user.
-type Resource struct {
+// Desired represents the desired state of a resource.
+type Desired struct {
 	// Name used in resource config.
 	//
 	// The Name uniquely identifies the resource.
@@ -22,6 +22,16 @@ type Resource struct {
 	// given resource type.
 	Input cty.Value
 
+	// Sources contain the source code hashes that were provided to the
+	// resource. The value is only set for resources that have been created.
+	Sources []string
+}
+
+// Deployed is a deployed resource.
+type Deployed struct {
+	// Desired state that resulted in the deployed resource.
+	*Desired
+
 	// Output contains the outputs from the resource. The value is set after
 	// the resource has been provisioned.
 	Output cty.Value
@@ -32,8 +42,4 @@ type Resource struct {
 	//
 	// Deps are used for traversing the graph backwards when deleting resources.
 	Deps []string
-
-	// Sources contain the source code hashes that were provided to the
-	// resource. The value is only set for resources that have been created.
-	Sources []string
 }
