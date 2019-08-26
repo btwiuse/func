@@ -1,10 +1,6 @@
 package graph
 
 import (
-	"encoding/json"
-
-	"github.com/func/func/ctyext"
-	"github.com/pkg/errors"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -33,33 +29,4 @@ func (d Dependency) Parents() []string {
 // Equals returns true if two expression are equal.
 func (d Dependency) Equals(other Dependency) bool {
 	return d.Field.Equals(other.Field) && d.Expression.Equals(other.Expression)
-}
-
-type jsonDep struct {
-	Field      string     `json:"field"`
-	Expression Expression `json:"expr"`
-}
-
-// MarshalJSON marshals a dependency to json.
-func (d Dependency) MarshalJSON() ([]byte, error) {
-	dep := jsonDep{
-		Field:      ctyext.PathString(d.Field),
-		Expression: d.Expression,
-	}
-	return json.Marshal(dep)
-}
-
-// UnmarshalJSON unmarshals a dependency from json.
-func (d *Dependency) UnmarshalJSON(b []byte) error {
-	var dep jsonDep
-	if err := json.Unmarshal(b, &dep); err != nil {
-		return err
-	}
-	path, err := ctyext.ParsePathString(dep.Field)
-	if err != nil {
-		return errors.Wrap(err, "parse path")
-	}
-	d.Field = path
-	d.Expression = dep.Expression
-	return nil
 }
