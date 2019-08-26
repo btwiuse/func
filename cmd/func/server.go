@@ -15,6 +15,7 @@ import (
 	"github.com/func/func/source/s3"
 	"github.com/func/func/storage/dynamodb"
 	"github.com/mattn/go-isatty"
+	"github.com/segmentio/ksuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -99,6 +100,9 @@ var serverCommand = &cobra.Command{
 				Resources: dynamo,
 				Source:    s3src,
 				Registry:  reg,
+				IDGen: reconciler.IDGeneratorFunc(func() string {
+					return ksuid.New().String()
+				}),
 			},
 		}
 

@@ -11,9 +11,9 @@ import (
 )
 
 type store interface {
-	PutResource(ctx context.Context, project string, res *resource.Resource) error
-	DeleteResource(ctx context.Context, project string, res *resource.Resource) error
-	ListResources(ctx context.Context, project string) ([]*resource.Resource, error)
+	PutResource(ctx context.Context, project string, res *resource.Deployed) error
+	DeleteResource(ctx context.Context, project string, res *resource.Deployed) error
+	ListResources(ctx context.Context, project string) ([]*resource.Deployed, error)
 	PutGraph(ctx context.Context, project string, g *resource.Graph) error
 	GetGraph(ctx context.Context, project string) (*resource.Graph, error)
 }
@@ -113,7 +113,7 @@ func (ev Event) String() string {
 // PutResource calls the corresponding method on the underlying store and records the event.
 //
 // Resource is set as event data.
-func (r *Recorder) PutResource(ctx context.Context, project string, res *resource.Resource) error {
+func (r *Recorder) PutResource(ctx context.Context, project string, res *resource.Deployed) error {
 	ev := Event{
 		Method:  "PutResource",
 		Project: project,
@@ -132,7 +132,7 @@ func (r *Recorder) PutResource(ctx context.Context, project string, res *resourc
 // DeleteResource calls the corresponding method on the underlying store and records the event.
 //
 // Resource is set as event data.
-func (r *Recorder) DeleteResource(ctx context.Context, project string, res *resource.Resource) error {
+func (r *Recorder) DeleteResource(ctx context.Context, project string, res *resource.Deployed) error {
 	ev := Event{
 		Method:  "DeleteResource",
 		Project: project,
@@ -149,7 +149,7 @@ func (r *Recorder) DeleteResource(ctx context.Context, project string, res *reso
 }
 
 // ListResources calls the corresponding method on the underlying store and records the event.
-func (r *Recorder) ListResources(ctx context.Context, project string) ([]*resource.Resource, error) {
+func (r *Recorder) ListResources(ctx context.Context, project string) ([]*resource.Deployed, error) {
 	ev := Event{
 		Method:  "ListResources",
 		Project: project,

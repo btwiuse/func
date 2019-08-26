@@ -17,19 +17,25 @@ func TestStore_Resources(t *testing.T) {
 	project := "testproject"
 	ctx := context.Background()
 
-	resA := &resource.Resource{
-		Type:   "foo",
-		Name:   "a",
-		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("abc")}),
+	resA := &resource.Deployed{
+		Desired: &resource.Desired{
+			Type:  "foo",
+			Name:  "a",
+			Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("abc")}),
+		},
+		ID:     "a",
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("def")}),
 	}
-	resB := &resource.Resource{
-		Type:    "foo",
-		Name:    "b",
-		Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("123")}),
-		Output:  cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("456")}),
-		Sources: []string{"x", "y", "z"},
-		Deps:    []string{"foo", "bar"},
+	resB := &resource.Deployed{
+		Desired: &resource.Desired{
+			Type:    "foo",
+			Name:    "b",
+			Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("123")}),
+			Sources: []string{"x", "y", "z"},
+		},
+		ID:     "b",
+		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("456")}),
+		Deps:   []string{"foo", "bar"},
 	}
 
 	// Create
@@ -44,7 +50,7 @@ func TestStore_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []*resource.Resource{
+	want := []*resource.Deployed{
 		resA,
 		resB,
 	}
@@ -53,10 +59,13 @@ func TestStore_Resources(t *testing.T) {
 	}
 
 	// Update
-	update := &resource.Resource{
-		Type:   "foo",
-		Name:   "a", // Same name
-		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("ABC")}),
+	update := &resource.Deployed{
+		Desired: &resource.Desired{
+			Type:  "foo",
+			Name:  "abcdef", // Different name
+			Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("ABC")}),
+		},
+		ID:     "a", // Same id
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("DEF")}),
 	}
 	if err := s.PutResource(ctx, project, update); err != nil {
@@ -72,7 +81,7 @@ func TestStore_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = []*resource.Resource{
+	want = []*resource.Deployed{
 		update, // a is updated
 		// b is deleted
 	}
@@ -88,7 +97,7 @@ func TestStore_Graphs(t *testing.T) {
 	ctx := context.Background()
 
 	g := &resource.Graph{
-		Resources: []*resource.Resource{
+		Resources: []*resource.Desired{
 			{
 				Name:    "alice",
 				Type:    "person",
@@ -106,7 +115,6 @@ func TestStore_Graphs(t *testing.T) {
 					"name": cty.StringVal("bob"),
 					"age":  cty.NumberIntVal(30),
 				}),
-				Deps: []string{"alice", "carol"},
 			},
 		},
 		Dependencies: []*resource.Dependency{

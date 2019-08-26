@@ -38,7 +38,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -65,7 +65,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -92,7 +92,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type:    "a",
 						Name:    "foo",
@@ -121,7 +121,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -135,7 +135,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"), // Can be statically resolved.
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 			},
@@ -158,7 +157,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -172,7 +171,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"), // Can be statically resolved.
 						}),
-						Deps: []string{"foo"},
 					},
 					{
 						Type: "a",
@@ -180,7 +178,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"), // Can be transitively resolved.
 						}),
-						Deps: []string{"bar"},
 					},
 				},
 			},
@@ -199,7 +196,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -213,7 +210,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -247,7 +243,7 @@ func TestDecodeBody(t *testing.T) {
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -268,7 +264,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo", "bar"}, // foo only appears once
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -298,7 +293,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "ptr",
 						Name: "foo",
@@ -325,7 +320,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "mapdef",
 						Name: "foo",
@@ -352,7 +347,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "slicedef",
 						Name: "foo",
@@ -388,7 +383,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "structdef",
 						Name: "foo",
@@ -418,7 +413,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "structdef",
 						Name: "foo",
@@ -446,7 +441,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "bar",
 						Name: "foo",
@@ -477,7 +472,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "pie",
 						Name: "foo",
@@ -514,7 +509,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "multi",
 						Name: "foo",
@@ -555,7 +550,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "multi",
 						Name: "foo",
@@ -591,7 +586,7 @@ func TestDecodeBody(t *testing.T) {
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type:  "complex",
 						Name:  "foo",
@@ -603,7 +598,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -637,7 +631,7 @@ func TestDecodeBody(t *testing.T) {
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type:  "complex",
 						Name:  "foo",
@@ -649,7 +643,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -689,7 +682,7 @@ func TestDecodeBody(t *testing.T) {
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type:  "complex",
 						Name:  "foo",
@@ -701,7 +694,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -758,7 +750,7 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type: "a",
 						Name: "foo",
@@ -775,7 +767,6 @@ func TestDecodeBody(t *testing.T) {
 								"int":    cty.NumberIntVal(123),
 							}),
 						}),
-						Deps: []string{"foo"},
 					},
 					{
 						Type: "c",
@@ -784,7 +775,6 @@ func TestDecodeBody(t *testing.T) {
 							"num":     cty.UnknownVal(cty.Number),
 							"strings": cty.UnknownVal(cty.List(cty.String)),
 						}),
-						Deps: []string{"bar"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -834,7 +824,7 @@ func TestDecodeBody(t *testing.T) {
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
 			want: &resource.Graph{
-				Resources: []*resource.Resource{
+				Resources: []*resource.Desired{
 					{
 						Type:  "output",
 						Name:  "foo",
@@ -846,7 +836,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 					{
 						Type: "simple",
@@ -854,7 +843,6 @@ func TestDecodeBody(t *testing.T) {
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.UnknownVal(cty.String),
 						}),
-						Deps: []string{"foo"},
 					},
 				},
 				Dependencies: []*resource.Dependency{
@@ -900,7 +888,7 @@ func TestDecodeBody(t *testing.T) {
 					return a.GoString() == b.GoString()
 				}),
 				// Order of resource or dependencies do not matter
-				cmpopts.SortSlices(func(a, b *resource.Resource) bool { return a.Name < b.Name }),
+				cmpopts.SortSlices(func(a, b *resource.Desired) bool { return a.Name < b.Name }),
 				cmpopts.SortSlices(func(a, b *resource.Dependency) bool {
 					astr := fmt.Sprintf("%+v", a)
 					bstr := fmt.Sprintf("%+v", b)
