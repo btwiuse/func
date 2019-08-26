@@ -33,9 +33,9 @@ var DefaultConcurrency = 10
 
 // ResourceStorage persists resources.
 type ResourceStorage interface {
-	PutResource(ctx context.Context, project string, resource resource.Resource) error
-	DeleteResource(ctx context.Context, project, name string) error
-	ListResources(ctx context.Context, project string) (map[string]resource.Resource, error)
+	PutResource(ctx context.Context, project string, resource *resource.Resource) error
+	DeleteResource(ctx context.Context, project string, resource *resource.Resource) error
+	ListResources(ctx context.Context, project string) ([]*resource.Resource, error)
 }
 
 // SourceStorage provides resource source code.
@@ -139,7 +139,7 @@ type run struct {
 	Sem       *semaphore.Weighted
 
 	mu       sync.RWMutex
-	existing map[string]resource.Resource // Existing resource from a previous deployment.
+	existing []*resource.Resource // Existing resource from a previous deployment.
 
 	tasks *task.Group // Maintains a list of actively processing resources.
 
@@ -232,21 +232,21 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		// Find existing.
 		r.mu.Lock()
-		existing, update := r.existing[res.Name]
-		if existing.Type != res.Type {
-			// Resource with same name existed but the type does not match so
-			// we cannot reuse it.
-			update = false
-		}
-		if update {
-			// Remove resource from map so it doesn't get deleted.
-			delete(r.existing, res.Name)
+		var existing *resource.Resource
+		for i, ex := range r.existing {
+			if ex.Type == res.Type && ex.Name == res.Name {
+				existing = ex
+
+				// Remove existing so it doesn't get deleted
+				r.existing = append(r.existing[:i], r.existing[i+1:]...)
+				break
+			}
 		}
 		r.mu.Unlock()
 
 		// Check what (if anything) needs to be updated.
 		updateSource, updateConfig := false, false
-		if update {
+		if existing != nil {
 			exHash := existing.Input.Hash()
 			logger.Debug("Existing version of resource exists")
 			updateConfig = exHash != hash
@@ -272,7 +272,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		var op func() error
 
-		if update {
+		if existing != nil {
 			logger.Info("Updating resource")
 
 			// Create previous definition.
@@ -315,7 +315,7 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 
 		if err := backoff.RetryNotify(op, algo, notify); err != nil {
 			opStr := "create"
-			if update {
+			if existing != nil {
 				opStr = "update"
 			}
 			return errors.Wrap(err, fmt.Sprintf("%s %s.%s", opStr, res.Type, res.Name))
@@ -331,11 +331,11 @@ func (r *run) processResource(ctx context.Context, res *resource.Resource) error
 		defer cancel()
 
 		logger.Debug("Storing data")
-		if err := r.Resources.PutResource(pctx, r.Project, *res); err != nil {
+		if err := r.Resources.PutResource(pctx, r.Project, res); err != nil {
 			return errors.Wrap(err, "store resource")
 		}
 
-		if update {
+		if existing != nil {
 			atomic.AddUint32(&r.update, 1)
 		} else {
 			atomic.AddUint32(&r.create, 1)
@@ -433,10 +433,10 @@ func (r *run) RemovePrevious(ctx context.Context) error {
 		}
 	}
 	g, ctx := errgroup.WithContext(ctx)
-	for name, res := range r.existing {
-		name, res := name, res
+	for _, res := range r.existing {
+		res := res
 		g.Go(func() error {
-			if wg, ok := wgs[name]; ok {
+			if wg, ok := wgs[res.Name]; ok {
 				// Wait for all dependents.
 				wg.Wait()
 			}
@@ -451,7 +451,7 @@ func (r *run) RemovePrevious(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (r *run) removeResource(ctx context.Context, res resource.Resource) error {
+func (r *run) removeResource(ctx context.Context, res *resource.Resource) error {
 	logger := r.Logger.With(zap.String("type", res.Type), zap.String("name", res.Name))
 
 	// Ready to process, wait for semaphore.
@@ -494,7 +494,7 @@ func (r *run) removeResource(ctx context.Context, res resource.Resource) error {
 	defer cancel()
 
 	logger.Debug("Deleting data")
-	if err := r.Resources.DeleteResource(pctx, r.Project, res.Name); err != nil {
+	if err := r.Resources.DeleteResource(pctx, r.Project, res); err != nil {
 		return errors.Wrap(err, "delete resource")
 	}
 
