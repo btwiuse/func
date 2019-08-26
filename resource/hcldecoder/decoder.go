@@ -110,12 +110,9 @@ func (d *Decoder) addResources(g *resource.Graph) error {
 	// after all resources have been added.
 	var deps []*resource.Dependency
 	for name, res := range d.resources {
-		r := &resource.Resource{
+		r := &resource.Desired{
 			Name: name,
 			Type: res.Type,
-		}
-		if len(res.Deps) > 0 {
-			r.Deps = res.Deps
 		}
 		if len(res.Sources) > 0 {
 			r.Sources = res.Sources
@@ -159,7 +156,6 @@ type res struct {
 
 	Type    string
 	Sources []string
-	Deps    []string
 
 	// Inputs
 	Input cty.Value
@@ -249,10 +245,9 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 	fields := resource.Fields(t)
 
 	// Decode inputs
-	inputs, deps, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())
+	inputs, morediags := d.decodeInputs(resConfig.Config, fields.Inputs())
 	diags = append(diags, morediags...)
 	res.Input = inputs
-	res.Deps = uniqueStringSlice(deps)
 
 	// Decode outputs
 	res.Outputs = fields.Outputs().CtyType()
@@ -263,19 +258,6 @@ func (d *Decoder) decodeResource(block *hcl.Block) hcl.Diagnostics {
 	return diags
 }
 
-func uniqueStringSlice(ss []string) []string {
-	got := make(map[string]struct{})
-	out := make([]string, 0, len(ss))
-	for _, s := range ss {
-		if _, ok := got[s]; ok {
-			continue
-		}
-		out = append(out, s)
-		got[s] = struct{}{}
-	}
-	return out
-}
-
 // deocdeInputs decodes inputs from the body using the given type as schema.
 //
 // The resolved values are converted to the target type if required, and
@@ -283,7 +265,7 @@ func uniqueStringSlice(ss []string) []string {
 //
 // The returned diagnostics may contain warnings, which should be displayed to
 // the user but still result in valid inputs.
-func (d *Decoder) decodeInputs(body hcl.Body, fields resource.FieldSet) (input cty.Value, deps []string, diags hcl.Diagnostics) { // nolint: lll
+func (d *Decoder) decodeInputs(body hcl.Body, fields resource.FieldSet) (input cty.Value, diags hcl.Diagnostics) { // nolint: lll
 	schema := d.bodySchema(fields)
 
 	cont, diags := body.Content(schema)
@@ -298,20 +280,17 @@ func (d *Decoder) decodeInputs(body hcl.Body, fields resource.FieldSet) (input c
 	inputs := make(map[string]cty.Value)
 
 	// Attributes
-	deps, morediags := d.decodeAttributes(cont, fields, inputs)
+	morediags := d.decodeAttributes(cont, fields, inputs)
 	diags = append(diags, morediags...)
 
 	// Blocks
-	moredeps, morediags := d.decodeBlocks(cont, fields, inputs)
+	morediags = d.decodeBlocks(cont, fields, inputs)
 	diags = append(diags, morediags...)
 
-	deps = append(deps, moredeps...)
-
-	return cty.ObjectVal(inputs), deps, diags
+	return cty.ObjectVal(inputs), diags
 }
 
-func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
-	var parents []string
+func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) hcl.Diagnostics { // nolint: lll
 	var diags hcl.Diagnostics
 	for name, f := range ff {
 		if d.isBlock(f.Type) {
@@ -329,9 +308,6 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff resource.FieldSet, 
 
 		// Check if attribute contains dynamic references to other fields.
 		if len(attr.Expr.Variables()) > 0 {
-			for _, v := range attr.Expr.Variables() {
-				parents = append(parents, v.RootName())
-			}
 			in[name] = cty.CapsuleVal(exprType, &expression{
 				field:      f,
 				inputType:  typ,
@@ -363,7 +339,7 @@ func (d *Decoder) decodeAttributes(cont *hcl.BodyContent, ff resource.FieldSet, 
 
 		in[name] = v
 	}
-	return parents, diags
+	return diags
 }
 
 func (d *Decoder) validate(val cty.Value, field resource.Field, exprRange hcl.Range) hcl.Diagnostics {
@@ -393,8 +369,7 @@ func (d *Decoder) validate(val cty.Value, field resource.Field, exprRange hcl.Ra
 	return diags
 }
 
-func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) ([]string, hcl.Diagnostics) { // nolint: lll
-	var deps []string // nolint: prealloc
+func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff resource.FieldSet, in map[string]cty.Value) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
 	blocksByType := cont.Blocks.ByType()
@@ -414,8 +389,7 @@ func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff resource.FieldSet, in m
 			list := make([]cty.Value, len(blocks))
 			for i, b := range blocks {
 				fields := resource.Fields(f.Type.Elem()) // Do not limit to inputs -- only top level input required
-				v, moredeps, morediags := d.decodeInputs(b.Body, fields)
-				deps = append(deps, moredeps...)
+				v, morediags := d.decodeInputs(b.Body, fields)
 				diags = append(diags, morediags...)
 				list[i] = v
 			}
@@ -460,13 +434,12 @@ func (d *Decoder) decodeBlocks(cont *hcl.BodyContent, ff resource.FieldSet, in m
 		// Single block
 		b := blocks[0]
 		fields := resource.Fields(f.Type) // Do not limit to inputs -- only top level input required
-		v, moredeps, morediags := d.decodeInputs(b.Body, fields)
-		deps = append(deps, moredeps...)
+		v, morediags := d.decodeInputs(b.Body, fields)
 		diags = append(diags, morediags...)
 		in[name] = v
 	}
 
-	return deps, diags
+	return diags
 }
 
 func (d *Decoder) resolveValues() hcl.Diagnostics {
