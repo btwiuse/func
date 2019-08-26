@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/dynamodbiface"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/schema"
 	"github.com/func/func/storage/dynamodb/internal/attr"
 	"github.com/pkg/errors"
 	"github.com/zclconf/go-cty/cty"
@@ -147,7 +146,7 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resour
 		if typ == nil {
 			return nil, fmt.Errorf("%d: type %q not registered", i, typename)
 		}
-		fields := schema.Fields(typ)
+		fields := resource.Fields(typ)
 
 		input, err := attr.ToCtyValue(item["Input"], fields.Inputs().CtyType())
 		if err != nil {
@@ -263,7 +262,7 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*resource.Grap
 		if typ == nil {
 			return nil, fmt.Errorf("%d: type %q not registered", i, typename)
 		}
-		fields := schema.Fields(typ)
+		fields := resource.Fields(typ)
 
 		input, err := attr.ToCtyValue(item.M["Input"], fields.Inputs().CtyType())
 		if err != nil {
