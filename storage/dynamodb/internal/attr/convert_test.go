@@ -54,7 +54,7 @@ func TestFromString(t *testing.T) {
 		val  string
 		want AttributeValue
 	}{
-		{"", AttributeValue{S: aws.String("")}},
+		{"", AttributeValue{NULL: aws.Bool(true)}}, // String cannot be empty
 		{"foo", AttributeValue{S: aws.String("foo")}},
 	}
 	for i, tt := range tests {
@@ -199,6 +199,8 @@ func TestFromStringSet(t *testing.T) {
 		val  []string
 		want AttributeValue
 	}{
+		{nil, AttributeValue{NULL: aws.Bool(true)}},
+		{[]string{}, AttributeValue{NULL: aws.Bool(true)}},
 		{[]string{"a"}, AttributeValue{SS: []string{"a"}}},
 		{[]string{"a", "b"}, AttributeValue{SS: []string{"a", "b"}}},
 	}
@@ -238,7 +240,7 @@ func TestFromCtyValue(t *testing.T) {
 		{cty.NullVal(cty.Bool), AttributeValue{NULL: aws.Bool(true)}},
 
 		// Strings
-		{cty.StringVal(""), AttributeValue{S: aws.String("")}},
+		{cty.StringVal(""), AttributeValue{NULL: aws.Bool(true)}}, // String cannot be empty
 		{cty.StringVal("foo"), AttributeValue{S: aws.String("foo")}},
 		{cty.NullVal(cty.String), AttributeValue{NULL: aws.Bool(true)}},
 
@@ -299,7 +301,6 @@ func TestFromCtyValue(t *testing.T) {
 		{cty.NullVal(cty.Map(cty.Bool)), AttributeValue{NULL: aws.Bool(true)}},
 
 		// Sets
-		{cty.SetValEmpty(cty.String), AttributeValue{SS: []string{}}},
 		{cty.SetValEmpty(cty.Bool), AttributeValue{L: []AttributeValue{}}},
 		{
 			// String set has native DynamoDB type.
@@ -315,6 +316,8 @@ func TestFromCtyValue(t *testing.T) {
 			cty.SetVal([]cty.Value{cty.False, cty.True}),
 			AttributeValue{L: []AttributeValue{{BOOL: aws.Bool(false)}, {BOOL: aws.Bool(true)}}},
 		},
+		{cty.SetValEmpty(cty.String), AttributeValue{NULL: aws.Bool(true)}}, // String set cannot be empty
+		{cty.SetValEmpty(cty.Number), AttributeValue{NULL: aws.Bool(true)}}, // Number set cannot be empty
 		{cty.NullVal(cty.Set(cty.String)), AttributeValue{NULL: aws.Bool(true)}},
 		{cty.NullVal(cty.Set(cty.Number)), AttributeValue{NULL: aws.Bool(true)}},
 		{cty.NullVal(cty.Set(cty.Bool)), AttributeValue{NULL: aws.Bool(true)}},

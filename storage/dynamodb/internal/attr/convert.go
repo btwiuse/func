@@ -37,6 +37,10 @@ func ToBool(attr dynamodb.AttributeValue) (bool, error) {
 
 // FromString creates a string attribute.
 func FromString(str string) dynamodb.AttributeValue {
+	if len(str) == 0 {
+		// String cannot be empty
+		return dynamodb.AttributeValue{NULL: aws.Bool(true)}
+	}
 	return dynamodb.AttributeValue{S: &str}
 }
 
@@ -118,7 +122,7 @@ func ToStringSlice(attr dynamodb.AttributeValue) ([]string, error) {
 // returned from DynamoDB in another order.
 func FromStringSet(list []string) dynamodb.AttributeValue {
 	if len(list) == 0 {
-		panic("String set cannot be empty")
+		return dynamodb.AttributeValue{NULL: aws.Bool(true)}
 	}
 	return dynamodb.AttributeValue{SS: list}
 }
@@ -174,6 +178,10 @@ func FromCtyValue(v cty.Value) dynamodb.AttributeValue {
 	case ty.IsSetType():
 		if ty.ElementType() == cty.String {
 			// DynamoDB has native support for unsorted sets of strings.
+			// Cannot be empty.
+			if v.LengthInt() == 0 {
+				return dynamodb.AttributeValue{NULL: aws.Bool(true)}
+			}
 			list := make([]string, 0, v.LengthInt())
 			v.ForEachElement(func(_ cty.Value, elem cty.Value) bool {
 				list = append(list, elem.AsString())
@@ -183,6 +191,10 @@ func FromCtyValue(v cty.Value) dynamodb.AttributeValue {
 		}
 		if ty.ElementType() == cty.Number {
 			// DynamoDB has native support for unsorted sets of numbers.
+			// Cannot be empty.
+			if v.LengthInt() == 0 {
+				return dynamodb.AttributeValue{NULL: aws.Bool(true)}
+			}
 			list := make([]string, 0, v.LengthInt())
 			v.ForEachElement(func(_ cty.Value, elem cty.Value) bool {
 				bf := elem.AsBigFloat()
