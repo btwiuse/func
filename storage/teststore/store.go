@@ -12,7 +12,7 @@ import (
 // Store is a store that's intended to be used in tests. All data is stored in memory.
 type Store struct {
 	mu        sync.RWMutex
-	resources map[string]map[string]*resource.Resource
+	resources map[string]map[string]*resource.Deployed
 	graphs    map[string]*resource.Graph
 }
 
@@ -21,15 +21,15 @@ type Store struct {
 //
 // The method may be called multiple times to add resources in parts, or add
 // resources to different projects.
-func (s *Store) SeedResources(project string, resources []*resource.Resource) {
+func (s *Store) SeedResources(project string, resources []*resource.Deployed) {
 	if len(resources) == 0 {
 		return
 	}
 	if s.resources == nil {
-		s.resources = make(map[string]map[string]*resource.Resource)
+		s.resources = make(map[string]map[string]*resource.Deployed)
 	}
 	if s.resources[project] == nil {
-		s.resources[project] = make(map[string]*resource.Resource)
+		s.resources[project] = make(map[string]*resource.Deployed)
 	}
 	for _, res := range resources {
 		s.resources[project][res.Name] = res
@@ -49,21 +49,21 @@ func (s *Store) SeedGraph(project string, g *resource.Graph) {
 }
 
 // PutResource creates or updates a resource.
-func (s *Store) PutResource(ctx context.Context, project string, res *resource.Resource) error {
+func (s *Store) PutResource(ctx context.Context, project string, res *resource.Deployed) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.resources == nil {
-		s.resources = make(map[string]map[string]*resource.Resource)
+		s.resources = make(map[string]map[string]*resource.Deployed)
 	}
 	if s.resources[project] == nil {
-		s.resources[project] = make(map[string]*resource.Resource)
+		s.resources[project] = make(map[string]*resource.Deployed)
 	}
 	s.resources[project][res.Name] = res
 	return nil
 }
 
 // DeleteResource deletes a resource. No-op if the resource does not exist.
-func (s *Store) DeleteResource(ctx context.Context, project string, res *resource.Resource) error {
+func (s *Store) DeleteResource(ctx context.Context, project string, res *resource.Deployed) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.resources[project][res.Name]; !ok {
@@ -74,11 +74,11 @@ func (s *Store) DeleteResource(ctx context.Context, project string, res *resourc
 }
 
 // ListResources lists all resources in a project.
-func (s *Store) ListResources(ctx context.Context, project string) ([]*resource.Resource, error) {
+func (s *Store) ListResources(ctx context.Context, project string) ([]*resource.Deployed, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	rr := s.resources[project]
-	out := make([]*resource.Resource, 0, len(rr))
+	out := make([]*resource.Deployed, 0, len(rr))
 	for _, r := range rr {
 		out = append(out, r)
 	}

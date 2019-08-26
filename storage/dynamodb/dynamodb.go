@@ -59,7 +59,7 @@ func (d *DynamoDB) CreateTable(ctx context.Context, rcu, wcu int64) error {
 }
 
 // PutResource creates or updates a resource.
-func (d *DynamoDB) PutResource(ctx context.Context, project string, res *resource.Resource) error {
+func (d *DynamoDB) PutResource(ctx context.Context, project string, res *resource.Deployed) error {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
@@ -87,7 +87,7 @@ func (d *DynamoDB) PutResource(ctx context.Context, project string, res *resourc
 }
 
 // DeleteResource deletes a resource. Returns an error if the resource does not exist.
-func (d *DynamoDB) DeleteResource(ctx context.Context, project string, res *resource.Resource) error {
+func (d *DynamoDB) DeleteResource(ctx context.Context, project string, res *resource.Deployed) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
@@ -105,7 +105,7 @@ func (d *DynamoDB) DeleteResource(ctx context.Context, project string, res *reso
 
 // ListResources lists all resources in a project. The order of the results is
 // not guaranteed.
-func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resource.Resource, error) {
+func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resource.Deployed, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(d.TableName),
 		KeyConditionExpression: aws.String("#project = :project AND begins_with(#id, :prefix)"),
@@ -123,9 +123,11 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resour
 		return nil, errors.Wrap(err, "query dynamodb")
 	}
 
-	out := make([]*resource.Resource, *resp.Count)
+	out := make([]*resource.Deployed, *resp.Count)
 	for i, item := range resp.QueryOutput.Items {
-		res := &resource.Resource{}
+		res := &resource.Deployed{
+			Desired: &resource.Desired{},
+		}
 
 		name, err := attr.ToString(item["Name"])
 		if err != nil {
@@ -171,15 +173,11 @@ func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *resource.Gra
 	resources := make([]dynamodb.AttributeValue, len(g.Resources))
 	for i, res := range g.Resources {
 		item := map[string]dynamodb.AttributeValue{
-			"Type":   attr.FromString(res.Type),
-			"Name":   attr.FromString(res.Name),
-			"Input":  attr.FromCtyValue(cty.UnknownAsNull(res.Input)),
-			"Output": attr.FromCtyValue(cty.UnknownAsNull(res.Output)),
+			"Type":  attr.FromString(res.Type),
+			"Name":  attr.FromString(res.Name),
+			"Input": attr.FromCtyValue(cty.UnknownAsNull(res.Input)),
 		}
 
-		if len(res.Deps) > 0 {
-			item["Dependencies"] = attr.FromStringSet(res.Deps)
-		}
 		if len(res.Sources) > 0 {
 			item["Sources"] = attr.FromStringSet(res.Sources)
 		}
@@ -241,7 +239,7 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*resource.Grap
 	g := &resource.Graph{}
 
 	for i, item := range resp.Item["Resources"].L {
-		res := &resource.Resource{}
+		res := &resource.Desired{}
 
 		name, err := attr.ToString(item.M["Name"])
 		if err != nil {
@@ -255,7 +253,6 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*resource.Grap
 		}
 		res.Type = typename
 
-		res.Deps = attr.ToStringSet(item.M["Dependencies"])
 		res.Sources = attr.ToStringSet(item.M["Sources"])
 
 		typ := d.Registry.Type(typename)
@@ -269,12 +266,6 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*resource.Grap
 			return nil, fmt.Errorf("%d: convert input: %v", i, err)
 		}
 		res.Input = input
-
-		output, err := attr.ToCtyValue(item.M["Output"], fields.Outputs().CtyType())
-		if err != nil {
-			return nil, fmt.Errorf("%d: convert output: %v", i, err)
-		}
-		res.Output = output
 
 		if err := g.AddResource(res); err != nil {
 			return nil, fmt.Errorf("add resource: %v", err)
