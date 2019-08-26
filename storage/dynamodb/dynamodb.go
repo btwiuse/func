@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -64,7 +65,7 @@ func (d *DynamoDB) PutResource(ctx context.Context, project string, res *resourc
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
 			"Project": attr.FromString(project),
-			"ID":      attr.FromString(fmt.Sprintf("resource-%s", res.Name)),
+			"ID":      attr.FromString(fmt.Sprintf("resource-%s", res.ID)),
 			"Type":    attr.FromString(res.Type),
 			"Name":    attr.FromString(res.Name),
 			"Input":   attr.FromCtyValue(res.Input),
@@ -92,7 +93,7 @@ func (d *DynamoDB) DeleteResource(ctx context.Context, project string, res *reso
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
 			"Project": {S: aws.String(project)},
-			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", res.Name))},
+			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", res.ID))},
 		},
 		ConditionExpression: aws.String("attribute_exists(ID)"),
 	}
@@ -128,6 +129,12 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resour
 		res := &resource.Deployed{
 			Desired: &resource.Desired{},
 		}
+
+		id, err := attr.ToString(item["ID"])
+		if err != nil {
+			return nil, fmt.Errorf("%d: field ID: %v", i, err)
+		}
+		res.ID = strings.TrimPrefix(id, "resource-")
 
 		name, err := attr.ToString(item["Name"])
 		if err != nil {
