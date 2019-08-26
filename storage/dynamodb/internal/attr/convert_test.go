@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/aws/aws-sdk-go-v2/service/dynamodb" // Dot import to remove a lot of redundant dynamodb.
 	"github.com/func/func/ctyext"
-	"github.com/func/func/resource/graph"
+	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -744,32 +744,32 @@ func TestToCtyPath(t *testing.T) {
 	}
 }
 
-func TestFromGraphExpression(t *testing.T) {
+func TestFromExpression(t *testing.T) {
 	tests := []struct {
-		expr graph.Expression
+		expr resource.Expression
 		want AttributeValue
 	}{
 		{
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
 			},
 			AttributeValue{L: []AttributeValue{
 				{M: map[string]AttributeValue{"Literal": {S: aws.String("foo")}}},
 			}},
 		},
 		{
-			graph.Expression{
-				graph.ExprReference{Path: cty.GetAttrPath("abc")},
+			resource.Expression{
+				resource.ExprReference{Path: cty.GetAttrPath("abc")},
 			},
 			AttributeValue{L: []AttributeValue{
 				{M: map[string]AttributeValue{"Reference": FromCtyPath(cty.GetAttrPath("abc"))}},
 			}},
 		},
 		{
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
-				graph.ExprReference{Path: cty.GetAttrPath("bar").Index(cty.NumberIntVal(2))},
-				graph.ExprLiteral{Value: cty.StringVal("baz")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
+				resource.ExprReference{Path: cty.GetAttrPath("bar").Index(cty.NumberIntVal(2))},
+				resource.ExprLiteral{Value: cty.StringVal("baz")},
 			},
 			AttributeValue{L: []AttributeValue{
 				{M: map[string]AttributeValue{"Literal": {S: aws.String("foo")}}},
@@ -780,16 +780,16 @@ func TestFromGraphExpression(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			got := FromGraphExpression(tt.expr)
+			got := FromExpression(tt.expr)
 			compare(t, got, tt.want)
 		})
 	}
 }
 
-func TestToGraphExpression(t *testing.T) {
+func TestToExpression(t *testing.T) {
 	tests := []struct {
 		attr    AttributeValue
-		want    graph.Expression
+		want    resource.Expression
 		wantErr bool
 	}{
 		{AttributeValue{L: nil}, nil, false},
@@ -798,8 +798,8 @@ func TestToGraphExpression(t *testing.T) {
 			AttributeValue{L: []AttributeValue{
 				{M: map[string]AttributeValue{"Literal": {S: aws.String("foo")}}},
 			}},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
 			},
 			false,
 		},
@@ -807,8 +807,8 @@ func TestToGraphExpression(t *testing.T) {
 			AttributeValue{L: []AttributeValue{
 				{M: map[string]AttributeValue{"Reference": FromCtyPath(cty.GetAttrPath("abc"))}},
 			}},
-			graph.Expression{
-				graph.ExprReference{Path: cty.GetAttrPath("abc")},
+			resource.Expression{
+				resource.ExprReference{Path: cty.GetAttrPath("abc")},
 			},
 			false,
 		},
@@ -818,10 +818,10 @@ func TestToGraphExpression(t *testing.T) {
 				{M: map[string]AttributeValue{"Reference": FromCtyPath(cty.GetAttrPath("bar").Index(cty.NumberIntVal(2)))}},
 				{M: map[string]AttributeValue{"Literal": {S: aws.String("baz")}}},
 			}},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
-				graph.ExprReference{Path: cty.GetAttrPath("bar").Index(cty.NumberIntVal(2))},
-				graph.ExprLiteral{Value: cty.StringVal("baz")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
+				resource.ExprReference{Path: cty.GetAttrPath("bar").Index(cty.NumberIntVal(2))},
+				resource.ExprLiteral{Value: cty.StringVal("baz")},
 			},
 			false,
 		},
@@ -870,7 +870,7 @@ func TestToGraphExpression(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			got, err := ToGraphExpression(tt.attr)
+			got, err := ToExpression(tt.attr)
 			compareErr(t, err, tt.wantErr)
 			compare(t, got, tt.want)
 		})
@@ -881,7 +881,7 @@ func compare(t *testing.T, got, want interface{}) {
 	t.Helper()
 	opts := []cmp.Option{
 		cmp.Comparer(func(a, b cty.Path) bool { return a.Equals(b) }),
-		cmp.Comparer(func(a, b graph.Expression) bool { return a.Equals(b) }),
+		cmp.Comparer(func(a, b resource.Expression) bool { return a.Equals(b) }),
 		cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {

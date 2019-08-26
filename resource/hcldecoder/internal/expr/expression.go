@@ -3,7 +3,7 @@ package expr
 import (
 	"fmt"
 
-	"github.com/func/func/resource/graph"
+	"github.com/func/func/resource"
 	"github.com/hashicorp/hcl2/hcl"
 	"github.com/hashicorp/hcl2/hcl/hclsyntax"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -17,7 +17,7 @@ import (
 //
 // Panics if conversion is not possible. This indicates that an expression is
 // not supported.
-func MustConvert(input hcl.Expression) graph.Expression {
+func MustConvert(input hcl.Expression) resource.Expression {
 	if len(input.Variables()) == 0 {
 		val, diags := input.Value(nil)
 		if diags.HasErrors() {
@@ -25,7 +25,7 @@ func MustConvert(input hcl.Expression) graph.Expression {
 			// be resolvable with a nil eval context.
 			panic(fmt.Sprintf("Get static value for expression conversion: %v", diags))
 		}
-		return graph.Expression{graph.ExprLiteral{Value: val}}
+		return resource.Expression{resource.ExprLiteral{Value: val}}
 	}
 
 	// Special case for hclpack.Expression: convert to hclsyntax.Expression.
@@ -44,15 +44,15 @@ func MustConvert(input hcl.Expression) graph.Expression {
 
 		// The collection will always resolve to a reference value, use the
 		// path from it as a starting point.
-		path := src[0].(graph.ExprReference).Path
+		path := src[0].(resource.ExprReference).Path
 		path = append(path, traversalAsPath(expr.Traversal)...)
 
-		return graph.Expression{graph.ExprReference{Path: path}}
+		return resource.Expression{resource.ExprReference{Path: path}}
 	}
 
 	if expr, ok := input.(*hclsyntax.ScopeTraversalExpr); ok {
 		path := traversalAsPath(expr.Traversal)
-		return graph.Expression{graph.ExprReference{Path: path}}
+		return resource.Expression{resource.ExprReference{Path: path}}
 	}
 
 	if expr, ok := input.(*hclsyntax.IndexExpr); ok {
@@ -61,15 +61,15 @@ func MustConvert(input hcl.Expression) graph.Expression {
 
 		// The collection will always resolve to a reference value, use the
 		// path from it as a starting point.
-		path := col[0].(graph.ExprReference).Path
+		path := col[0].(resource.ExprReference).Path
 
 		// Append key(s) as indices
 		for _, k := range key {
-			lit := k.(graph.ExprLiteral)
+			lit := k.(resource.ExprLiteral)
 			path = path.Index(lit.Value)
 		}
 
-		return graph.Expression{graph.ExprReference{Path: path}}
+		return resource.Expression{resource.ExprReference{Path: path}}
 	}
 
 	if expr, ok := input.(*hclsyntax.TemplateWrapExpr); ok {
@@ -77,7 +77,7 @@ func MustConvert(input hcl.Expression) graph.Expression {
 	}
 
 	if expr, ok := input.(*hclsyntax.TemplateExpr); ok {
-		var out graph.Expression
+		var out resource.Expression
 		for _, p := range expr.Parts {
 			out = append(out, MustConvert(p)...)
 		}

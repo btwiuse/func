@@ -1,11 +1,12 @@
-package graph
+package resource
 
-import (
-	"github.com/zclconf/go-cty/cty"
-)
+import "github.com/zclconf/go-cty/cty"
 
 // A Dependency is a dependency for a single field between two resources.
 type Dependency struct {
+	// Child is the name of the child resource with the dependency.
+	Child string
+
 	// Field is the path to the field within the child resource. The Field is
 	// relative to the resource's Data.
 	Field cty.Path

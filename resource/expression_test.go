@@ -1,44 +1,44 @@
-package graph_test
+package resource_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/func/func/resource/graph"
+	"github.com/func/func/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/zclconf/go-cty/cty"
 )
 
 // Dummy variable to hold the value from Example
-var expr graph.Expression
+var expr resource.Expression
 
 func ExampleExpression_forTest() {
 	// Construct a new expression for test
-	expr = graph.Expression{
-		graph.ExprLiteral{Value: cty.StringVal("hello")},
-		graph.ExprReference{Path: cty.GetAttrPath("other").GetAttr("output")},
-		graph.ExprLiteral{Value: cty.NumberIntVal(123)},
+	expr = resource.Expression{
+		resource.ExprLiteral{Value: cty.StringVal("hello")},
+		resource.ExprReference{Path: cty.GetAttrPath("other").GetAttr("output")},
+		resource.ExprLiteral{Value: cty.NumberIntVal(123)},
 	}
 
 	// expr is equivalent to "hello${other.output}123"
 }
 
 func ExampleExpression_MergeLiterals() {
-	input := graph.Expression{
-		graph.ExprLiteral{Value: cty.StringVal("foo")},
-		graph.ExprLiteral{Value: cty.StringVal("bar")},
-		graph.ExprReference{Path: cty.GetAttrPath("abc")},
-		graph.ExprLiteral{Value: cty.StringVal("baz")},
-		graph.ExprLiteral{Value: cty.StringVal("qux")},
+	input := resource.Expression{
+		resource.ExprLiteral{Value: cty.StringVal("foo")},
+		resource.ExprLiteral{Value: cty.StringVal("bar")},
+		resource.ExprReference{Path: cty.GetAttrPath("abc")},
+		resource.ExprLiteral{Value: cty.StringVal("baz")},
+		resource.ExprLiteral{Value: cty.StringVal("qux")},
 	}
 
 	merged := input.MergeLiterals()
 
-	output := graph.Expression{
-		graph.ExprLiteral{Value: cty.StringVal("foobar")},
-		graph.ExprReference{Path: cty.GetAttrPath("abc")},
-		graph.ExprLiteral{Value: cty.StringVal("bazqux")},
+	output := resource.Expression{
+		resource.ExprLiteral{Value: cty.StringVal("foobar")},
+		resource.ExprReference{Path: cty.GetAttrPath("abc")},
+		resource.ExprLiteral{Value: cty.StringVal("bazqux")},
 	}
 
 	fmt.Println(output.Equals(merged))
@@ -48,38 +48,38 @@ func ExampleExpression_MergeLiterals() {
 func TestExpression_Value(t *testing.T) {
 	tests := []struct {
 		name    string
-		expr    graph.Expression
-		ctx     *graph.EvalContext
+		expr    resource.Expression
+		ctx     *resource.EvalContext
 		want    cty.Value
 		wantErr bool
 	}{
 		{
 			name: "Empty",
-			expr: graph.Expression{},
+			expr: resource.Expression{},
 			want: cty.NilVal,
 		},
 		{
 			name: "Literal",
-			expr: graph.Expression{
-				graph.ExprLiteral{cty.StringVal("hello")},
+			expr: resource.Expression{
+				resource.ExprLiteral{cty.StringVal("hello")},
 			},
 			ctx:  nil,
 			want: cty.StringVal("hello"),
 		},
 		{
 			name: "LiteralNum",
-			expr: graph.Expression{
-				graph.ExprLiteral{cty.NumberUIntVal(123)},
+			expr: resource.Expression{
+				resource.ExprLiteral{cty.NumberUIntVal(123)},
 			},
 			ctx:  nil,
 			want: cty.NumberUIntVal(123),
 		},
 		{
 			name: "Reference",
-			expr: graph.Expression{
-				graph.ExprReference{cty.GetAttrPath("foo").GetAttr("bar")},
+			expr: resource.Expression{
+				resource.ExprReference{cty.GetAttrPath("foo").GetAttr("bar")},
 			},
-			ctx: &graph.EvalContext{
+			ctx: &resource.EvalContext{
 				Variables: map[string]cty.Value{
 					"foo": cty.ObjectVal(map[string]cty.Value{
 						"bar": cty.NumberIntVal(123),
@@ -90,12 +90,12 @@ func TestExpression_Value(t *testing.T) {
 		},
 		{
 			name: "Mixed",
-			expr: graph.Expression{
-				graph.ExprReference{cty.GetAttrPath("foo").GetAttr("bar")},
-				graph.ExprLiteral{cty.NumberIntVal(456)},
-				graph.ExprReference{cty.GetAttrPath("bar").GetAttr("baz")},
+			expr: resource.Expression{
+				resource.ExprReference{cty.GetAttrPath("foo").GetAttr("bar")},
+				resource.ExprLiteral{cty.NumberIntVal(456)},
+				resource.ExprReference{cty.GetAttrPath("bar").GetAttr("baz")},
 			},
-			ctx: &graph.EvalContext{
+			ctx: &resource.EvalContext{
 				Variables: map[string]cty.Value{
 					"foo": cty.ObjectVal(map[string]cty.Value{"bar": cty.NumberIntVal(123)}),
 					"bar": cty.ObjectVal(map[string]cty.Value{"baz": cty.NumberFloatVal(789.0)}),
@@ -105,11 +105,11 @@ func TestExpression_Value(t *testing.T) {
 		},
 		{
 			name: "Unknown",
-			expr: graph.Expression{
-				graph.ExprLiteral{cty.StringVal("known")},
-				graph.ExprReference{cty.GetAttrPath("foo").GetAttr("output")},
+			expr: resource.Expression{
+				resource.ExprLiteral{cty.StringVal("known")},
+				resource.ExprReference{cty.GetAttrPath("foo").GetAttr("output")},
 			},
-			ctx: &graph.EvalContext{
+			ctx: &resource.EvalContext{
 				Variables: map[string]cty.Value{
 					"foo": cty.ObjectVal(map[string]cty.Value{"output": cty.UnknownVal(cty.String)}),
 				},
@@ -118,10 +118,10 @@ func TestExpression_Value(t *testing.T) {
 		},
 		{
 			name: "NotFoundRef",
-			expr: graph.Expression{
-				graph.ExprReference{cty.GetAttrPath("foo")},
+			expr: resource.Expression{
+				resource.ExprReference{cty.GetAttrPath("foo")},
 			},
-			ctx: &graph.EvalContext{
+			ctx: &resource.EvalContext{
 				Variables: map[string]cty.Value{},
 			},
 			wantErr: true,
@@ -154,48 +154,48 @@ func TestExpression_Value(t *testing.T) {
 func TestExpression_MergeLiterals(t *testing.T) {
 	tests := []struct {
 		name string
-		expr graph.Expression
-		want graph.Expression
+		expr resource.Expression
+		want resource.Expression
 	}{
 		{"Empty", nil, nil},
 		{
 			"SingleLiteral",
-			graph.Expression{graph.ExprLiteral{Value: cty.StringVal("foo")}},
-			graph.Expression{graph.ExprLiteral{Value: cty.StringVal("foo")}},
+			resource.Expression{resource.ExprLiteral{Value: cty.StringVal("foo")}},
+			resource.Expression{resource.ExprLiteral{Value: cty.StringVal("foo")}},
 		},
 		{
 			"Consecutive",
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
-				graph.ExprLiteral{Value: cty.StringVal("bar")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
+				resource.ExprLiteral{Value: cty.StringVal("bar")},
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foobar")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foobar")},
 			},
 		},
 		{
 			"ConsecutiveStringNumber",
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
-				graph.ExprLiteral{Value: cty.NumberIntVal(123)},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
+				resource.ExprLiteral{Value: cty.NumberIntVal(123)},
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo123")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo123")},
 			},
 		},
 		{
 			"Mixed",
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
-				graph.ExprLiteral{Value: cty.StringVal("bar")},
-				graph.ExprReference{Path: cty.GetAttrPath("abc")},
-				graph.ExprLiteral{Value: cty.StringVal("baz")},
-				graph.ExprLiteral{Value: cty.StringVal("qux")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
+				resource.ExprLiteral{Value: cty.StringVal("bar")},
+				resource.ExprReference{Path: cty.GetAttrPath("abc")},
+				resource.ExprLiteral{Value: cty.StringVal("baz")},
+				resource.ExprLiteral{Value: cty.StringVal("qux")},
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foobar")},
-				graph.ExprReference{Path: cty.GetAttrPath("abc")},
-				graph.ExprLiteral{Value: cty.StringVal("bazqux")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foobar")},
+				resource.ExprReference{Path: cty.GetAttrPath("abc")},
+				resource.ExprLiteral{Value: cty.StringVal("bazqux")},
 			},
 		},
 	}

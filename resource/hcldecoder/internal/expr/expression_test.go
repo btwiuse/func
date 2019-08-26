@@ -3,8 +3,8 @@ package expr_test
 import (
 	"testing"
 
-	"github.com/func/func/resource/graph"
-	"github.com/func/func/resource/graph/hcldecoder/internal/expr"
+	"github.com/func/func/resource"
+	"github.com/func/func/resource/hcldecoder/internal/expr"
 	"github.com/go-stack/stack"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl2/hcl"
@@ -17,15 +17,15 @@ func TestMustConvert(t *testing.T) {
 	tests := []struct {
 		name string
 		expr func(t *testing.T) hcl.Expression
-		want graph.Expression
+		want resource.Expression
 	}{
 		{
 			"StaticExpr",
 			func(t *testing.T) hcl.Expression {
 				return hcl.StaticExpr(cty.StringVal("foo"), hcl.Range{})
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
 			},
 		},
 		{
@@ -37,8 +37,8 @@ func TestMustConvert(t *testing.T) {
 				}
 				return ex
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
 			},
 		},
 		{
@@ -50,8 +50,8 @@ func TestMustConvert(t *testing.T) {
 				}
 				return ex
 			},
-			graph.Expression{
-				graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("bar").Index(cty.NumberIntVal(2))},
+			resource.Expression{
+				resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("bar").Index(cty.NumberIntVal(2))},
 			},
 		},
 		{
@@ -63,8 +63,8 @@ func TestMustConvert(t *testing.T) {
 				}
 				return ex
 			},
-			graph.Expression{
-				graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("bar")},
+			resource.Expression{
+				resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("bar")},
 			},
 		},
 		{
@@ -76,8 +76,8 @@ func TestMustConvert(t *testing.T) {
 				}
 				return ex
 			},
-			graph.Expression{
-				graph.ExprReference{Path: cty.GetAttrPath("foo").Index(cty.StringVal("baz"))},
+			resource.Expression{
+				resource.ExprReference{Path: cty.GetAttrPath("foo").Index(cty.StringVal("baz"))},
 			},
 		},
 		{
@@ -88,8 +88,8 @@ func TestMustConvert(t *testing.T) {
 					SourceType: hclpack.ExprNative,
 				}
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("foo")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("foo")},
 			},
 		},
 		{
@@ -101,16 +101,16 @@ func TestMustConvert(t *testing.T) {
 					SourceType: hclpack.ExprNative,
 				}
 			},
-			graph.Expression{
-				graph.ExprLiteral{Value: cty.StringVal("arn:aws:execute-api:")},
-				graph.ExprReference{Path: cty.GetAttrPath("api").GetAttr("region")},
-				graph.ExprLiteral{Value: cty.StringVal(":")},
-				graph.ExprReference{Path: cty.GetAttrPath("me").GetAttr("account")},
-				graph.ExprLiteral{Value: cty.StringVal(":")},
-				graph.ExprReference{Path: cty.GetAttrPath("api").GetAttr("id")},
-				graph.ExprLiteral{Value: cty.StringVal("/*/")},
-				graph.ExprReference{Path: cty.GetAttrPath("get_world").GetAttr("http_method")},
-				graph.ExprReference{Path: cty.GetAttrPath("world").GetAttr("path")},
+			resource.Expression{
+				resource.ExprLiteral{Value: cty.StringVal("arn:aws:execute-api:")},
+				resource.ExprReference{Path: cty.GetAttrPath("api").GetAttr("region")},
+				resource.ExprLiteral{Value: cty.StringVal(":")},
+				resource.ExprReference{Path: cty.GetAttrPath("me").GetAttr("account")},
+				resource.ExprLiteral{Value: cty.StringVal(":")},
+				resource.ExprReference{Path: cty.GetAttrPath("api").GetAttr("id")},
+				resource.ExprLiteral{Value: cty.StringVal("/*/")},
+				resource.ExprReference{Path: cty.GetAttrPath("get_world").GetAttr("http_method")},
+				resource.ExprReference{Path: cty.GetAttrPath("world").GetAttr("path")},
 			},
 		},
 	}

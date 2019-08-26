@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
 	"github.com/func/func/resource/reconciler"
 	"github.com/func/func/storage/teststore"
 	"github.com/google/go-cmp/cmp"
@@ -19,13 +18,13 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 		name       string
 		defs       map[string]resource.Definition
 		existing   []*resource.Resource
-		graph      *graph.Graph
+		graph      *resource.Graph
 		wantEvents teststore.Events
 	}{
 		{
 			name:     "Empty",
 			existing: nil,
-			graph: &graph.Graph{
+			graph: &resource.Graph{
 				Resources: nil,
 			},
 			wantEvents: teststore.Events{
@@ -47,15 +46,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					Sources: []string{"abc"},
 				},
 			},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": { // Identical
-						Name:    "foo",
-						Type:    "nop",
-						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
-						Sources: []string{"abc"},
-					},
-				},
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{{
+					// Identical
+					Name:    "foo",
+					Type:    "nop",
+					Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
+					Sources: []string{"abc"},
+				}},
 			},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
@@ -68,9 +66,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Input string `func:"input"`
 			}{}},
 			existing: nil, // Nothing exists
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:    "foo",
 						Type:    "nop",
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
@@ -92,14 +90,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 		{
 			name: "CreateDependency",
 			defs: map[string]resource.Definition{"passthrough": &passthrough{}},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "foo",
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
 					},
-					"bar": {
+					{
 						Name: "bar",
 						Type: "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -107,15 +105,16 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						}),
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.GetAttrPath("foo").GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 			wantEvents: teststore.Events{
@@ -151,14 +150,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				},
 			},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "foo",
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
-					"bar": {
+					{
 						Name: "bar",
 						Type: "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -166,15 +165,16 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						}),
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.GetAttrPath("foo").GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 			wantEvents: teststore.Events{
@@ -193,9 +193,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("before")}),
 				Output: cty.EmptyObjectVal,
 			}},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "foo",
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("after")}), // Updated
@@ -225,9 +225,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Output:  cty.EmptyObjectVal,
 				Sources: []string{"abc"},
 			}},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:    "foo",
 						Type:    "nop",
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}), // Same
@@ -260,14 +260,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
 				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
 			}},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"parent": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "parent",
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
-					"child": {
+					{
 						Name: "child",
 						Type: "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -275,14 +275,15 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						}),
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"child": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "child",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("parent").GetAttr("output")},
-							graph.ExprLiteral{Value: cty.StringVal(" there")},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("parent").GetAttr("output")},
+							resource.ExprLiteral{Value: cty.StringVal(" there")},
 						},
-					}},
+					},
 				},
 			},
 			wantEvents: teststore.Events{
@@ -310,14 +311,14 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
 				Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
 			}},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"parent": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "parent",
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi")}),
 					},
-					"child": {
+					{
 						Name: "child",
 						Type: "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -325,14 +326,15 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						}),
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"child": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "child",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("parent").GetAttr("output")},
-							graph.ExprLiteral{Value: cty.StringVal(" world")},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("parent").GetAttr("output")},
+							resource.ExprLiteral{Value: cty.StringVal(" world")},
 						},
-					}},
+					},
 				},
 			},
 			wantEvents: teststore.Events{
@@ -364,9 +366,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 					Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 				},
 			},
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"bar": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name:  "bar",
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
@@ -397,9 +399,9 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				} `func:"input"`
 			}{}},
 			existing: nil,
-			graph: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"bar": {
+			graph: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Name: "bar",
 						Type: "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -433,7 +435,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				{Name: "baz", Type: "nop", Deps: []string{"foo", "bar"}},
 				{Name: "qux", Type: "nop", Deps: []string{"baz"}},
 			},
-			graph: &graph.Graph{},
+			graph: &resource.Graph{},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Resource{

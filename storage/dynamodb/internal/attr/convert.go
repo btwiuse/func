@@ -6,7 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/func/func/resource/graph"
+	"github.com/func/func/resource"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -423,16 +423,16 @@ func ToCtyPath(attr dynamodb.AttributeValue) (cty.Path, error) {
 	return path, nil
 }
 
-// FromGraphExpression encodes a graph expression into an attribute.
-func FromGraphExpression(expression graph.Expression) dynamodb.AttributeValue {
+// FromExpression encodes a graph expression into an attribute.
+func FromExpression(expression resource.Expression) dynamodb.AttributeValue {
 	expr := make([]dynamodb.AttributeValue, len(expression))
 	for i, p := range expression {
 		switch v := p.(type) {
-		case graph.ExprLiteral:
+		case resource.ExprLiteral:
 			expr[i] = dynamodb.AttributeValue{M: map[string]dynamodb.AttributeValue{
 				"Literal": FromCtyValue(v.Value),
 			}}
-		case graph.ExprReference:
+		case resource.ExprReference:
 			expr[i] = dynamodb.AttributeValue{M: map[string]dynamodb.AttributeValue{
 				"Reference": FromCtyPath(v.Path),
 			}}
@@ -445,12 +445,12 @@ func FromGraphExpression(expression graph.Expression) dynamodb.AttributeValue {
 	return dynamodb.AttributeValue{L: expr}
 }
 
-// ToGraphExpression decodes an attribute to a graph expression.
-func ToGraphExpression(attr dynamodb.AttributeValue) (graph.Expression, error) {
+// ToExpression decodes an attribute to a graph expression.
+func ToExpression(attr dynamodb.AttributeValue) (resource.Expression, error) {
 	if len(attr.L) == 0 {
 		return nil, nil
 	}
-	expr := make(graph.Expression, len(attr.L))
+	expr := make(resource.Expression, len(attr.L))
 	for i, p := range attr.L {
 		if p.M == nil {
 			return nil, fmt.Errorf("list does not contain maps")
@@ -459,7 +459,7 @@ func ToGraphExpression(attr dynamodb.AttributeValue) (graph.Expression, error) {
 			if lit.S == nil {
 				return nil, fmt.Errorf("%d: literal string not set", i)
 			}
-			expr[i] = graph.ExprLiteral{Value: cty.StringVal(*lit.S)}
+			expr[i] = resource.ExprLiteral{Value: cty.StringVal(*lit.S)}
 			continue
 		}
 		if ref, ok := p.M["Reference"]; ok {
@@ -470,7 +470,7 @@ func ToGraphExpression(attr dynamodb.AttributeValue) (graph.Expression, error) {
 			if len(p) == 0 {
 				return nil, fmt.Errorf("%d: reference path is empty", i)
 			}
-			expr[i] = graph.ExprReference{Path: p}
+			expr[i] = resource.ExprReference{Path: p}
 			continue
 		}
 		return nil, fmt.Errorf("%d: Literal or Reference must be set", i)

@@ -11,8 +11,7 @@ import (
 
 	"github.com/func/func/config"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
-	"github.com/func/func/resource/graph/hcldecoder"
+	"github.com/func/func/resource/hcldecoder"
 	"github.com/go-stack/stack"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -26,7 +25,7 @@ func TestDecodeBody(t *testing.T) {
 		name        string
 		config      string
 		types       map[string]reflect.Type
-		want        *graph.Graph
+		want        *resource.Graph
 		wantSources []*config.SourceInfo
 	}{
 		{
@@ -38,9 +37,9 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -65,9 +64,9 @@ func TestDecodeBody(t *testing.T) {
 					Strings []string `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -92,9 +91,9 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type:    "a",
 						Name:    "foo",
 						Sources: []string{"def"},
@@ -121,16 +120,16 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"),
 						}),
 					},
-					"bar": {
+					{
 						Type: "a",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -158,16 +157,16 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"),
 						}),
 					},
-					"bar": {
+					{
 						Type: "a",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -175,7 +174,7 @@ func TestDecodeBody(t *testing.T) {
 						}),
 						Deps: []string{"foo"},
 					},
-					"baz": {
+					{
 						Type: "a",
 						Name: "baz",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -199,16 +198,16 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"),
 						}),
 					},
-					"bar": {
+					{
 						Type: "a",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -217,15 +216,16 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.GetAttrPath("foo").GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -246,23 +246,23 @@ func TestDecodeBody(t *testing.T) {
 				}
 			`,
 			types: map[string]reflect.Type{"a": reflect.TypeOf(simpleDef{})},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("hello"),
 						}),
 					},
-					"bar": {
+					{
 						Type: "a",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"input": cty.StringVal("world"),
 						}),
 					},
-					"baz": {
+					{
 						Type: "a",
 						Name: "baz",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -271,15 +271,16 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo", "bar"}, // foo only appears once
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"baz": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "baz",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprLiteral{Value: cty.StringVal("Oh, hello world ")}, // merged
-							graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("output")},
-							graph.ExprLiteral{Value: cty.StringVal("!")},
+						Expression: resource.Expression{
+							resource.ExprLiteral{Value: cty.StringVal("Oh, hello world ")}, // merged
+							resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("output")},
+							resource.ExprLiteral{Value: cty.StringVal("!")},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -296,9 +297,9 @@ func TestDecodeBody(t *testing.T) {
 					Input *string `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "ptr",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -323,9 +324,9 @@ func TestDecodeBody(t *testing.T) {
 					Map map[string]string `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "mapdef",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -350,9 +351,9 @@ func TestDecodeBody(t *testing.T) {
 					Strings []string `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "slicedef",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -386,9 +387,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "structdef",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -416,9 +417,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "structdef",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -444,9 +445,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "bar",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -475,9 +476,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "pie",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -512,9 +513,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "multi",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -553,9 +554,9 @@ func TestDecodeBody(t *testing.T) {
 					} `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "multi",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -589,14 +590,14 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type:  "complex",
 						Name:  "foo",
 						Input: cty.EmptyObjectVal,
 					},
-					"bar": {
+					{
 						Type: "simple",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -605,15 +606,16 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.GetAttrPath("foo").GetAttr("nested").Index(cty.StringVal("foo")).GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -634,14 +636,14 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type:  "complex",
 						Name:  "foo",
 						Input: cty.EmptyObjectVal,
 					},
-					"bar": {
+					{
 						Type: "simple",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -650,11 +652,12 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.
 									GetAttrPath("foo").
 									GetAttr("nested").
@@ -664,7 +667,7 @@ func TestDecodeBody(t *testing.T) {
 									GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -685,14 +688,14 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type:  "complex",
 						Name:  "foo",
 						Input: cty.EmptyObjectVal,
 					},
-					"bar": {
+					{
 						Type: "simple",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -701,15 +704,16 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{
+						Expression: resource.Expression{
+							resource.ExprReference{
 								Path: cty.GetAttrPath("foo").GetAttr("nested").Index(cty.NumberIntVal(0)).GetAttr("output"),
 							},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -753,16 +757,16 @@ func TestDecodeBody(t *testing.T) {
 					Strings []string `func:"input"`
 				}{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type: "a",
 						Name: "foo",
 						Input: cty.ObjectVal(map[string]cty.Value{
 							"in": cty.StringVal("hello"),
 						}),
 					},
-					"bar": {
+					{
 						Type: "b",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -773,7 +777,7 @@ func TestDecodeBody(t *testing.T) {
 						}),
 						Deps: []string{"foo"},
 					},
-					"baz": {
+					{
 						Type: "c",
 						Name: "baz",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -783,24 +787,28 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"bar"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input").GetAttr("string"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out")},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out")},
 						},
-					}},
-					"baz": {{
+					},
+					{
+						Child: "baz",
 						Field: cty.GetAttrPath("num"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("bar").GetAttr("output").GetAttr("number")},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("bar").GetAttr("output").GetAttr("number")},
 						},
-					}, {
+					},
+					{
+						Child: "baz",
 						Field: cty.GetAttrPath("strings"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("bar").GetAttr("output").GetAttr("names")},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("bar").GetAttr("output").GetAttr("names")},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -825,14 +833,14 @@ func TestDecodeBody(t *testing.T) {
 				}{}),
 				"simple": reflect.TypeOf(simpleDef{}),
 			},
-			want: &graph.Graph{
-				Resources: map[string]*resource.Resource{
-					"foo": {
+			want: &resource.Graph{
+				Resources: []*resource.Resource{
+					{
 						Type:  "output",
 						Name:  "foo",
 						Input: cty.EmptyObjectVal,
 					},
-					"bar": {
+					{
 						Type: "simple",
 						Name: "bar",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -840,7 +848,7 @@ func TestDecodeBody(t *testing.T) {
 						}),
 						Deps: []string{"foo"},
 					},
-					"baz": {
+					{
 						Type: "simple",
 						Name: "baz",
 						Input: cty.ObjectVal(map[string]cty.Value{
@@ -849,19 +857,21 @@ func TestDecodeBody(t *testing.T) {
 						Deps: []string{"foo"},
 					},
 				},
-				Dependencies: map[string][]graph.Dependency{
-					"bar": {{
+				Dependencies: []*resource.Dependency{
+					{
+						Child: "bar",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out").Index(cty.NumberIntVal(0))},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out").Index(cty.NumberIntVal(0))},
 						},
-					}},
-					"baz": {{
+					},
+					{
+						Child: "baz",
 						Field: cty.GetAttrPath("input"),
-						Expression: graph.Expression{
-							graph.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out").Index(cty.NumberIntVal(1))},
+						Expression: resource.Expression{
+							resource.ExprReference{Path: cty.GetAttrPath("foo").GetAttr("out").Index(cty.NumberIntVal(1))},
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -869,7 +879,7 @@ func TestDecodeBody(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer checkPanic(t)
-			g := graph.New()
+			g := &resource.Graph{}
 
 			parser := &testParser{}
 			body := parser.Parse(t, tt.config)
@@ -882,16 +892,20 @@ func TestDecodeBody(t *testing.T) {
 			parser.CheckDiags(t, diags)
 
 			opts := []cmp.Option{
-				cmpopts.EquateEmpty(),
-				cmpopts.SortSlices(func(a, b graph.Dependency) bool {
-					// Order of dependencies does not matter, as long as they are deterministic.
+				cmp.Comparer(func(a, b cty.Path) bool { return a.Equals(b) }),
+				cmp.Comparer(func(a, b cty.Value) bool {
+					if a.IsWhollyKnown() && b.IsWhollyKnown() {
+						return a.Equals(b).True()
+					}
+					return a.GoString() == b.GoString()
+				}),
+				// Order of resource or dependencies do not matter
+				cmpopts.SortSlices(func(a, b *resource.Resource) bool { return a.Name < b.Name }),
+				cmpopts.SortSlices(func(a, b *resource.Dependency) bool {
 					astr := fmt.Sprintf("%+v", a)
 					bstr := fmt.Sprintf("%+v", b)
 					return astr < bstr
 				}),
-				cmp.Transformer("GoString", func(v cty.Value) string { return v.GoString() }),
-				cmp.Transformer("Name", func(v cty.GetAttrStep) string { return v.Name }),
-				cmp.Transformer("GoString", func(v cty.IndexStep) string { return v.GoString() }),
 			}
 			if diff := cmp.Diff(g, tt.want, opts...); diff != "" {
 				t.Errorf("Graph does not match (-got +want)\n%s", diff)
@@ -1568,7 +1582,7 @@ func TestDecodeBody_Diagnostics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer checkPanic(t)
-			g := graph.New()
+			g := &resource.Graph{}
 
 			parser := &testParser{
 				filename: "file.hcl",

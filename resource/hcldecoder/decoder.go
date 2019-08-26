@@ -8,8 +8,7 @@ import (
 	"github.com/func/func/config"
 	"github.com/func/func/ctyext"
 	"github.com/func/func/resource"
-	"github.com/func/func/resource/graph"
-	"github.com/func/func/resource/graph/hcldecoder/internal/expr"
+	"github.com/func/func/resource/hcldecoder/internal/expr"
 	"github.com/func/func/resource/schema"
 	"github.com/func/func/suggest"
 	"github.com/hashicorp/hcl2/gohcl"
@@ -60,7 +59,7 @@ type Decoder struct {
 // The returned Sources contains all source information that was decoded from
 // the body. The resources added to the graph will only have the key attached
 // to them.
-func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) ([]*config.SourceInfo, hcl.Diagnostics) {
+func (d *Decoder) DecodeBody(body hcl.Body, target *resource.Graph) ([]*config.SourceInfo, hcl.Diagnostics) {
 	var hclSchema, _ = gohcl.ImpliedBodySchema(config.Root{})
 
 	if d.resources != nil {
@@ -107,16 +106,20 @@ func (d *Decoder) DecodeBody(body hcl.Body, target *graph.Graph) ([]*config.Sour
 	return d.sources, diags
 }
 
-func (d *Decoder) addResources(g *graph.Graph) error {
+func (d *Decoder) addResources(g *resource.Graph) error {
 	// deps keep track of dependencies to add. The dependencies must be added
 	// after all resources have been added.
-	deps := make(map[string][]graph.Dependency)
+	var deps []*resource.Dependency
 	for name, res := range d.resources {
 		r := &resource.Resource{
-			Name:    name,
-			Type:    res.Type,
-			Sources: res.Sources,
-			Deps:    res.Deps,
+			Name: name,
+			Type: res.Type,
+		}
+		if len(res.Deps) > 0 {
+			r.Deps = res.Deps
+		}
+		if len(res.Sources) > 0 {
+			r.Sources = res.Sources
 		}
 		v, err := cty.Transform(res.Input, func(p cty.Path, v cty.Value) (cty.Value, error) {
 			if !v.Type().IsCapsuleType() {
@@ -125,7 +128,8 @@ func (d *Decoder) addResources(g *graph.Graph) error {
 
 			// Reference
 			expr := v.EncapsulatedValue().(*expression)
-			deps[name] = append(deps[name], graph.Dependency{
+			deps = append(deps, &resource.Dependency{
+				Child:      name,
 				Field:      p,
 				Expression: expr.Expression,
 			})
@@ -137,11 +141,13 @@ func (d *Decoder) addResources(g *graph.Graph) error {
 			return err
 		}
 		r.Input = v
-		g.AddResource(r)
+		if err := g.AddResource(r); err != nil {
+			return fmt.Errorf("add resource: %v", err)
+		}
 	}
-	for name, dd := range deps {
-		for _, dep := range dd {
-			g.AddDependency(name, dep)
+	for _, dep := range deps {
+		if err := g.AddDependency(dep); err != nil {
+			return fmt.Errorf("add dependency: %v", err)
 		}
 	}
 	return nil
@@ -167,7 +173,7 @@ type res struct {
 type expression struct {
 	field     schema.Field
 	inputType cty.Type
-	graph.Expression
+	resource.Expression
 	hcl.Range
 }
 
@@ -478,7 +484,7 @@ func (d *Decoder) resolveValues() hcl.Diagnostics {
 				expr := v.EncapsulatedValue().(*expression)
 				exprRefs := 0
 				for i, part := range expr.Expression {
-					ref, ok := part.(graph.ExprReference)
+					ref, ok := part.(resource.ExprReference)
 					if !ok {
 						continue
 					}
@@ -580,7 +586,7 @@ func (d *Decoder) resolveValues() hcl.Diagnostics {
 						continue
 					}
 
-					expr.Expression[i] = graph.ExprLiteral{Value: inputVal}
+					expr.Expression[i] = resource.ExprLiteral{Value: inputVal}
 					exprRefs--
 				}
 
