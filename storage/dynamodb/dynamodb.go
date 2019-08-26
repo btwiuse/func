@@ -62,7 +62,7 @@ func (d *DynamoDB) CreateTable(ctx context.Context, rcu, wcu int64) error {
 }
 
 // PutResource creates or updates a resource.
-func (d *DynamoDB) PutResource(ctx context.Context, project string, res resource.Resource) error {
+func (d *DynamoDB) PutResource(ctx context.Context, project string, res *resource.Resource) error {
 	input := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
 		Item: map[string]dynamodb.AttributeValue{
@@ -76,7 +76,7 @@ func (d *DynamoDB) PutResource(ctx context.Context, project string, res resource
 	}
 
 	if len(res.Deps) > 0 {
-		input.Item["Deps"] = attr.FromStringSet(res.Deps)
+		input.Item["Dependencies"] = attr.FromStringSet(res.Deps)
 	}
 	if len(res.Sources) > 0 {
 		input.Item["Sources"] = attr.FromStringSet(res.Sources)
@@ -89,14 +89,15 @@ func (d *DynamoDB) PutResource(ctx context.Context, project string, res resource
 	return nil
 }
 
-// DeleteResource deletes a resource. No-op if the resource does not exist.
-func (d *DynamoDB) DeleteResource(ctx context.Context, project string, name string) error {
+// DeleteResource deletes a resource. Returns an error if the resource does not exist.
+func (d *DynamoDB) DeleteResource(ctx context.Context, project string, res *resource.Resource) error {
 	input := &dynamodb.DeleteItemInput{
 		TableName: aws.String(d.TableName),
 		Key: map[string]dynamodb.AttributeValue{
 			"Project": {S: aws.String(project)},
-			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", name))},
+			"ID":      {S: aws.String(fmt.Sprintf("resource-%s", res.Name))},
 		},
+		ConditionExpression: aws.String("attribute_exists(ID)"),
 	}
 	_, err := d.Client.DeleteItemRequest(input).Send(ctx)
 	if err != nil {
@@ -105,8 +106,9 @@ func (d *DynamoDB) DeleteResource(ctx context.Context, project string, name stri
 	return nil
 }
 
-// ListResources lists all resources in a project.
-func (d *DynamoDB) ListResources(ctx context.Context, project string) (map[string]resource.Resource, error) {
+// ListResources lists all resources in a project. The order of the results is
+// not guaranteed.
+func (d *DynamoDB) ListResources(ctx context.Context, project string) ([]*resource.Resource, error) {
 	input := &dynamodb.QueryInput{
 		TableName:              aws.String(d.TableName),
 		KeyConditionExpression: aws.String("#project = :project AND begins_with(#id, :prefix)"),
@@ -123,65 +125,48 @@ func (d *DynamoDB) ListResources(ctx context.Context, project string) (map[strin
 	if err != nil {
 		return nil, errors.Wrap(err, "query dynamodb")
 	}
-	out := make(map[string]resource.Resource, int(*resp.Count))
+
+	out := make([]*resource.Resource, *resp.Count)
 	for i, item := range resp.QueryOutput.Items {
-		var res resource.Resource
-		if err := d.decodeResource(item, &res); err != nil {
-			return nil, fmt.Errorf("parse %d: %v", i, err)
+		res := &resource.Resource{}
+
+		name, err := attr.ToString(item["Name"])
+		if err != nil {
+			return nil, fmt.Errorf("%d: field Name: %v", i, err)
 		}
-		out[res.Name] = res
+		res.Name = name
+
+		typename, err := attr.ToString(item["Type"])
+		if err != nil {
+			return nil, fmt.Errorf("%d: field Type: %v", i, err)
+		}
+		res.Type = typename
+
+		res.Deps = attr.ToStringSet(item["Dependencies"])
+		res.Sources = attr.ToStringSet(item["Sources"])
+
+		typ := d.Registry.Type(typename)
+		if typ == nil {
+			return nil, fmt.Errorf("%d: type %q not registered", i, typename)
+		}
+		fields := schema.Fields(typ)
+
+		input, err := attr.ToCtyValue(item["Input"], fields.Inputs().CtyType())
+		if err != nil {
+			return nil, fmt.Errorf("%d: convert input: %v", i, err)
+		}
+		res.Input = input
+
+		output, err := attr.ToCtyValue(item["Output"], fields.Outputs().CtyType())
+		if err != nil {
+			return nil, fmt.Errorf("%d: convert output: %v", i, err)
+		}
+		res.Output = output
+
+		out[i] = res
 	}
+
 	return out, nil
-}
-
-func (d *DynamoDB) encodeResource(res *resource.Resource, item map[string]dynamodb.AttributeValue) {
-	item["Type"] = attr.FromString(res.Type)
-	item["Name"] = attr.FromString(res.Name)
-	item["Input"] = attr.FromCtyValue(cty.UnknownAsNull(res.Input))
-	item["Output"] = attr.FromCtyValue(cty.UnknownAsNull(res.Output))
-	if len(res.Deps) > 0 {
-		item["Deps"] = attr.FromStringSet(res.Deps)
-	}
-	if len(res.Sources) > 0 {
-		item["Sources"] = attr.FromStringSet(res.Sources)
-	}
-}
-
-func (d *DynamoDB) decodeResource(item map[string]dynamodb.AttributeValue, res *resource.Resource) error {
-	name, err := attr.ToString(item["Name"])
-	if err != nil {
-		return fmt.Errorf("field Name: %v", err)
-	}
-	res.Name = name
-
-	typename, err := attr.ToString(item["Type"])
-	if err != nil {
-		return fmt.Errorf("field Type: %v", err)
-	}
-	res.Type = typename
-
-	res.Deps = attr.ToStringSet(item["Deps"])
-	res.Sources = attr.ToStringSet(item["Sources"])
-
-	typ := d.Registry.Type(typename)
-	if typ == nil {
-		return fmt.Errorf("type %q not registered", typename)
-	}
-	fields := schema.Fields(typ)
-
-	input, err := attr.ToCtyValue(item["Input"], fields.Inputs().CtyType())
-	if err != nil {
-		return fmt.Errorf("convert input: %v", err)
-	}
-	res.Input = input
-
-	output, err := attr.ToCtyValue(item["Output"], fields.Outputs().CtyType())
-	if err != nil {
-		return fmt.Errorf("convert output: %v", err)
-	}
-	res.Output = output
-
-	return nil
 }
 
 // PutGraph creates or updates a graph.
@@ -193,8 +178,21 @@ func (d *DynamoDB) PutGraph(ctx context.Context, project string, g *graph.Graph)
 	sort.Strings(names)
 	resources := make([]dynamodb.AttributeValue, len(names))
 	for i, name := range names {
-		item := make(map[string]dynamodb.AttributeValue, 6)
-		d.encodeResource(g.Resources[name], item)
+		res := g.Resources[name]
+		item := map[string]dynamodb.AttributeValue{
+			"Type":   attr.FromString(res.Type),
+			"Name":   attr.FromString(res.Name),
+			"Input":  attr.FromCtyValue(cty.UnknownAsNull(res.Input)),
+			"Output": attr.FromCtyValue(cty.UnknownAsNull(res.Output)),
+		}
+
+		if len(res.Deps) > 0 {
+			item["Dependencies"] = attr.FromStringSet(res.Deps)
+		}
+		if len(res.Sources) > 0 {
+			item["Sources"] = attr.FromStringSet(res.Sources)
+		}
+
 		resources[i] = dynamodb.AttributeValue{M: item}
 	}
 	deps := make(map[string]dynamodb.AttributeValue, len(g.Dependencies))
@@ -254,11 +252,42 @@ func (d *DynamoDB) GetGraph(ctx context.Context, project string) (*graph.Graph, 
 
 	g := graph.New()
 
-	for i, r := range resp.Item["Resources"].L {
+	for i, item := range resp.Item["Resources"].L {
 		res := &resource.Resource{}
-		if err := d.decodeResource(r.M, res); err != nil {
-			return nil, fmt.Errorf("decode resource %d: %v", i, err)
+
+		name, err := attr.ToString(item.M["Name"])
+		if err != nil {
+			return nil, fmt.Errorf("%d: field Name: %v", i, err)
 		}
+		res.Name = name
+
+		typename, err := attr.ToString(item.M["Type"])
+		if err != nil {
+			return nil, fmt.Errorf("%d: field Type: %v", i, err)
+		}
+		res.Type = typename
+
+		res.Deps = attr.ToStringSet(item.M["Dependencies"])
+		res.Sources = attr.ToStringSet(item.M["Sources"])
+
+		typ := d.Registry.Type(typename)
+		if typ == nil {
+			return nil, fmt.Errorf("%d: type %q not registered", i, typename)
+		}
+		fields := schema.Fields(typ)
+
+		input, err := attr.ToCtyValue(item.M["Input"], fields.Inputs().CtyType())
+		if err != nil {
+			return nil, fmt.Errorf("%d: convert input: %v", i, err)
+		}
+		res.Input = input
+
+		output, err := attr.ToCtyValue(item.M["Output"], fields.Outputs().CtyType())
+		if err != nil {
+			return nil, fmt.Errorf("%d: convert output: %v", i, err)
+		}
+		res.Output = output
+
 		g.AddResource(res)
 	}
 	for name, deps := range resp.Item["Dependencies"].M {
