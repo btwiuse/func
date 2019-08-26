@@ -10,14 +10,14 @@ import (
 func TestGraph_AddResource(t *testing.T) {
 	g := &Graph{}
 
-	a := &Resource{Type: "aaa", Name: "a"}
+	a := &Desired{Type: "aaa", Name: "a"}
 
 	if err := g.AddResource(a); err != nil {
 		t.Fatalf("AddResource() err = %v", err)
 	}
 
 	want := &Graph{
-		Resources: []*Resource{a},
+		Resources: []*Desired{a},
 	}
 	opts := []cmp.Option{
 		cmp.Comparer(func(a, b cty.Value) bool { return a.Equals(b).True() }),
@@ -29,12 +29,12 @@ func TestGraph_AddResource(t *testing.T) {
 
 func TestGraph_AddResource_existing(t *testing.T) {
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 		},
 	}
 
-	err := g.AddResource(&Resource{Type: "bar", Name: "a"}) // same name
+	err := g.AddResource(&Desired{Type: "bar", Name: "a"}) // same name
 	if err == nil {
 		t.Fatalf("Want error")
 	}
@@ -42,7 +42,7 @@ func TestGraph_AddResource_existing(t *testing.T) {
 
 func TestGraph_AddResource_ErrNoName(t *testing.T) {
 	g := &Graph{}
-	err := g.AddResource(&Resource{Name: "", Type: "foo"})
+	err := g.AddResource(&Desired{Name: "", Type: "foo"})
 	if err == nil {
 		t.Fatalf("Want error")
 	}
@@ -50,7 +50,7 @@ func TestGraph_AddResource_ErrNoName(t *testing.T) {
 
 func TestGraph_AddResource_ErrNoType(t *testing.T) {
 	g := &Graph{}
-	err := g.AddResource(&Resource{Name: "foo", Type: ""})
+	err := g.AddResource(&Desired{Name: "foo", Type: ""})
 	if err == nil {
 		t.Fatalf("Want error")
 	}
@@ -58,7 +58,7 @@ func TestGraph_AddResource_ErrNoType(t *testing.T) {
 
 func TestGraph_AddDependency(t *testing.T) {
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 			{Type: "bar", Name: "b"},
 		},
@@ -79,7 +79,7 @@ func TestGraph_AddDependency(t *testing.T) {
 	}
 
 	want := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 			{Type: "bar", Name: "b"},
 		},
@@ -96,7 +96,7 @@ func TestGraph_AddDependency(t *testing.T) {
 
 func TestGraph_AddDependency_ErrMissingChild(t *testing.T) {
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 			{Type: "bar", Name: "b"},
 		},
@@ -120,7 +120,7 @@ func TestGraph_AddDependency_ErrMissingChild(t *testing.T) {
 
 func TestGraph_AddDependency_ErrMissingParent(t *testing.T) {
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 			{Type: "bar", Name: "b"},
 		},
@@ -144,7 +144,7 @@ func TestGraph_AddDependency_ErrMissingParent(t *testing.T) {
 
 func TestGraph_AddDependency_ErrInvalidPath(t *testing.T) {
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			{Type: "foo", Name: "a"},
 			{Type: "bar", Name: "b"},
 		},
@@ -167,11 +167,11 @@ func TestGraph_AddDependency_ErrInvalidPath(t *testing.T) {
 }
 
 func TestGraph_ParentResources(t *testing.T) {
-	a := &Resource{Type: "foo", Name: "a"}
-	b := &Resource{Type: "foo", Name: "b"}
+	a := &Desired{Type: "foo", Name: "a"}
+	b := &Desired{Type: "foo", Name: "b"}
 
 	g := &Graph{
-		Resources: []*Resource{a, b},
+		Resources: []*Desired{a, b},
 		Dependencies: []*Dependency{
 			{
 				Child: "b",
@@ -199,21 +199,21 @@ func TestGraph_ParentResources(t *testing.T) {
 	}
 
 	got := g.ParentResources("a")
-	want := ([]*Resource)(nil)
+	want := ([]*Desired)(nil)
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Parent resources a (-got +want)\n%s", diff)
 	}
 
 	got = g.ParentResources("b")
-	want = []*Resource{a}
+	want = []*Desired{a}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Parent resources b (-got +want)\n%s", diff)
 	}
 }
 
 func TestGraph_DependenciesOf(t *testing.T) {
-	a := &Resource{Type: "foo", Name: "a"}
-	b := &Resource{Type: "foo", Name: "b"}
+	a := &Desired{Type: "foo", Name: "a"}
+	b := &Desired{Type: "foo", Name: "b"}
 
 	dep1 := &Dependency{
 		Child: "b",
@@ -235,7 +235,7 @@ func TestGraph_DependenciesOf(t *testing.T) {
 	}
 
 	g := &Graph{
-		Resources:    []*Resource{a, b},
+		Resources:    []*Desired{a, b},
 		Dependencies: []*Dependency{dep1, dep2},
 	}
 
@@ -258,12 +258,12 @@ func TestGraph_DependenciesOf(t *testing.T) {
 }
 
 func TestGraph_LeafResources(t *testing.T) {
-	a := &Resource{Type: "foo", Name: "a"}
-	b := &Resource{Type: "bar", Name: "b"}
-	c := &Resource{Type: "baz", Name: "c"}
-	d := &Resource{Type: "qux", Name: "d"}
+	a := &Desired{Type: "foo", Name: "a"}
+	b := &Desired{Type: "bar", Name: "b"}
+	c := &Desired{Type: "baz", Name: "c"}
+	d := &Desired{Type: "qux", Name: "d"}
 	g := &Graph{
-		Resources: []*Resource{
+		Resources: []*Desired{
 			a, b, c, d,
 		},
 		Dependencies: []*Dependency{
@@ -291,7 +291,7 @@ func TestGraph_LeafResources(t *testing.T) {
 	}
 
 	got := g.LeafResources()
-	want := []*Resource{c, d} // c and d have no children
+	want := []*Desired{c, d} // c and d have no children
 
 	opts := []cmp.Option{
 		cmp.Comparer(func(a, b cty.Value) bool { return a.Equals(b).True() }),

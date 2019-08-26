@@ -8,14 +8,14 @@ import (
 
 // A Graph contains a resources and relationships between resources.
 type Graph struct {
-	Resources    []*Resource
+	Resources    []*Desired
 	Dependencies []*Dependency
 }
 
 // AddResource adds a new resource to the graph.
 //
 // Returns an error if another resource with an identical name already exists.
-func (g *Graph) AddResource(res *Resource) error {
+func (g *Graph) AddResource(res *Desired) error {
 	if res.Name == "" {
 		return fmt.Errorf("resource has no name")
 	}
@@ -31,7 +31,7 @@ func (g *Graph) AddResource(res *Resource) error {
 
 // Resource returns a resource with a given name from the graph.
 // Returns nil if the resource does not exist.
-func (g *Graph) Resource(name string) *Resource {
+func (g *Graph) Resource(name string) *Desired {
 	for _, r := range g.Resources {
 		if r.Name == name {
 			return r
@@ -65,9 +65,9 @@ func (g *Graph) AddDependency(dep *Dependency) error {
 // ParentResources returns the parent resources that are are a dependency to
 // the given child resource. In case multiple references exist to the parent
 // resource, it is included only once.
-func (g *Graph) ParentResources(child string) []*Resource {
+func (g *Graph) ParentResources(child string) []*Desired {
 	added := make(map[string]struct{}) // Avoid adding the same dependency twice
-	var parents []*Resource
+	var parents []*Desired
 	for _, d := range g.Dependencies {
 		if d.Child != child {
 			continue
@@ -95,7 +95,7 @@ func (g *Graph) DependenciesOf(child string) []*Dependency {
 }
 
 // LeafResources returns all resources that have no children.
-func (g *Graph) LeafResources() []*Resource {
+func (g *Graph) LeafResources() []*Desired {
 	parents := make(map[string]struct{})
 
 	// Mark resources that are dependencies to child resources.
@@ -110,7 +110,7 @@ func (g *Graph) LeafResources() []*Resource {
 	}
 
 	// Collect remaining resources that were not marked.
-	out := make([]*Resource, 0, len(g.Resources)-len(parents))
+	out := make([]*Desired, 0, len(g.Resources)-len(parents))
 	for _, res := range g.Resources {
 		_, isParent := parents[res.Name]
 		if !isParent {
