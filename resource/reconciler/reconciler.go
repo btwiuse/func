@@ -53,6 +53,17 @@ type Graph interface {
 	DependenciesOf(child string) []*resource.Dependency
 }
 
+// An IDGenerator generates unique identifiers for created resources.
+type IDGenerator interface {
+	GenerateID() string
+}
+
+// IDGeneratorFunc is a function type that implements the IDGenerator interface.
+type IDGeneratorFunc func() string
+
+// GenerateID calls the wrapped function.
+func (fn IDGeneratorFunc) GenerateID() string { return fn() }
+
 // A Reconciler reconciles changes to a graph.
 //
 // See package doc for details.
@@ -60,6 +71,7 @@ type Reconciler struct {
 	Resources ResourceStorage
 	Source    SourceStorage
 	Registry  Registry
+	IDGen     IDGenerator
 
 	// Concurrency sets the maximum allowed concurrency to use.
 	// If not set, DefaultConcurrency is used.
@@ -106,6 +118,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, id, proj string, graph Graph
 		Registry:  r.Registry,
 		Logger:    logger,
 		Backoff:   algo,
+		IDGen:     r.IDGen,
 		Sem:       semaphore.NewWeighted(int64(c)),
 		outputs:   make(map[string]cty.Value),
 	}
@@ -143,6 +156,7 @@ type run struct {
 	Logger    *zap.Logger
 	Backoff   func() backoff.BackOff
 	Sem       *semaphore.Weighted
+	IDGen     IDGenerator
 
 	mu       sync.RWMutex
 	existing []*resource.Deployed // Existing resource from a previous deployment.
@@ -281,6 +295,9 @@ func (r *run) processResource(ctx context.Context, res *resource.Desired) error 
 				logger.Debug("No changes required")
 				return nil
 			}
+			deployed.ID = existing.ID
+		} else {
+			deployed.ID = r.IDGen.GenerateID()
 		}
 
 		var op func() error

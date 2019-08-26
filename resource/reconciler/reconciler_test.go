@@ -2,6 +2,8 @@ package reconciler_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/func/func/resource"
@@ -45,6 +47,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 						Sources: []string{"abc"},
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				},
 			},
@@ -89,6 +92,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
 						Sources: []string{"abc"},
 					},
+					ID:     "id0",
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -131,6 +135,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
 					},
+					ID:     "id0",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("bar")}),
 				}},
 				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
@@ -139,6 +144,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("bar")}),
 					},
+					ID:     "id1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("bar")}),
 					Deps:   []string{"foo"},
 				}},
@@ -154,6 +160,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex0",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				},
 				{
@@ -162,6 +169,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				},
 			},
@@ -209,6 +217,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("before")}),
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				},
 			},
@@ -229,6 +238,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("after")}), // Updated
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -247,6 +257,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 						Sources: []string{"abc"},
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				},
 			},
@@ -269,6 +280,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}), // Same
 						Sources: []string{"xyz"},                                                      // Updated
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -283,6 +295,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex0",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				}, {
 					Desired: &resource.Desired{
@@ -290,6 +303,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
 					},
+					ID:     "ex1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
 				},
 			},
@@ -328,6 +342,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Name:  "child",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello there")}),
 					},
+					ID:     "ex1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello there")}),
 					Deps:   []string{"parent"},
 				}},
@@ -343,6 +358,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex0",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello")}),
 				}, {
 					Desired: &resource.Desired{
@@ -350,6 +366,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello world")}),
 					},
+					ID:     "ex1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hello world")}),
 				},
 			},
@@ -387,6 +404,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi")}),
 					},
+					ID:     "ex0",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hi")}),
 				}},
 				{Method: "PutResource", Project: "proj", Data: &resource.Deployed{
@@ -395,6 +413,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "passthrough",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hi world")}),
 					},
+					ID:     "ex1",
 					Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("hi world")}),
 					Deps:   []string{"parent"},
 				}},
@@ -413,6 +432,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				},
 			},
@@ -433,6 +453,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "id0",
 					Output: cty.EmptyObjectVal,
 				}},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
@@ -441,6 +462,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 						Type:  "nop",
 						Input: cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("hello")}),
 					},
+					ID:     "ex0",
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -479,6 +501,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 							})),
 						}),
 					},
+					ID:     "id0",
 					Output: cty.EmptyObjectVal,
 				}},
 			},
@@ -487,25 +510,25 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 			name: "DeleteOrder",
 			defs: map[string]resource.Definition{"nop": nop{}},
 			existing: []*resource.Deployed{
-				{Desired: &resource.Desired{Name: "foo", Type: "nop"}},
-				{Desired: &resource.Desired{Name: "bar", Type: "nop"}, Deps: []string{"foo"}},
-				{Desired: &resource.Desired{Name: "baz", Type: "nop"}, Deps: []string{"foo", "bar"}},
-				{Desired: &resource.Desired{Name: "qux", Type: "nop"}, Deps: []string{"baz"}},
+				{ID: "ex0", Desired: &resource.Desired{Name: "foo", Type: "nop"}},
+				{ID: "ex1", Desired: &resource.Desired{Name: "bar", Type: "nop"}, Deps: []string{"foo"}},
+				{ID: "ex2", Desired: &resource.Desired{Name: "baz", Type: "nop"}, Deps: []string{"foo", "bar"}},
+				{ID: "ex3", Desired: &resource.Desired{Name: "qux", Type: "nop"}, Deps: []string{"baz"}},
 			},
 			graph: &resource.Graph{},
 			wantEvents: teststore.Events{
 				{Method: "ListResources", Project: "proj"},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
-					Desired: &resource.Desired{Type: "nop", Name: "qux"}, Deps: []string{"baz"},
+					ID: "ex3", Desired: &resource.Desired{Type: "nop", Name: "qux"}, Deps: []string{"baz"},
 				}},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
-					Desired: &resource.Desired{Type: "nop", Name: "baz"}, Deps: []string{"foo", "bar"},
+					ID: "ex2", Desired: &resource.Desired{Type: "nop", Name: "baz"}, Deps: []string{"foo", "bar"},
 				}},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
-					Desired: &resource.Desired{Type: "nop", Name: "bar"}, Deps: []string{"foo"},
+					ID: "ex1", Desired: &resource.Desired{Type: "nop", Name: "bar"}, Deps: []string{"foo"},
 				}},
 				{Method: "DeleteResource", Project: "proj", Data: &resource.Deployed{
-					Desired: &resource.Desired{Type: "nop", Name: "foo"},
+					ID: "ex0", Desired: &resource.Desired{Type: "nop", Name: "foo"},
 				}},
 			},
 		},
@@ -521,6 +544,7 @@ func TestReconciler_Reconcile_events(t *testing.T) {
 				Resources: rec,
 				Registry:  resource.RegistryFromDefinitions(tt.defs),
 				Logger:    zaptest.NewLogger(t),
+				IDGen:     &sequence{},
 			}
 
 			ctx := context.Background()
@@ -564,4 +588,18 @@ func (p *passthrough) Update(ctx context.Context, req *resource.UpdateRequest) e
 }
 func (p *passthrough) Delete(ctx context.Context, req *resource.DeleteRequest) error {
 	return nil
+}
+
+// sequence generates a deterministic sequence of ids.
+type sequence struct {
+	mu    sync.Mutex
+	index int
+}
+
+func (s *sequence) GenerateID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := fmt.Sprintf("id%d", s.index)
+	s.index++
+	return id
 }
