@@ -18,13 +18,13 @@ func TestStore_Resources(t *testing.T) {
 	project := "testproject"
 	ctx := context.Background()
 
-	resA := resource.Resource{
+	resA := &resource.Resource{
 		Type:   "foo",
 		Name:   "a",
 		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("abc")}),
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("def")}),
 	}
-	resB := resource.Resource{
+	resB := &resource.Resource{
 		Type:    "foo",
 		Name:    "b",
 		Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("123")}),
@@ -45,16 +45,16 @@ func TestStore_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]resource.Resource{
-		"a": resA,
-		"b": resB,
+	want := []*resource.Resource{
+		resA,
+		resB,
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Diff (-got +want)\n%s", diff)
 	}
 
 	// Update
-	update := resource.Resource{
+	update := &resource.Resource{
 		Type:   "foo",
 		Name:   "a", // Same name
 		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("ABC")}),
@@ -65,7 +65,7 @@ func TestStore_Resources(t *testing.T) {
 	}
 
 	// Delete
-	if err := s.DeleteResource(ctx, project, resB.Name); err != nil {
+	if err := s.DeleteResource(ctx, project, resB); err != nil {
 		t.Fatal(err)
 	}
 
@@ -73,8 +73,8 @@ func TestStore_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = map[string]resource.Resource{
-		"a": update, // a is updated
+	want = []*resource.Resource{
+		update, // a is updated
 		// b is deleted
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {

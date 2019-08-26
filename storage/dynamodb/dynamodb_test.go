@@ -39,13 +39,13 @@ func TestDynamoDB_Resources(t *testing.T) {
 	ddb := New(cfg, table, registry)
 	ctx := context.Background()
 
-	resA := resource.Resource{
+	resA := &resource.Resource{
 		Type:   "foo",
 		Name:   "a",
 		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("abc")}),
 		Output: cty.ObjectVal(map[string]cty.Value{"output": cty.StringVal("def")}),
 	}
-	resB := resource.Resource{
+	resB := &resource.Resource{
 		Type:    "foo",
 		Name:    "b",
 		Input:   cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("123")}),
@@ -66,16 +66,16 @@ func TestDynamoDB_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]resource.Resource{
-		"a": resA,
-		"b": resB,
+	want := []*resource.Resource{
+		resA,
+		resB,
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Diff (-got +want)\n%s", diff)
 	}
 
 	// Update
-	update := resource.Resource{
+	update := &resource.Resource{
 		Type:   "foo",
 		Name:   "a", // Same name
 		Input:  cty.ObjectVal(map[string]cty.Value{"input": cty.StringVal("ABC")}),
@@ -86,7 +86,7 @@ func TestDynamoDB_Resources(t *testing.T) {
 	}
 
 	// Delete
-	if err := ddb.DeleteResource(ctx, project, resB.Name); err != nil {
+	if err := ddb.DeleteResource(ctx, project, resB); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,12 +94,28 @@ func TestDynamoDB_Resources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want = map[string]resource.Resource{
-		"a": update, // a is updated
+	want = []*resource.Resource{
+		update, // a is updated
 		// b is deleted
 	}
 	if diff := cmp.Diff(got, want, opts...); diff != "" {
 		t.Errorf("Diff (-got +want)\n%s", diff)
+	}
+}
+
+func TestDynamoDB_DeleteResource_nonexisting(t *testing.T) {
+	cfg := testConfig(t)
+
+	table := "test-graphs"
+	done := createTestTable(t, cfg, table)
+	defer done()
+
+	ddb := New(cfg, table, nil)
+	ctx := context.Background()
+
+	err := ddb.DeleteResource(ctx, "foo", &resource.Resource{Name: "bar"})
+	if err == nil {
+		t.Errorf("Want error when deleting non-existing resource")
 	}
 }
 
