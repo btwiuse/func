@@ -2,15 +2,12 @@ package graph
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 
-	"github.com/func/func/ctyext"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
-	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
 // An Expression describes a value for a field.
@@ -172,68 +169,4 @@ func (expr Expression) Equals(other Expression) bool {
 		cmp.Transformer("GoString", func(v cty.IndexStep) string { return v.GoString() }),
 	}
 	return cmp.Equal(expr, other, opts...)
-}
-
-type jsonExprPart map[jsonExprKey]json.RawMessage
-
-type jsonExprKey string
-
-const (
-	jsonExprLit jsonExprKey = "lit"
-	jsonExprRef jsonExprKey = "ref"
-)
-
-// MarshalJSON marshals an expression to json.
-func (expr Expression) MarshalJSON() ([]byte, error) {
-	parts := make([]jsonExprPart, len(expr))
-	for i, e := range expr {
-		switch v := e.(type) {
-		case ExprLiteral:
-			b, err := ctyjson.Marshal(v.Value, v.Value.Type())
-			if err != nil {
-				return nil, errors.Wrap(err, "marshal literal")
-			}
-			parts[i] = jsonExprPart{jsonExprLit: b}
-		case ExprReference:
-			str := ctyext.PathString(v.Path)
-			parts[i] = jsonExprPart{jsonExprRef: []byte(fmt.Sprintf("%q", str))}
-		default:
-			return nil, errors.Errorf("unsupported type %T at %d", v, i)
-		}
-	}
-	return json.Marshal(parts)
-}
-
-// UnmarshalJSON unmarshals an expression from json.
-func (expr *Expression) UnmarshalJSON(b []byte) error {
-	var parts []jsonExprPart
-	if err := json.Unmarshal(b, &parts); err != nil {
-		return errors.Wrap(err, "unmarshal expression parts")
-	}
-	ex := make(Expression, len(parts))
-	for i, p := range parts {
-		if lit, ok := p[jsonExprLit]; ok {
-			var v ctyjson.SimpleJSONValue
-			if err := v.UnmarshalJSON(lit); err != nil {
-				return err
-			}
-			ex[i] = ExprLiteral{Value: v.Value}
-			continue
-		}
-		if ref, ok := p[jsonExprRef]; ok {
-			var str string
-			if err := json.Unmarshal(ref, &str); err != nil {
-				return err
-			}
-			path, err := ctyext.ParsePathString(str)
-			if err != nil {
-				return errors.Wrap(err, "parse path")
-			}
-			ex[i] = ExprReference{Path: path}
-			continue
-		}
-		return errors.Errorf("unknown expression at %d: %v", i, p)
-	}
-	*expr = ex
-	return nil
 }
