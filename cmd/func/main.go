@@ -20,3 +20,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+func init() {
+	cmd.PersistentFlags().String("endpoint", "https://api.func.io", "Server endpoint")
+}
