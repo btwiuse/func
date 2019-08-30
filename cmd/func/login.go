@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -13,8 +12,6 @@ var loginCommand = &cobra.Command{
 	Use:   "login",
 	Short: "Login to func service",
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := signalContext(context.Background())
-
 		endpoint, err := cmd.Flags().GetString("endpoint")
 		if err != nil {
 			panic(err)
@@ -24,7 +21,7 @@ var loginCommand = &cobra.Command{
 			Endpoint: endpoint,
 		}
 
-		if err := auth.Login(ctx); err != nil {
+		if err := auth.Authorize(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
