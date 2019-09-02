@@ -24,7 +24,7 @@ var loginCommand = &cobra.Command{
 			panic(err)
 		}
 
-		auth := oidc.NewAuthorizer(&oidc.PKCE{
+		auth := oidc.NewClient(&oidc.PKCE{
 			Endpoint: authEndpoint,
 			ClientID: clientID,
 			Audience: apiEndpoint,
@@ -32,9 +32,6 @@ var loginCommand = &cobra.Command{
 				"openid", "profile", "offline_access",
 			},
 		})
-		// auth.Opener = oidc.OpenFunc(func(u *url.URL) {
-		// 	fmt.Println(u.String())
-		// })
 
 		ctx := context.Background()
 		creds, err := auth.Authorize(ctx)

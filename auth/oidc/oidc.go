@@ -10,16 +10,20 @@ import (
 	"runtime"
 )
 
+// A Flow implements an OIDC flow.
 type Flow interface {
 	AuthorizeURL(callback *url.URL) (*url.URL, error)
 	HandleCallback(r *http.Request) (*Credentials, error)
 }
 
+// An Opener opens urls.
 type Opener interface {
 	Open(url *url.URL)
 }
 
-type Authorizer struct {
+// Client provides authentication for a cli by starting a local webserver
+// to handle oidc callbacks.
+type Client struct {
 	Flow   Flow
 	Opener Opener
 
@@ -30,9 +34,10 @@ type Authorizer struct {
 	errc   chan error
 }
 
-func NewAuthorizer(flow Flow) *Authorizer {
-	return &Authorizer{
-		Flow:   flow,
+// NewClient creates a new OpenID Connect client.
+func NewClient(authFlow Flow) *Client {
+	return &Client{
+		Flow:   authFlow,
 		Opener: DefaultOpener,
 
 		LocalPort: 30428,
@@ -40,26 +45,27 @@ func NewAuthorizer(flow Flow) *Authorizer {
 	}
 }
 
-func (a *Authorizer) Authorize(ctx context.Context) (*Credentials, error) {
+// Authorize authorizes the user.
+func (c *Client) Authorize(ctx context.Context) (*Credentials, error) {
 	callback := &url.URL{
 		Scheme: "http",
-		Host:   fmt.Sprintf("localhost:%d", a.LocalPort),
-		Path:   a.LocalPath,
+		Host:   fmt.Sprintf("localhost:%d", c.LocalPort),
+		Path:   c.LocalPath,
 	}
 
-	u, err := a.Flow.AuthorizeURL(callback)
+	u, err := c.Flow.AuthorizeURL(callback)
 	if err != nil {
 		return nil, err
 	}
 
-	a.Opener.Open(u)
+	c.Opener.Open(u)
 
 	credc := make(chan *Credentials)
 	errc := make(chan error)
 
 	go func() {
 		http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-			creds, err := a.Flow.HandleCallback(r)
+			creds, err := c.Flow.HandleCallback(r)
 			if err != nil {
 				http.Error(w, "Auth failed", http.StatusInternalServerError)
 			}
@@ -68,7 +74,7 @@ func (a *Authorizer) Authorize(ctx context.Context) (*Credentials, error) {
 			close(errc)
 		})
 
-		errc <- http.ListenAndServe(fmt.Sprintf(":%d", a.LocalPort), nil)
+		errc <- http.ListenAndServe(fmt.Sprintf(":%d", c.LocalPort), nil)
 	}()
 
 	select {
