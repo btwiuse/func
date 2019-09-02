@@ -1,30 +1,49 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	"github.com/func/func/auth"
+	"github.com/func/func/auth/oidc"
+	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+)
+
+var (
+	authEndpoint = "https://dev-func.eu.auth0.com"
+	clientID     = "WiKX7zTA5lNbIPsx8HonmZS6IuldcyI6"
 )
 
 var loginCommand = &cobra.Command{
 	Use:   "login",
 	Short: "Login to func service",
 	Run: func(cmd *cobra.Command, args []string) {
-		endpoint, err := cmd.Flags().GetString("endpoint")
+		apiEndpoint, err := cmd.Flags().GetString("endpoint")
 		if err != nil {
 			panic(err)
 		}
 
-		auth := &auth.Auth{
-			Endpoint: endpoint,
-		}
+		auth := oidc.NewAuthorizer(&oidc.PKCE{
+			Endpoint: authEndpoint,
+			ClientID: clientID,
+			Audience: apiEndpoint,
+			Scope: []string{
+				"openid", "profile", "offline_access",
+			},
+		})
+		// auth.Opener = oidc.OpenFunc(func(u *url.URL) {
+		// 	fmt.Println(u.String())
+		// })
 
-		if err := auth.Authorize(); err != nil {
+		ctx := context.Background()
+		creds, err := auth.Authorize(ctx)
+		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+
+		pretty.Println(creds)
 	},
 }
 
