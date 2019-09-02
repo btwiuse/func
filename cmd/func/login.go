@@ -5,14 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/func/func/auth/oidc"
-	"github.com/kr/pretty"
+	"github.com/func/func/auth"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-)
-
-var (
-	authEndpoint = "https://dev-func.eu.auth0.com"
-	clientID     = "WiKX7zTA5lNbIPsx8HonmZS6IuldcyI6"
 )
 
 var loginCommand = &cobra.Command{
@@ -24,23 +19,34 @@ var loginCommand = &cobra.Command{
 			panic(err)
 		}
 
-		auth := oidc.NewClient(&oidc.PKCE{
-			Endpoint: authEndpoint,
-			ClientID: clientID,
-			Audience: apiEndpoint,
-			Scope: []string{
-				"openid", "profile", "offline_access",
-			},
-		})
+		ex, err := auth.LoadCredentials()
+		if err == nil && ex != nil && isatty.IsTerminal(os.Stdout.Fd()) {
+			fmt.Fprintf(os.Stderr, "Already logged in as %s\n\n", ex.Name())
+			fmt.Fprintf(os.Stderr, "If you log in again, the existing credentials will be overwritten.\n")
+			fmt.Fprintf(os.Stderr, "Proceed [y/n]? ")
+			var response string
+			_, _ = fmt.Scanln(&response)
+			if response != "y" {
+				fmt.Fprintln(os.Stderr, "Cancelled. No changes made")
+				os.Exit(2)
+			}
+		}
 
+		fmt.Fprintln(os.Stderr, "Logging you in using the browser")
 		ctx := context.Background()
-		creds, err := auth.Authorize(ctx)
+		creds, err := auth.Authorize(ctx, apiEndpoint)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 
-		pretty.Println(creds)
+		if err := creds.Save(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Fprint(os.Stderr, "Logged in as ")
+		fmt.Fprint(os.Stdout, creds.Name())
+		fmt.Fprint(os.Stderr, "\n")
 	},
 }
 
