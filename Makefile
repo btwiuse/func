@@ -12,7 +12,10 @@ BINARIES = $(shell ls cmd)
 TARGETS  = $(patsubst %, $(BIN)/%, $(BINARIES))
 INSTALL  = $(patsubst %, $$GOPATH/bin/%, $(BINARIES))
 
-LDFLAGS  = -ldflags "-X $(MODULE)/cmd.Version=$(VERSION) -X $(MODULE)/cmd.BuildDate=$(DATE)"
+LDFLAGS  = -X main.Version=$(VERSION)
+LDFLAGS += -X main.BuildDate=$(DATE)
+LDFLAGS += -s
+LDFLAGS += -w
 
 .PHONY: all
 all: test $(TARGETS)
@@ -42,12 +45,12 @@ version:
 $(BIN)/%: $(SRC)
 	@mkdir -p $(dir $@)
 	go build \
-		$(LDFLAGS) \
-		-o $(BIN)/$(notdir $(MODULE)) \
+		-ldflags "$(LDFLAGS)" \
+		-o $@ \
 		./cmd/$*
 	@du -h $@
 
 $$GOPATH/bin/%:
 	go install \
-		$(LDFLAGS) \
+		-ldflags "$(LDFLAGS)" \
 		./cmd/$*
