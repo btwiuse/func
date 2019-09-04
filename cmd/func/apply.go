@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"context"
@@ -122,5 +122,5 @@ func init() {
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
 	applyCommand.Flags().String("server", "https://api.func.io", "Server endpoint")
 
-	Func.AddCommand(applyCommand)
+	cmd.AddCommand(applyCommand)
 }

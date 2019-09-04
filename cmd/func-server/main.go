@@ -8,7 +8,7 @@ import (
 )
 
 var cmd = &cobra.Command{
-	Use:           "func",
+	Use:           "func-server",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }

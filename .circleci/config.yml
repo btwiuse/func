@@ -44,10 +44,14 @@ jobs:
           command: |
             golangci-lint run ./... -v
       - run:
-          name: Build
-          environment:
-              CGO_ENABLED: 0
+          name: Build client
           command: |
-            go install -ldflags="-s -w"
-            du -h $(which func)
-            func --help
+            make bin/func
+            ./bin/func version
+            ./bin/func --help
+      - run:
+          name: Build server
+          command: |
+            make bin/func-server
+            ./bin/func-server version
+            ./bin/func-server --help

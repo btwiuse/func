@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ import (
 
 var defaultAddress = "0.0.0.0:5088"
 
-var serverCommand = &cobra.Command{
-	Use:   "server",
+var startCommand = &cobra.Command{
+	Use:   "start",
 	Short: "Start func API Server",
 	Run: func(cmd *cobra.Command, args []string) {
 		validator := validation.New()
@@ -127,10 +127,10 @@ var serverCommand = &cobra.Command{
 }
 
 func init() {
-	serverCommand.Flags().String("address", defaultAddress, "Server address to listen on. Env var: FUNC_ADDR")
-	serverCommand.Flags().String("s3-bucket", "", "S3 bucket for source code uploads. Env var: FUNC_S3_BUCKET")
-	serverCommand.Flags().Duration("upload-expiry", 5*time.Minute, "Time for upload url expiry")
-	serverCommand.Flags().String("dynamodb-table", "", "DynamoDB table for storage. Env var: FUNC_DYNAMODB_TABLE")
+	startCommand.Flags().String("address", defaultAddress, "Server address to listen on. Env var: FUNC_ADDR")
+	startCommand.Flags().String("s3-bucket", "", "S3 bucket for source code uploads. Env var: FUNC_S3_BUCKET")
+	startCommand.Flags().Duration("upload-expiry", 5*time.Minute, "Time for upload url expiry")
+	startCommand.Flags().String("dynamodb-table", "", "DynamoDB table for storage. Env var: FUNC_DYNAMODB_TABLE")
 
-	Func.AddCommand(serverCommand)
+	cmd.AddCommand(startCommand)
 }
