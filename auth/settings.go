@@ -1,12 +1,15 @@
 package auth
 
+// The following variables should be set when compiling:
+//
+//   go build -ldflags="-X auth.<name>=<value>"
 var (
-	// Issuer is the issuer for auth tokens.
-	Issuer = "https://dev-func.eu.auth0.com/"
+	// Issuer for auth tokens.
+	Issuer = ""
 
 	// ClientID for authorization.
-	ClientID = "WiKX7zTA5lNbIPsx8HonmZS6IuldcyI6"
+	ClientID = ""
 
 	// Audience is the target audience.
-	Audience = "https://dev-api.func.io"
+	Audience = ""
 )

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,7 +13,7 @@ import (
 
 // Credentials contain access credentials for an authenticated user.
 type Credentials struct {
-	API           string                 `json:"api"`
+	ClientID      string                 `json:"client_id"`
 	OAuth2Token   *oauth2.Token          `json:"oauth2_token"`
 	IDTokenClaims map[string]interface{} `json:"id_claims"`
 }
@@ -57,15 +56,7 @@ func (c *Credentials) filename() string {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if c.API == "" {
-		panic("API not set")
-	}
-	u, err := url.Parse(c.API)
-	if err != nil {
-		panic(err)
-	}
-	name := nameRe.ReplaceAllString(u.Host, "-")
-	return filepath.Join(home, ".func", "credentials", name)
+	return filepath.Join(home, ".func", "credentials", c.ClientID)
 }
 
 // Save saves credentials to disk. Overwrites any previous credentials.
@@ -85,7 +76,7 @@ func (c *Credentials) Save() error {
 // exist.
 func LoadCredentials() (*Credentials, error) {
 	creds := &Credentials{
-		API: Audience,
+		ClientID: ClientID,
 	}
 	f, err := os.Open(creds.filename())
 	if err != nil {

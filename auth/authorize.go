@@ -80,7 +80,7 @@ func Authorize(ctx context.Context, audience string) (*Credentials, error) {
 		}
 
 		creds := &Credentials{
-			API:         Audience,
+			ClientID:    ClientID,
 			OAuth2Token: oauth2Token,
 		}
 		if err := idToken.Claims(&creds.IDTokenClaims); err != nil {

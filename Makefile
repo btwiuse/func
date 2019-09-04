@@ -14,7 +14,15 @@ INSTALL  = $(patsubst %, $$GOPATH/bin/%, $(BINARIES))
 
 LDFLAGS  = -X main.Version=$(VERSION)
 LDFLAGS += -X main.BuildDate=$(DATE)
+
+# Auth flags
+LDFLAGS += -X $(MODULE)/auth.Issuer=$(ISSUER)
+LDFLAGS += -X $(MODULE)/auth.ClientID=$(CLIENT_ID)
+LDFLAGS += -X $(MODULE)/auth.Audience=$(ENDPOINT)
+
+# Omit the symbol table and debug information.
 LDFLAGS += -s
+# Omit the DWARF symbol table.
 LDFLAGS += -w
 
 .PHONY: all

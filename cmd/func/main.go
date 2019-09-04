@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/func/func/auth"
 	"github.com/spf13/cobra"
 )
 
@@ -22,5 +23,5 @@ func main() {
 }
 
 func init() {
-	cmd.PersistentFlags().String("endpoint", "https://api.func.io", "Server endpoint")
+	cmd.PersistentFlags().String("endpoint", auth.Audience, "Server endpoint")
 }

@@ -93,6 +93,12 @@ var applyCommand = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+		if endpoint == "" {
+			fmt.Fprintln(os.Stderr, "Endpoint not set")
+			os.Exit(1)
+		}
+
+		logger.Debug("Endpoint = " + endpoint)
 
 		httpcli := &httpapi.Client{Endpoint: endpoint}
 
@@ -123,7 +129,13 @@ var applyCommand = &cobra.Command{
 				os.Exit(2)
 				return
 			}
-			logger.Fatal(err.Error())
+			if verbose {
+				logger.Error(err.Error())
+			} else {
+				// Logger not set but print error anyway
+				fmt.Fprintln(os.Stderr, err)
+			}
+			return
 		}
 
 		logger.Info(fmt.Sprintf("Done in %s", time.Since(start).Truncate(time.Millisecond)))
