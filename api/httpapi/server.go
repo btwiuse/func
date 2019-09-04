@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/func/func/api"
+	"github.com/func/func/auth"
 	"go.uber.org/zap"
 )
 
@@ -25,7 +26,8 @@ type Server struct {
 
 func (s *Server) setupRoutes() {
 	s.router = http.NewServeMux()
-	s.router.HandleFunc("/apply", s.handleApply())
+
+	s.router.HandleFunc("/apply", auth.JWTMiddleware(s.handleApply()))
 }
 
 // ServeHTTP implements http.Handler.
@@ -96,6 +98,10 @@ func (s *Server) handleApply() http.HandlerFunc {
 					status = http.StatusBadRequest
 				case api.Unavailable:
 					status = http.StatusServiceUnavailable
+				case api.AuthenticationError:
+					status = http.StatusUnauthorized
+				case api.AuthorizationError:
+					status = http.StatusForbidden
 				default:
 					// Unknown error
 					status = http.StatusInternalServerError

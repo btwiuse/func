@@ -8,6 +8,7 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/api/httpapi"
+	"github.com/func/func/auth"
 	"github.com/func/func/config"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
@@ -93,8 +94,19 @@ var applyCommand = &cobra.Command{
 			panic(err)
 		}
 
+		httpcli := &httpapi.Client{Endpoint: endpoint}
+
+		creds, err := auth.LoadCredentials()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Load credentials: %v", err)
+			os.Exit(1)
+		}
+		if creds != nil {
+			httpcli.AddMiddleware(creds.SetAuthHeader)
+		}
+
 		cli := &api.Client{
-			API:    &httpapi.Client{Endpoint: endpoint},
+			API:    httpcli,
 			Source: loader,
 			Logger: logger,
 		}

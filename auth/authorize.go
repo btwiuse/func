@@ -16,20 +16,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var (
-	// Endpoint  for authorization.
-	Endpoint = "https://dev-func.eu.auth0.com/"
-
-	// ClientID for authorization.
-	ClientID = "WiKX7zTA5lNbIPsx8HonmZS6IuldcyI6"
-
-	// Audience is the target audience.
-	Audience = "https://dev-api.func.io"
-)
-
 // Authorize authorizes a user using OpenID Connect PKCE.
 func Authorize(ctx context.Context, audience string) (*Credentials, error) {
-	provider, err := oidc.NewProvider(ctx, Endpoint)
+	provider, err := oidc.NewProvider(ctx, Issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +80,7 @@ func Authorize(ctx context.Context, audience string) (*Credentials, error) {
 		}
 
 		creds := &Credentials{
+			API:         Audience,
 			OAuth2Token: oauth2Token,
 		}
 		if err := idToken.Claims(&creds.IDTokenClaims); err != nil {

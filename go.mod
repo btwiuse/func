@@ -6,12 +6,14 @@ require (
 	github.com/aws/aws-sdk-go-v2 v0.10.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fatih/color v1.7.0
 	github.com/go-stack/stack v1.8.0
 	github.com/go-test/deep v1.0.2 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.3.0
 	github.com/hashicorp/hcl2 v0.0.0-20190805232422-65731f331096
+	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9

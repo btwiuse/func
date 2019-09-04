@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
+	"github.com/func/func/auth"
+	"github.com/func/func/auth/permission"
 	"github.com/func/func/config"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/hcldecoder"
@@ -56,6 +59,17 @@ type SourceRequest struct {
 // The returned error is always of type *Error.
 func (s *Server) Apply(ctx context.Context, req *ApplyRequest) (*ApplyResponse, error) {
 	logger := s.Logger
+
+	user, err := auth.UserFromContext(ctx)
+	if err != nil {
+		logger.Debug("No user")
+		return nil, &Error{Code: AuthenticationError, Message: "No authentication token"}
+	}
+	if err := user.CheckPermissions(permission.ProjectDeploy); err != nil {
+		logger.Debug("Invalid permissions", zap.Error(err))
+		return nil, &Error{Code: AuthorizationError, Message: fmt.Sprintf("Authorization: %v", err)}
+	}
+
 	logger.Info("Apply", zap.String("project", req.Project))
 
 	if req.Project == "" {

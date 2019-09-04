@@ -12,6 +12,11 @@ import (
 	"github.com/hashicorp/hcl2/hclpack"
 )
 
+// ClientMiddleware is a middleware function to execute on an outgoing request.
+//
+// If the function returns an error, the outgoing request is not sent.
+type ClientMiddleware func(r *http.Request) error
+
 // HTTPClient is the client to use for communication.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
@@ -21,6 +26,14 @@ type HTTPClient interface {
 type Client struct {
 	Endpoint   string
 	HTTPClient HTTPClient
+
+	middleware []ClientMiddleware
+}
+
+// AddMiddleware adds a middleware function to execute on every outgoing
+// request.
+func (c *Client) AddMiddleware(middleware ClientMiddleware) {
+	c.middleware = append(c.middleware, middleware)
 }
 
 func (c *Client) httpClient() HTTPClient {
@@ -34,7 +47,10 @@ func (c *Client) httpClient() HTTPClient {
 // Apply marshals an ApplyRequest and sends it over the wire.
 //
 // The type of req.Config must be *hclpack.Body.
-func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) {
+//
+// If middleware is passed in, all middleware is executed against the outgoing
+// request after any global middleware has been processed.
+func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyResponse, error) { // nolint: lll
 	if req.Project == "" {
 		return nil, fmt.Errorf("project not set")
 	}
@@ -58,6 +74,10 @@ func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		return nil, fmt.Errorf("build request: %v", err)
 	}
 	httpreq.Header.Add("Content-Type", "application/json")
+
+	if err := c.applyMiddleware(httpreq); err != nil {
+		return nil, err
+	}
 
 	cli := c.httpClient()
 	resp, err := cli.Do(httpreq)
@@ -101,4 +121,13 @@ func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 		}
 		return nil, fmt.Errorf(errresp.Msg)
 	}
+}
+
+func (c *Client) applyMiddleware(r *http.Request) error {
+	for _, apply := range c.middleware {
+		if err := apply(r); err != nil {
+			return fmt.Errorf("global middleware: %v", err)
+		}
+	}
+	return nil
 }

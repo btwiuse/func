@@ -11,8 +11,10 @@ type ErrorCode string
 
 // Valid error codes:
 const (
-	ValidationError ErrorCode = "validation"
-	Unavailable     ErrorCode = "unavailable"
+	ValidationError     ErrorCode = "validation"
+	Unavailable         ErrorCode = "unavailable"
+	AuthenticationError ErrorCode = "authentication"
+	AuthorizationError  ErrorCode = "unauthorized"
 )
 
 // An Error is a known error returned from the API.
