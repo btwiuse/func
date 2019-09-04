@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,8 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/func/func/api/internal/rpc"
-	"github.com/hashicorp/hcl2/hclpack"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -25,47 +22,23 @@ type SourceProvider interface {
 
 // Client is a func api client.
 type Client struct {
-	RPCClient rpc.RPC
-	Logger    *zap.Logger
-	Source    SourceProvider
-}
-
-// NewClient creates a new client.
-func NewClient(address string, logger *zap.Logger, sourceProvider SourceProvider) *Client {
-	return &Client{
-		RPCClient: rpc.NewRPCProtobufClient(address, http.DefaultClient),
-		Logger:    logger,
-		Source:    sourceProvider,
-	}
+	API    API
+	Logger *zap.Logger
+	Source SourceProvider
 }
 
 // Apply applies the given hcl configuration.
 //
 // If source code is needed, source is uploaded. After upload, apply is
 // retried.
-func (c *Client) Apply(ctx context.Context, project string, body *hclpack.Body) error {
+func (c *Client) Apply(ctx context.Context, req *ApplyRequest) error {
 	logger := c.Logger
-
-	config, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	req := &rpc.ApplyRequest{
-		Project: project,
-		Config:  config,
-	}
 
 	logger.Info("Apply")
 	for {
-		resp, err := c.RPCClient.Apply(ctx, req)
+		resp, err := c.API.Apply(ctx, req)
 		if err != nil {
 			return err
-		}
-
-		if len(resp.Diagnostics) > 0 {
-			logger.Debug("Diagnostics were returned")
-			return rpc.DiagsToHCL(resp.Diagnostics)
 		}
 
 		if len(resp.SourcesRequired) > 0 {
@@ -85,7 +58,7 @@ func (c *Client) Apply(ctx context.Context, project string, body *hclpack.Body) 
 	return nil
 }
 
-func (c *Client) uploadSources(ctx context.Context, srcs []*rpc.SourceRequest) error {
+func (c *Client) uploadSources(ctx context.Context, srcs []*SourceRequest) error {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, src := range srcs {
 		src := src
@@ -99,13 +72,13 @@ func (c *Client) uploadSources(ctx context.Context, srcs []*rpc.SourceRequest) e
 	return nil
 }
 
-func (c *Client) uploadSource(ctx context.Context, src *rpc.SourceRequest) error {
+func (c *Client) uploadSource(ctx context.Context, src *SourceRequest) error {
 	logger := c.Logger
 	logger.Debug(fmt.Sprintf("Uploading %s", src.Key))
 
 	data := c.Source.Source(src.Key)
 
-	req, err := http.NewRequest(http.MethodPut, src.Url, data)
+	req, err := http.NewRequest(http.MethodPut, src.URL, data)
 	if err != nil {
 		return err
 	}

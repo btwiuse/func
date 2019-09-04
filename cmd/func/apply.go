@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/func/func/api"
+	"github.com/func/func/api/httpapi"
 	"github.com/func/func/config"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
@@ -92,17 +93,25 @@ var applyCommand = &cobra.Command{
 			panic(err)
 		}
 
-		cli := api.NewClient(addr, logger, loader)
-		ctx := signalContext(context.Background())
+		cli := &api.Client{
+			API:    &httpapi.Client{Endpoint: addr},
+			Source: loader,
+			Logger: logger,
+		}
 
-		if err := cli.Apply(ctx, project.Name, cfg); err != nil {
+		req := &api.ApplyRequest{
+			Project: project.Name,
+			Config:  cfg,
+		}
+
+		ctx := signalContext(context.Background())
+		if err := cli.Apply(ctx, req); err != nil {
 			if diags, ok := err.(hcl.Diagnostics); ok {
 				loader.WriteDiagnostics(os.Stderr, diags)
 				os.Exit(2)
 				return
 			}
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			logger.Fatal(err.Error())
 		}
 
 		logger.Info(fmt.Sprintf("Done in %s", time.Since(start).Truncate(time.Millisecond)))
@@ -111,7 +120,7 @@ var applyCommand = &cobra.Command{
 
 func init() {
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
-	applyCommand.Flags().String("server", "http://"+defaultAddress, "Server endpoint") // TODO: https
+	applyCommand.Flags().String("server", "https://api.func.io", "Server endpoint")
 
 	Func.AddCommand(applyCommand)
 }

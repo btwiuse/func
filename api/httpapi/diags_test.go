@@ -1,4 +1,4 @@
-package rpc
+package httpapi
 
 import (
 	"testing"
@@ -29,20 +29,20 @@ var (
 			Summary:  "Warning",
 		},
 	}
-	diagRPC = []*Diagnostic{
+	diagHTTP = []*diagnostic{
 		{
 			Error:   true,
 			Summary: "Test summary",
 			Detail:  "Test detail",
-			Subject: &Range{
+			Subject: &diagrange{
 				Filename: "test",
-				Start:    &Pos{Line: 1, Column: 2, Byte: 3},
-				End:      &Pos{Line: 4, Column: 5, Byte: 6},
+				Start:    pos{Line: 1, Column: 2, Byte: 3},
+				End:      pos{Line: 4, Column: 5, Byte: 6},
 			},
-			Context: &Range{
+			Context: &diagrange{
 				Filename: "test",
-				Start:    &Pos{Line: 7, Column: 8, Byte: 9},
-				End:      &Pos{Line: 10, Column: 11, Byte: 12},
+				Start:    pos{Line: 7, Column: 8, Byte: 9},
+				End:      pos{Line: 10, Column: 11, Byte: 12},
 			},
 		},
 		{
@@ -53,15 +53,15 @@ var (
 )
 
 func TestDiagsFromHCL(t *testing.T) {
-	got := DiagsFromHCL(diagHCL)
-	want := diagRPC
+	got := diagsFromHCL(diagHCL)
+	want := diagHTTP
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("Diff (-got +want)\n%s", diff)
 	}
 }
 
 func TestDiagsToHCL(t *testing.T) {
-	got := DiagsToHCL(diagRPC)
+	got := diagsToHCL(diagHTTP)
 	want := diagHCL
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("Diff (-got +want)\n%s", diff)

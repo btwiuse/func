@@ -8,7 +8,7 @@ require (
 	github.com/fatih/color v1.7.0
 	github.com/go-stack/stack v1.8.0
 	github.com/go-test/deep v1.0.2 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.3.0
 	github.com/hashicorp/hcl2 v0.0.0-20190805232422-65731f331096
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -21,7 +21,6 @@ require (
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0 // indirect
-	github.com/twitchtv/twirp v5.8.0+incompatible
 	github.com/zclconf/go-cty v1.1.0
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0

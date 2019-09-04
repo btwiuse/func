@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/func/func/api"
+	"github.com/func/func/api/httpapi"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/reconciler"
@@ -87,7 +88,7 @@ var serverCommand = &cobra.Command{
 			}()
 		}
 
-		server := &api.Server{
+		api := &api.Server{
 			Logger:    logger.Named("server"),
 			Registry:  reg,
 			Source:    s3src,
@@ -106,6 +107,11 @@ var serverCommand = &cobra.Command{
 			},
 		}
 
+		server := &httpapi.Server{
+			API:    api,
+			Logger: logger.Named("http_api"),
+		}
+
 		addr, err := cmd.Flags().GetString("address")
 		if err != nil {
 			panic(err)
@@ -113,8 +119,7 @@ var serverCommand = &cobra.Command{
 
 		logger.Info("Starting server", zap.String("address", addr))
 
-		handler := server.Handler()
-		if err := http.ListenAndServe(addr, handler); err != nil {
+		if err := http.ListenAndServe(addr, server); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
