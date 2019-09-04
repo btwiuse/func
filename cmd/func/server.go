@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"fmt"
@@ -132,5 +132,5 @@ func init() {
 	serverCommand.Flags().Duration("upload-expiry", 5*time.Minute, "Time for upload url expiry")
 	serverCommand.Flags().String("dynamodb-table", "", "DynamoDB table for storage. Env var: FUNC_DYNAMODB_TABLE")
 
-	Func.AddCommand(serverCommand)
+	cmd.AddCommand(serverCommand)
 }
