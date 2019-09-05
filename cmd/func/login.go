@@ -121,7 +121,11 @@ If all 3 have been specified, oidc is used.
 			os.Exit(1)
 		}
 
-		fmt.Println(tok)
+		filename := auth.TokenFilename(tok.ClientID)
+		if err := tok.SaveToFile(filename); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	},
 }
 
