@@ -88,13 +88,13 @@ var applyCommand = &cobra.Command{
 			}
 		}
 
-		addr, err := cmd.Flags().GetString("server")
+		endpoint, err := cmd.Flags().GetString("endpoint")
 		if err != nil {
 			panic(err)
 		}
 
 		cli := &api.Client{
-			API:    &httpapi.Client{Endpoint: addr},
+			API:    &httpapi.Client{Endpoint: endpoint},
 			Source: loader,
 			Logger: logger,
 		}
@@ -120,7 +120,7 @@ var applyCommand = &cobra.Command{
 
 func init() {
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
-	applyCommand.Flags().String("server", "https://api.func.io", "Server endpoint")
+	applyCommand.Flags().String("endpoint", DefaultEndpoint, "Func service endpoint")
 
 	cmd.AddCommand(applyCommand)
 }
