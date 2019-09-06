@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/func/func/api"
 	"github.com/func/func/api/httpapi"
+	"github.com/func/func/auth"
 	"github.com/func/func/provider/aws"
 	"github.com/func/func/resource"
 	"github.com/func/func/resource/reconciler"
@@ -19,6 +20,18 @@ import (
 	"github.com/segmentio/ksuid"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"gopkg.in/square/go-jose.v2/jwt"
+)
+
+var (
+	// DefaultJWKSEndpoint is the default value for the jwks endpoint flag.
+	DefaultJWKSEndpoint = ""
+
+	// DefaultAudience is the default value for the audience flag.
+	DefaultAudience = ""
+
+	// DefaultIssuer is the default value for the issuer flag.
+	DefaultIssuer = ""
 )
 
 var defaultAddress = "0.0.0.0:5088"
@@ -107,9 +120,25 @@ var startCommand = &cobra.Command{
 			},
 		}
 
+		aud, err := cmd.Flags().GetString("audience")
+		if err != nil {
+			panic(err)
+		}
+		iss, err := cmd.Flags().GetString("issuer")
+		if err != nil {
+			panic(err)
+		}
+
 		server := &httpapi.Server{
 			API:    api,
 			Logger: logger.Named("http_api"),
+			KeyProvider: &auth.KeyProviderJWKS{
+				Endpoint: "https://dev-func.eu.auth0.com/.well-known/jwks.json",
+			},
+			ExpectedClaims: jwt.Expected{
+				Audience: []string{aud},
+				Issuer:   iss,
+			},
 		}
 
 		addr, err := cmd.Flags().GetString("address")
@@ -131,6 +160,9 @@ func init() {
 	startCommand.Flags().String("s3-bucket", "", "S3 bucket for source code uploads. Env var: FUNC_S3_BUCKET")
 	startCommand.Flags().Duration("upload-expiry", 5*time.Minute, "Time for upload url expiry")
 	startCommand.Flags().String("dynamodb-table", "", "DynamoDB table for storage. Env var: FUNC_DYNAMODB_TABLE")
+	startCommand.Flags().String("jwks-endpoint", DefaultJWKSEndpoint, "JWKS endpoint for signing keys")
+	startCommand.Flags().String("audience", DefaultAudience, "Audience to verify in JWT token")
+	startCommand.Flags().String("issuer", DefaultIssuer, "Issuer to verify in JWT token")
 
 	cmd.AddCommand(startCommand)
 }

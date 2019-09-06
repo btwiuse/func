@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/func/func/api"
+	"github.com/func/func/auth"
 	"go.uber.org/zap"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 // An Error is a json encoded error message from the api.
@@ -19,13 +21,19 @@ type Server struct {
 	API    api.API
 	Logger *zap.Logger
 
+	KeyProvider    auth.KeyProvider
+	ExpectedClaims jwt.Expected
+
 	once   sync.Once
 	router *http.ServeMux
 }
 
 func (s *Server) setupRoutes() {
 	s.router = http.NewServeMux()
-	s.router.HandleFunc("/apply", s.handleApply())
+
+	authenticated := authMiddleware(s.KeyProvider, s.ExpectedClaims)
+
+	s.router.HandleFunc("/apply", authenticated(s.handleApply()))
 }
 
 // ServeHTTP implements http.Handler.

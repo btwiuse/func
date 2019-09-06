@@ -15,10 +15,12 @@ INSTALL  = $(patsubst %, $$GOPATH/bin/%, $(BINARIES))
 STAGE    ?= prod
 CLIENT_ID = TODO
 OIDC      = TODO
+JWKS      = TODO
 ENDPOINT  = https://api.func.io/
 ifeq ($(STAGE), dev)
 	CLIENT_ID = Znsc76xY7rwB4qN3HKgSw5nfJC81Xp9o
 	OIDC      = dev-func.eu.auth0.com
+	JWKS      = https://dev-func.eu.auth0.com/.well-known/jwks.json
 	ENDPOINT  = https://dev-api.func.io/
 endif
 
@@ -27,6 +29,9 @@ LDFLAGS += -X main.BuildDate=$(DATE)
 LDFLAGS += -X main.DefaultOIDCEndpoint=$(OIDC)
 LDFLAGS += -X main.DefaultClientID=$(CLIENT_ID)
 LDFLAGS += -X main.DefaultEndpoint=$(ENDPOINT)
+LDFLAGS += -X main.DefaultJWKSEndpoint=$(JWKS)
+LDFLAGS += -X main.DefaultAudience=$(ENDPOINT)
+LDFLAGS += -X main.DefaultIssuer=https://$(OIDC)/
 LDFLAGS += -s
 LDFLAGS += -w
 
