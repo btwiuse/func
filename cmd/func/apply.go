@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/func/func/api"
 	"github.com/func/func/api/httpapi"
+	"github.com/func/func/auth"
 	"github.com/func/func/config"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
@@ -93,8 +95,24 @@ var applyCommand = &cobra.Command{
 			panic(err)
 		}
 
+		httpcli := &http.Client{}
+
+		tok, err := auth.TokenFromFile(auth.TokenFilename(DefaultClientID))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if tok != nil {
+			httpcli.Transport = &httpapi.AuthRoundTripper{Token: tok}
+		}
+
+		apicli := &httpapi.Client{
+			Endpoint:   endpoint,
+			HTTPClient: httpcli,
+		}
+
 		cli := &api.Client{
-			API:    &httpapi.Client{Endpoint: endpoint},
+			API:    apicli,
 			Source: loader,
 			Logger: logger,
 		}
