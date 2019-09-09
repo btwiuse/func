@@ -12,8 +12,22 @@ BINARIES = $(shell ls cmd)
 TARGETS  = $(patsubst %, $(BIN)/%, $(BINARIES))
 INSTALL  = $(patsubst %, $$GOPATH/bin/%, $(BINARIES))
 
+STAGE    ?= prod
+
+ISSUER    = TODO
+CLIENT_ID = TODO
+ENDPOINT  = https://api.func.io/
+ifeq ($(STAGE), dev)
+	ISSUER    = https://dev-func.eu.auth0.com/
+	CLIENT_ID = WiKX7zTA5lNbIPsx8HonmZS6IuldcyI6
+	ENDPOINT  = https://dev-api.func.io/
+endif
+
 LDFLAGS  = -X main.Version=$(VERSION)
 LDFLAGS += -X main.BuildDate=$(DATE)
+LDFLAGS += -X main.DefaultIssuer=$(ISSUER)
+LDFLAGS += -X main.DefaultEndpoint=$(ENDPOINT)
+LDFLAGS += -X main.DefaultClientID=$(CLIENT_ID)
 LDFLAGS += -s
 LDFLAGS += -w
 

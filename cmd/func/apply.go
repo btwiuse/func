@@ -120,7 +120,7 @@ var applyCommand = &cobra.Command{
 
 func init() {
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
-	applyCommand.Flags().String("server", "https://api.func.io", "Server endpoint")
+	applyCommand.Flags().String("server", DefaultEndpoint, "Func api endpoint")
 
 	cmd.AddCommand(applyCommand)
 }
