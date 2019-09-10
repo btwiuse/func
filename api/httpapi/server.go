@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"sync"
 
 	"github.com/func/func/api"
@@ -49,6 +51,9 @@ func (s *Server) decode(w http.ResponseWriter, r *http.Request, v interface{}) e
 
 func (s *Server) handleApply() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		b, _ := httputil.DumpRequest(r, false)
+		fmt.Println(string(b))
+
 		if r.Method != http.MethodPost {
 			s.respond(w, Error{Msg: "Method not allowed"}, http.StatusMethodNotAllowed)
 			return

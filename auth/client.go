@@ -132,7 +132,8 @@ func (c *Client) Authorize(ctx context.Context, audience string, scope ...string
 		}
 
 		token := &Token{
-			OAuth2Token: oauth2Token,
+			TokenEndpoint: config.Endpoint.TokenURL,
+			OAuth2Token:   oauth2Token,
 		}
 
 		rawIDToken, ok := oauth2Token.Extra("id_token").(string)

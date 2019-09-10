@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/func/func/api"
 	"github.com/hashicorp/hcl2/hclpack"
@@ -53,7 +54,7 @@ func (c *Client) Apply(ctx context.Context, req *api.ApplyRequest) (*api.ApplyRe
 	if err := json.NewEncoder(&buf).Encode(r); err != nil {
 		return nil, fmt.Errorf("encode request: %v", err)
 	}
-	httpreq, err := http.NewRequest(http.MethodPost, c.Endpoint+"/apply", &buf)
+	httpreq, err := http.NewRequest(http.MethodPost, strings.TrimSuffix(c.Endpoint, "/")+"/apply", &buf)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %v", err)
 	}

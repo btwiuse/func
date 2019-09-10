@@ -8,6 +8,7 @@ import (
 
 	"github.com/func/func/api"
 	"github.com/func/func/api/httpapi"
+	"github.com/func/func/auth"
 	"github.com/func/func/config"
 	"github.com/func/func/source"
 	"github.com/hashicorp/hcl2/hcl"
@@ -31,32 +32,30 @@ var applyCommand = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		logger := zap.NewNop()
-		if verbose {
-			cfg := zap.Config{
-				Level:       zap.NewAtomicLevelAt(zap.DebugLevel),
-				Development: true,
-				Encoding:    "console",
-				EncoderConfig: zapcore.EncoderConfig{
-					TimeKey:     "T",
-					LevelKey:    "L",
-					NameKey:     "N",
-					MessageKey:  "M",
-					LineEnding:  zapcore.DefaultLineEnding,
-					EncodeLevel: zapcore.CapitalColorLevelEncoder,
-					EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-						enc.AppendString(t.Format("15:04:05.999"))
-					},
-					EncodeDuration: zapcore.StringDurationEncoder,
+		logcfg := zap.Config{
+			Level:    zap.NewAtomicLevelAt(zap.ErrorLevel),
+			Encoding: "console",
+			EncoderConfig: zapcore.EncoderConfig{
+				TimeKey:     "T",
+				LevelKey:    "L",
+				NameKey:     "N",
+				MessageKey:  "M",
+				LineEnding:  zapcore.DefaultLineEnding,
+				EncodeLevel: zapcore.CapitalColorLevelEncoder,
+				EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+					enc.AppendString(t.Format("15:04:05.999"))
 				},
-				OutputPaths:      []string{"stderr"},
-				ErrorOutputPaths: []string{"stderr"},
-			}
-			l, err := cfg.Build()
-			if err != nil {
-				panic(err)
-			}
-			logger = l
+				EncodeDuration: zapcore.StringDurationEncoder,
+			},
+			OutputPaths:      []string{"stderr"},
+			ErrorOutputPaths: []string{"stderr"},
+		}
+		if verbose {
+			logcfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		}
+		logger, err := logcfg.Build()
+		if err != nil {
+			panic(err)
 		}
 
 		loader := &config.Loader{
@@ -88,13 +87,28 @@ var applyCommand = &cobra.Command{
 			}
 		}
 
-		addr, err := cmd.Flags().GetString("server")
+		endpoint, err := cmd.Flags().GetString("endpoint")
+		if err != nil {
+			panic(err)
+		}
+		clientID, err := cmd.Flags().GetString("client-id")
 		if err != nil {
 			panic(err)
 		}
 
+		httpclient, err := auth.HTTPClient(clientID)
+		if err != nil {
+			if err == auth.ErrTokenNotFound {
+				logger.Fatal("Not logged in. Log in first with func login")
+			}
+			logger.Fatal(err.Error())
+		}
+
 		cli := &api.Client{
-			API:    &httpapi.Client{Endpoint: addr},
+			API: &httpapi.Client{
+				Endpoint:   endpoint,
+				HTTPClient: httpclient,
+			},
 			Source: loader,
 			Logger: logger,
 		}
@@ -120,7 +134,8 @@ var applyCommand = &cobra.Command{
 
 func init() {
 	applyCommand.Flags().Bool("verbose", false, "Verbose output")
-	applyCommand.Flags().String("server", DefaultEndpoint, "Func api endpoint")
+	applyCommand.Flags().String("endpoint", DefaultEndpoint, "Func service endpoint")
+	applyCommand.Flags().String("client-id", DefaultClientID, "Authorization client id")
 
 	cmd.AddCommand(applyCommand)
 }

@@ -1,23 +1,31 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
-	"net/url"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"golang.org/x/oauth2"
 )
 
+// ErrtokenNotFound is returned when attempting to read a token from disk that
+// does not exist.
+var ErrTokenNotFound = errors.New("token not found")
+
 // Token is an token for an authorized user.
 type Token struct {
-	OAuth2Token *oauth2.Token          `json:"oauth2_token"`
-	IDClaims    map[string]interface{} `json:"id_claims"`
+	TokenEndpoint string                 `json:"token_endpoint"`
+	OAuth2Token   *oauth2.Token          `json:"oauth2_token"`
+	IDClaims      map[string]interface{} `json:"id_claims"`
 }
 
-func (t *Token) Persist(dir, audience, clientID string) error {
-	file := filepath.Join(dir, TokenFilename(audience, clientID))
+func (t *Token) Persist(clientID string) error {
+	file := tokenFilename(clientID)
 	if err := os.MkdirAll(filepath.Dir(file), 0744); err != nil {
 		return err
 	}
@@ -32,34 +40,38 @@ func (t *Token) Persist(dir, audience, clientID string) error {
 	return err
 }
 
-func TokenFilename(audience, clientID string) string {
-	u, err := url.Parse(audience)
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Join(u.Host, clientID)
-}
-
-// LoadToken loads a token from disk for a given audience and client id.
-// Returns an error only if the token could not be read; returns nil if a token
-// for the given audience / client id does not exist
-func LoadToken(dir, audience, clientID string) (*Token, error) {
-	file := filepath.Join(dir, TokenFilename(audience, clientID))
-	f, err := os.Open(file)
+// request will fail if auth token does not exist
+func HTTPClient(clientID string) (*http.Client, error) {
+	file := tokenFilename(clientID)
+	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, ErrTokenNotFound
 		}
 		return nil, err
 	}
-	defer func() {
-		err = f.Close()
-	}()
-	t := &Token{}
-	if _, err := t.ReadFrom(f); err != nil {
+	tok := &Token{}
+	if err := json.Unmarshal(b, &tok); err != nil {
 		return nil, err
 	}
-	return t, nil
+	cfg := &oauth2.Config{
+		ClientID: clientID,
+		Endpoint: oauth2.Endpoint{
+			TokenURL: tok.TokenEndpoint,
+		},
+	}
+	ctx := context.Background()
+	src := cfg.TokenSource(ctx, tok.OAuth2Token)
+	return oauth2.NewClient(ctx, src), nil
+}
+
+func tokenFilename(clientID string) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	dir := filepath.Join(home, ".func", "credentials")
+	return filepath.Join(dir, clientID)
 }
 
 // WriteTo writes the token to the given writer.
